@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>[Golang]groupcache项目解析——Part2 | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/12/05，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction本文是《GroupCache项目解析》系列文章的第二篇，在上一篇([Golang]groupcache项目解析——Part1)中已经对GroupCache的背景、架构、代码结构作了介绍，也提">
+<meta name="keywords" content="Go,笔记,源码">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Golang]groupcache项目解析——Part2">
+<meta property="og:url" content="http://yoursite.com/2018/12/06/groupcache-part2/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/12/05，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction本文是《GroupCache项目解析》系列文章的第二篇，在上一篇([Golang]groupcache项目解析——Part1)中已经对GroupCache的背景、架构、代码结构作了介绍，也提">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Golang]groupcache项目解析——Part2">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/12/05，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction本文是《GroupCache项目解析》系列文章的第二篇，在上一篇([Golang]groupcache项目解析——Part1)中已经对GroupCache的背景、架构、代码结构作了介绍，也提">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-groupcache-part2" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/12/06/groupcache-part2/" class="article-date">
+  <time datetime="2018-12-07T00:11:19.000Z" itemprop="datePublished">2018-12-06</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/Go/">Go</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      [Golang]groupcache项目解析——Part2
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/12/05，基于<code>Go 1.11</code>。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
+</blockquote>
+<h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p>本文是《GroupCache项目解析》系列文章的第二篇，在上一篇(<a href="http://www.marcoma.xyz/index.php/2018/11/30/groupcache_part1/" target="_blank" rel="noopener">[Golang]groupcache项目解析——Part1</a>)中已经对<code>GroupCache</code>的背景、架构、代码结构作了介绍，也提供了一个简单的用例。现在来到了第二篇，主要是对<code>GroupCache</code>中的几个辅助性的模块作详细的讲解与分析，其中包括</p>
+<ul>
+<li>Consistent Hash模块</li>
+<li>LRU模块</li>
+<li>SingleFlight模块</li>
+</ul>
+<h4 id="Consistent-Hash（一致性哈希）"><a href="#Consistent-Hash（一致性哈希）" class="headerlink" title="Consistent Hash（一致性哈希）"></a>Consistent Hash（一致性哈希）</h4><p>所谓的<code>一致性哈希</code>，根本目的就是将数据打散，均匀地分布到集群上多个不同的节点。它和普通哈希最不同的地方在于，<strong>除了数据外，它把节点本身（ip地址或者节点id）也进行了哈希，放到和数据同一个哈希空间内。</strong>（具体可参考本人之前的文章<a href="http://www.marcoma.xyz/index.php/2018/03/17/consistent_hash/" target="_blank" rel="noopener">《一致性Hash算法——分析与模拟》</a>） 接下来看看<code>groupcache</code>里面的具体代码。 先看数据结构的定义。</p>
+<pre><code>// Hash就是一个返回unit32的哈希方法
+type Hash func(data []byte) uint32  
+
+// Map就是一致性哈希的高级封装
+type Map struct {
+    hash     Hash       // 哈希算法
+    replicas int        // replica参数，表明了一份数据要冗余存储多少份
+    keys     []int  // 存储hash值，按hash值升序排列（模拟一致性哈希环空间）
+    hashMap  map[int]string     // 记录hash值 -&gt; 节点ip地址的映射关系
+}
+</code></pre><p>接下来看看工厂方法。</p>
+<pre><code>// 一致性哈希的工厂方法
+func New(replicas int, fn Hash) *Map {
+    m := &amp;Map{
+        replicas: replicas,
+        hash:     fn,
+        hashMap:  make(map[int]string),
+    }
+    if m.hash == nil {
+        m.hash = crc32.ChecksumIEEE // 不指定自定义Hash方法的话，默认用ChecksumIEEE
+    }
+    return m
+}
+</code></pre><p>最后分析最关键的<code>Add</code>和<code>Get</code>方法。</p>
+<pre><code>// Add方法，参数为...string，一般就是多个节点的ip地址（或者节点id）
+func (m *Map) Add(keys ...string) {
+    for _, key := range keys {
+        // 每一个key都会冗余多份（每份冗余就是一致性哈希里的虚拟节点 v-node）
+        for i := 0; i &lt; m.replicas; i++ {
+
+            // 1. 先算出当前冗余的hash值
+            // 2. 把hash值塞进哈希环里
+            // 3. 记录下hash值 -&gt; 节点ip地址的映射，之后可以凭借hash值找到具体服务器地址
+            hash := int(m.hash([]byte(strconv.Itoa(i) + key)))
+            m.keys = append(m.keys, hash) 
+            m.hashMap[hash] = key   
+        }
+    }
+    sort.Ints(m.keys)   // 一致性哈希要求哈希环是升序的，最后执行一次排序操作
+}
+
+// Get方法，输入一个key，找到该key应该存于哪个节点，返回该节点的地址
+func (m *Map) Get(key string) string {
+    if m.IsEmpty() {
+        return &quot;&quot;
+    }
+
+    // 1. 算出key的hash值
+    // 2. 二分查找大于等于该key的第一个hash值的下标（哈希环是升序有序的，所以可以二分查找）
+    hash := int(m.hash([]byte(key)))
+    idx := sort.Search(len(m.keys), func(i int) bool { return m.keys[i] &gt;= hash })
+
+    // 下标越界，循环找到到0号下标
+    if idx == len(m.keys) {
+        idx = 0
+    }
+
+    // 通过查询记录了hash -&gt; 节点地址的hashMap，得到节点地址，返回
+    return m.hashMap[m.keys[idx]]
+}
+</code></pre><p>通过上述代码可以看到，<code>groupcache</code>中的一致性哈希非常简单清晰。在<code>groupcache</code>里用到一致性哈希的地方，就是多节点部署时，要把多个节点地址用一致性哈希管理起来，从而让缓存数据能够均匀分散，降低单台服务器的压力。 <strong>但是这里实现的一致性哈希还比较粗糙，没有实现动态删除节点，还不支持节点宕机后自动数据迁移，这两个功能是一致性哈希的另一大精髓。（感兴趣的可参考我之前的文章）</strong></p>
+<h4 id="LRU"><a href="#LRU" class="headerlink" title="LRU"></a>LRU</h4><p>第二个模块我们来研究下<code>LRU</code>。所谓<code>LRU</code>其实就是操作系统里那个内存页管理的经典算法——最近最少被使用（Least Recently Used Algorithm）。<strong>其实除了操作系统底层，很多数据库或者缓存产品里都实现了<code>LRU</code>，例如<code>Innodb</code>存储引擎的<code>buffer pool</code>里的LRU List就是一个关键数据结构。</strong> <code>LRU</code>的思想非常朴素，基本都是基于一条双向链表，无非就是热门的、经常被访问的数据就放到链表头部，久而久之冷门数据就会被“排挤”到链表尾部，当内存不够时把尾部的数据移除，清理出更多空间来存新的数据。 在<code>groupcache</code>里，<code>LRU</code>用来存最底层的K-V数据，先来看看数据结构的定义。</p>
+<pre><code>// Key是任意可比较（Comparable）类型
+type Key interface{}
+
+// entry是一个K-V对，value也是任意类型（不必Comparable）
+type entry struct {
+    key   Key
+    value interface{}
+}
+
+// LRU的高层封装（非并发安全！）
+type Cache struct {
+
+    MaxEntries int  // 最多允许存多少个K-V entry
+    OnEvicted func(key Key, value interface{})  // 回调函数，当一个entry被移除后回调
+    ll    *list.List    // LRU链表
+    cache map[interface{}]*list.Element // 记录Key -&gt; entry的映射关系，O(1)时间得到entry
+
+}
+</code></pre><p>接下来看看关键的<code>Add</code>和<code>Get</code>方法。</p>
+<pre><code>// Add方法，插入一个K-V对
+func (c *Cache) Add(key Key, value interface{}) {
+    if c.cache == nil {
+        c.cache = make(map[interface{}]*list.Element)
+        c.ll = list.New()
+    }
+
+    // 如果该key已存在，更新entry里的value值，并将entry挪到链表头部
+    if ee, ok := c.cache[key]; ok {
+        c.ll.MoveToFront(ee)
+        ee.Value.(*entry).value = value
+        return
+    }
+
+    // 如果该key不存在，新建一个entry，插到链表头部
+    ele := c.ll.PushFront(&amp;entry{key, value})
+    c.cache[key] = ele
+
+    // 如果超出链表允许长度，移除链表尾部的数据
+    if c.MaxEntries != 0 &amp;&amp; c.ll.Len() &gt; c.MaxEntries {
+        c.RemoveOldest()
+    }
+}
+
+// Get方法，通过Key来拿对应的value
+func (c *Cache) Get(key Key) (value interface{}, ok bool) {
+    if c.cache == nil {
+        return
+    }
+
+    // 如果该key存在，获取对应entry的value，将该entry挪到链表头部，返回
+    if ele, hit := c.cache[key]; hit {
+        c.ll.MoveToFront(ele)
+        return ele.Value.(*entry).value, true
+    }
+    return
+}
+</code></pre><h4 id="SingleFlight"><a href="#SingleFlight" class="headerlink" title="SingleFlight"></a>SingleFlight</h4><p><code>SingleFlight</code>是一个非常重要的模块，看它的名字里有一个<code>Single</code>有一个<code>Flight</code>，其实<code>Single</code>指的是N条对同一个key的查询命令中<strong>只有1条被真正执行</strong>，而<code>Flight</code>大家就把它等价于<code>Execution</code>就行了。 先来看看<code>SingleFlight</code>里的数据结构的定义。</p>
+<pre><code>// call等价于一条被真正执行的对某个key的查询操作
+type call struct {
+    wg  sync.WaitGroup  // 用于阻塞对某个key的多条查询命令，同一时刻只能有1条真正执行的查询命令
+    val interface{}     // 查询结果，也就是缓存中某个key对应的value值
+    err error
+}
+
+// Group相当于一个管理每个key的call请求的对象
+type Group struct {
+    mu sync.Mutex       // 并发情况下，保证m这个普通map不会有并发安全问题
+    m  map[string]*call // key为数据的key，value为一条call命令，记录下某个key当前时刻有没有客户端在查询
+}
+</code></pre><p>接下来看看<code>SingleFlight</code>里面唯一一个，也是最重要的一个方法——<code>Do()</code></p>
+<pre><code>// Do里面是查询命令执行的逻辑。
+// 当客户端想查询某个key对应的值时会调用Do方法来执行查询。
+// 参数传入一个待查询的key，还有一个对应的查询方法，返回key对应的value值
+func (g *Group) Do(key string, fn func() (interface{}, error)) (interface{}, error) {
+
+    // 为了保证普通map的并发安全，要先上锁
+    g.mu.Lock()
+
+    // 检查map有无初始化
+    if g.m == nil {
+        g.m = make(map[string]*call)
+    }
+
+    // 检查当前时刻，该key是否已经有别的客户端在查询
+    // 如果有别的客户端也正在查询，map里肯定存有该key，以及一条对应的call命令
+    if c, ok := g.m[key]; ok {
+        g.mu.Unlock()   // 解锁，自己准备阻塞，此时已不存在并发安全问题，允许别人进行查询
+        c.wg.Wait() // 阻塞，等待别的客户端完成查询就好，不用自己再去耗费资源查询
+        return c.val, c.err // 阻塞结束，说明别人已经查询完成，拿来主义直接返回
+    }
+
+    // 如果能执行到此步，说明当前时刻没有别人在查询该key，当前客户端是
+    // 当前时刻第一个想要查询该key的人，就插入一条key -&gt; call记录
+    // 注意，此时的map仍然是上锁状态，因为还要对map进行插入，有并发安全问题
+    c := new(call)
+    c.wg.Add(1)
+    g.m[key] = c
+    g.mu.Unlock()
+
+    // 执行作为参数传入的查询方法
+    // **同一时刻对于同一个key只可能有一个客户端执行到此处**
+    c.val, c.err = fn()
+    c.wg.Done()
+
+    // 执行完查询方法，把map中的key -&gt; call删掉
+    g.mu.Lock()
+    delete(g.m, key)
+    g.mu.Unlock()
+
+    return c.val, c.err
+}
+</code></pre><p>结合上述代码注释里的分析，<code>SingleFlight</code>的逻辑应该很清楚了。特别提一提里面的几个思维亮点：</p>
+<ul>
+<li>时刻谨记go里面的普通map不是并发安全的，要在有并发安全隐患的地方手动上锁和解锁。</li>
+<li>用一个map来记录key与查询请求，可以迅速得知（理想情况下O(1)）当前时刻某个key是否有人在执行查询。</li>
+<li>本来用<code>set</code>类容器来存当前正被人查询的key也可以完成以上需求。但是第二个亮点就是<code>call</code>结构，<code>call</code>里面封装了一个<code>WaitGroup</code>和一个<code>val</code>。当某一时刻有N个对某个key的查询请求，通过<code>WaitGroup</code>来阻塞其中的N-1个，只执行1次查询方法，然后把查询结果塞到<code>call.val</code>中，通知<code>WaitGroup</code>完成任务。这样做，不仅执行查询的那一个“天选之子”可以返回该值，而且那N-1个被阻塞的也可以直接取<code>call.val</code>作为结果返回。</li>
+</ul>
+<h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p><code>groupcache</code>这个项目的代码量虽不多，但有很多精华的地方。如</p>
+<ul>
+<li>实现<strong>一致性哈希</strong>来管理多节点</li>
+<li>实现<code>LRU</code>算法来管理底层K-V数据</li>
+<li>实现<code>SingleFlight</code>来提高并发查询效率</li>
+</ul>
+<p>其中，<code>SingleFlight</code>的逻辑最让我开了眼界。之前对于“并发查询”的优化方面，我考虑的可能也就是如何优化存储的数据结构，或者类似于把请求分发到多台机器上处理，用多机的计算能力来抗。但是这些都不如<code>SingleFlight</code>里的逻辑这么粗暴明了，同时又高效。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/12/06/groupcache-part2/" data-id="cjpg78r730031bxuyisihwop4" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Go/">Go</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/源码/">源码</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/12/08/hello-world/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          Hello World
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/11/30/groupcache-part1/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">[Golang]groupcache项目解析——Part1</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/BigData/">BigData</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Go/">Go</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/">Leetcode</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/">分布式</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/推荐系统/">推荐系统</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/未分类/">未分类</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/">Go</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/">Java</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/">zookeeper</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/分布式/">分布式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/推荐/">推荐</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/源码/">源码</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/笔记/">笔记</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Go/" style="font-size: 18.33px;">Go</a> <a href="/tags/Java/" style="font-size: 16.67px;">Java</a> <a href="/tags/Leetcode/" style="font-size: 11.67px;">Leetcode</a> <a href="/tags/bigdata/" style="font-size: 15px;">bigdata</a> <a href="/tags/hadoop/" style="font-size: 16.67px;">hadoop</a> <a href="/tags/mapreduce/" style="font-size: 15px;">mapreduce</a> <a href="/tags/zookeeper/" style="font-size: 10px;">zookeeper</a> <a href="/tags/分布式/" style="font-size: 13.33px;">分布式</a> <a href="/tags/推荐/" style="font-size: 15px;">推荐</a> <a href="/tags/数据结构/" style="font-size: 18.33px;">数据结构</a> <a href="/tags/源码/" style="font-size: 11.67px;">源码</a> <a href="/tags/笔记/" style="font-size: 20px;">笔记</a> <a href="/tags/算法/" style="font-size: 18.33px;">算法</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/09/">September 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/06/">June 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">March 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">February 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed/">__trashed</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed-2/">[Raft]</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/08/hello-world/">Hello World</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 John Doe<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

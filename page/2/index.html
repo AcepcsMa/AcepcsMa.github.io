@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta property="og:type" content="website">
+<meta property="og:title" content="Hexo">
+<meta property="og:url" content="http://yoursite.com/page/2/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:locale" content="default">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Hexo">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main">
+  
+    <article id="post-go-slice" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/10/go-slice/" class="article-date">
+  <time datetime="2018-11-10T18:33:59.000Z" itemprop="datePublished">2018-11-10</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/Go/">Go</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/11/10/go-slice/">[Golang]奇葩数据结构之Slice（切片）</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h2 id="Golang-奇葩数据结构之Slice（切片）"><a href="#Golang-奇葩数据结构之Slice（切片）" class="headerlink" title="[Golang]奇葩数据结构之Slice（切片）"></a>[Golang]奇葩数据结构之Slice（切片）</h2><blockquote>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于<code>Go 1.11</code>。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
+</blockquote>
+<h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p>最近新接触<code>Golang</code>，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学<code>Java</code>时，就抠了不少<code>JDK7</code>和<code>JDK8</code>里面的集合类源码（<strong>特别是Map相关和List相关的实现</strong>）。 类似的，在<code>Golang</code>里面，built-in类型的几种经典数据结构（或者说是容器／集合）有</p>
+<ul>
+<li><code>channel</code></li>
+<li><code>map</code></li>
+<li><code>slice</code></li>
+<li><code>array</code></li>
+</ul>
+<p>对于<code>array</code>，没什么好说的，各语言中都一样，就是一片</p>
+<ul>
+<li>连续的</li>
+<li>可通过index快速定位的</li>
+<li>存储相同数据类型</li>
+</ul>
+<p>的内存区域。 <strong><code>array</code>相当的方便简单好用，但是最大的问题就是严重缺乏动态性，在<code>array</code>的领域里你很难看到随意扩容或者随意缩减</strong>。 于是，在其他部分语言里（如<code>Java</code>），就提供了很多基于<code>LinkedList</code>构建的容器，根据需求随意动态扩容缩减、头插入尾插入、随意删除中间元素，这种<strong>动态性</strong>用起来非常爽。<strong>但是却又失去了数组那种连续空间所支持的最爽的一点 —— 用index直接定位到具体的元素（API上支持，但实际上还是一路遍历过去）。</strong> 所以，基于这些问题和背景，在<code>Golang</code>中我们就见到了一个“奇葩”的数据结构 —— <code>slice</code>（切片）。</p>
+<h4 id="底层实现"><a href="#底层实现" class="headerlink" title="底层实现"></a>底层实现</h4><ul>
+<li><p>代码层面 根据官方的说法，或者很多Go开发者的说法，<code>slice</code>最直接的定义就是<code>dynamic array</code>。<strong>所以其实它的底层真的是基于<code>array</code>实现的。</strong>同时它还能支持<strong>一定程度上比较良好的</strong>动态性。 先来看看<code>Go 1.11</code>中的<code>slice</code>源码。</p>
+<pre><code>type slice struct {
+    array unsafe.Pointer
+    len   int
+    cap   int
+}
+</code></pre></li>
+</ul>
+<pre><code>**看到了这个数据结构的定义，瞬间让我想起了`Redis`里面的`Simple Dynamic String(SDS)`的实现。**同样是封装了一个底层数组（此处`array`指针指向的是一片连续内存区域），同样是维护了一个`len`属性，同样有一个`cap`（`free`）属性来指明容器的使用情况。（**感兴趣的可以去查阅一下`Redis`里的字符串（`SDS`）实现**） 解释一下结构体里各成员的含义：
+*   `array unsafe.Pointer`：一个指向连续内存区域（数组）的指针
+*   `len int`：此`slice`中已存了多少个元素
+*   `cap int`：此`slice`中最多能存多少个元素（最大容量）
+</code></pre><ul>
+<li><p>逻辑层面 假设我们新建了一个<code>slice</code></p>
+<ul>
+<li><code>slice := make([]string, 4, 4)</code>，然后赋值</li>
+<li>或者<code>slice := []string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;}</code></li>
+</ul>
+<p>将会得到如下图所示的逻辑结构，<code>len = 4</code>，<code>cap = 4</code>。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic.png" alt=""> 若我们不是从头新建，而是从某个已有的<code>array</code>中建出一个<code>slice</code></p>
+<pre><code>strs := [4]string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;}
+slice := strs[0:2] // 取strs下标为[0,2)的元素构造一个slice
+</code></pre></li>
+</ul>
+<pre><code>将会得到如下图所示的逻辑结构，`len = 2`，`cap = 4`（因为原数组的最大空间为4，所以这个`slice`从`index0`开始，最大可用区域也可以到达`index3`，只不过现在还没用到`index3`罢了）。 ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic2.png)
+</code></pre><p><strong>所以，基于底层的数组，本质上<code>slice</code>不过是一个数组的<code>wrapper</code>（包装类），并提供一些动态性的操作（<code>append()</code>），让使用者感受不到它是一个数组罢了。</strong></p>
+<h4 id="对slice的操作，以及其中的坑"><a href="#对slice的操作，以及其中的坑" class="headerlink" title="对slice的操作，以及其中的坑"></a>对slice的操作，以及其中的坑</h4><p>对<code>slice</code>操作，无非就5种：</p>
+<ul>
+<li>新建（无需多讲）<ul>
+<li>直接新建</li>
+<li>从已有的数组中截取</li>
+</ul>
+</li>
+<li>插入</li>
+<li>截断（所谓的删除）-> 用index截取</li>
+<li>更新（无需多讲）</li>
+<li>读取（无须多讲）</li>
+</ul>
+<p><strong>首先明确第一个坑，在同一个数组上构造出来的多个<code>slice</code>都是共享同一个底层数组的。所以你对某一个<code>slice</code>进行写或者更新操作后，很有可能就会影响到基于同一个底层数组的其他<code>slice</code>。</strong>详见下述代码与示意图。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic3.png" alt=""></p>
+<pre><code>strs := [4]string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;}
+slice1 := strs[0:2] // 取strs下标为[0,2)的元素构造一个slice1
+slice2 := strs[0:3] // 取strs下标为[0,3)的元素构造一个slice2
+
+slice2[0] = &quot;hhhhh&quot;
+fmt.Println(slice1) // [hhhhh, b] slice1被改变了
+</code></pre><p><strong>由此可见，当你的代码里有多个<code>slice</code>都是基于同一个数组构建出来时，务必小心操作，很容易互相影响造成脏数据！</strong> 接下来着重讲讲<strong>插入（append()）</strong>操作，以及其中奇葩的几个点。 一般执行<code>append(slice, value)</code>时会有以下两种情况</p>
+<ul>
+<li><code>slice</code>的<code>len</code>小于<code>cap</code>，顺理成章可以直接插入（<strong>注意会直接改变底层数组!</strong>）</li>
+<li><code>slice</code>的<code>len</code>等于<code>cap</code>，当前可用空间不足</li>
+</ul>
+<ol>
+<li><p><code>len</code>小于<code>cap</code></p>
+<pre><code>strs := [4]string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;}
+slice1 := strs[0:2] // 取strs下标为[0,2)的元素构造一个slice1, len=2, cap=4
+slice1 = append(slice1, &quot;hh&quot;) // append后len=3, cap=4
+</code></pre></li>
+</ol>
+<pre><code>![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic4.png) 如上图所示，在append了`&quot;hh&quot;`之后，**底层数组**中`index2`处直接被更新为了`&quot;hh&quot;`。
+</code></pre><ol start="2">
+<li><p><code>len</code>等于<code>cap</code></p>
+<pre><code>strs := [4]string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;}
+slice1 := strs[0:1:1] // 取strs下标为[0,1)的元素构造一个slice1, len=1, cap=1
+
+// 为了说明问题, 此处用特殊的写法
+slice2 := append(slice1, &quot;hh&quot;)
+fmt.Println(len(slice2), cap(slice2)) // len=2, cap=2
+fmt.Println(len(slice1), cap(slice1)) // len=1, cap=1
+
+// 关键点在此
+slice2[0] = &quot;hello&quot;
+fmt.Println(slice1) // [a]
+</code></pre></li>
+</ol>
+<pre><code>当执行了`slice2[0] = &quot;hello&quot;`后，`slice1`居然还是`[a]`而不是`[hello]`，说好的**基于同一个底层数组的多个slice会共享该数组呢？？？**在这里怎么出问题了？？？ **其实关键就在于我们append时，`slice1`的`len` == `cap`**，在原`slice1`中没有空间可以允许插入新元素了。**此时就会触发slice扩容，然而此扩容并不是对原底层数组进行操作，而是新开辟一段更长的数组空间，把原数组的值copy过来，再让slice中的指针指向新开辟的长数组！**详细流程请参考下图。 ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic5.png) 由图可见，原本`slice1`里的指针指向的数组是位于`0x34`处的。当尝试`append()`并触发扩容时，**底层直接在另外的地址(`0x88`）处开辟了（或者称之为`deep clone`吧）一段全新的数组。**并把值都copy过去，然后才真正把需要append的`&quot;hh&quot;`塞进去。 很自然，**之后我们执行的`slice2[0] = &quot;hello&quot;`，只是对`0x88`起始的那个数组进行了修改，完全没有影响到`slice1`指向的那个从`0x34`起始的数组。**把`slice1`打印出来，自然也就还是`[a]`了。 所以在很多Go项目的代码里，或者官方教程里，**最常见的append用法都是`slice = append(slice, value)`，而不是`newSlice := append(slice, value)`。**当把append完成后的结果再一次赋给原slice，无论发生了什么(无论`len`和`cap`是什么关系都无所谓），总不会造成runtime时的歧义。 如果在一些特定的场景下，必须要使用`newSlice := append(slice, value)`的写法，那就要格外小心！**如果在append过程中触发了扩容，`newSlice`和原`slice`将不再指向同一段数组空间，在这种情况下对`newSlice`的修改也丝毫不会影响`slice`**（也有可能这恰好就是你的逻辑需要的）。
+</code></pre><h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p><code>Golang</code>中的<code>slice</code>兼顾了传统数组的优点（连续内存空间），也支持动态扩容／截断，确实是在实际开发中非常有用的容器。<strong>但建议每个Go开发者都详细了解其底层实现，因为为了支持其动态性，append和append相关的操作会带来很多奇奇怪怪的坑</strong></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/10/go-slice/" data-id="cjpg78r6z002wbxuysxelux5o" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Go/">Go</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-google-interview0" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/09/28/google-interview0/" class="article-date">
+  <time datetime="2018-09-28T16:54:07.000Z" itemprop="datePublished">2018-09-28</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/算法/">算法</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/09/28/google-interview0/">[Google]记一道不错的电面题</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h2 id="Google-记一道不错的电面题"><a href="#Google-记一道不错的电面题" class="headerlink" title="[Google]记一道不错的电面题"></a>[Google]记一道不错的电面题</h2><blockquote>
+<p>最近一位朋友跟我分享了一道Ta在google电面中被问到的算法题，一阵研究后觉得题目出得很不错，不是那种傻X的tricky题目，故分享之，并附上我实现的Java代码。</p>
+</blockquote>
+<h3 id="题目"><a href="#题目" class="headerlink" title="题目"></a>题目</h3><p>根据输入的有序字符串，构造出目标字符串，保证每个输入的串均服从目标串的原顺序。</p>
+<ul>
+<li>target: <code>3-5-7-1-9</code></li>
+<li>input: <code>3-5-7, 5-1-9, 7-1, 1-9, 5-7</code></li>
+</ul>
+<p>可以看到输入的每个字符串均服从目标串的顺序，只不过每个输入串都缺失了一些元素。 本题的前提条件：</p>
+<ul>
+<li>保证根据<code>input</code>能够生成唯一的目标串</li>
+<li><code>target</code>中的元素取值范围是<code>[1, 9]</code>，且不重复</li>
+</ul>
+<h3 id="思路"><a href="#思路" class="headerlink" title="思路"></a>思路</h3><p>拿到题目后，最直观的思路是：每处理一个输入串，把里面的数字抽取出来，建立一个<code>ListNode</code>，然后根据该串中的先后顺序把多个<code>ListNode</code>连接起来。同时维护一个<code>Map</code>记录已经遇到过的<code>ListNode</code>，之后再遇到该数字就不用新建，而是直接从<code>Map</code>中取出数字对应的<code>ListNode</code>。 例如，先建立一个<code>Map&lt;Integer, ListNode&gt;</code>，然后开始处理第一个输入串<code>3-5-7</code>，</p>
+<ul>
+<li>先遇到<code>3</code>，<code>Map</code>中没有<code>Node3</code>，建立<code>Node3</code></li>
+<li>然后遇到<code>5</code>，<code>Map</code>中没有<code>Node5</code>，建立<code>Node5</code>，然后让<code>Node3</code>的<code>next</code>指向<code>Node5</code></li>
+<li>最后遇到<code>7</code>，<code>Map</code>中没有<code>Node7</code>，建立<code>Node7</code>，然后让<code>Node5</code>的<code>next</code>指向<code>Node7</code></li>
+<li>接着处理下一个输入串，循环</li>
+</ul>
+<p>大多数人第一反应都会想到这样的处理逻辑，非常直观。<strong>但是这样的逻辑存在细节问题。</strong>因为每个输入串只是保留了<code>target</code>的相对顺序，中间缺失了一些元素，所以在构建链表时，凭借局部相对顺序直接插入<code>ListNode</code>可能会造成全局顺序的错误。<strong>例如在得到<code>3-&gt;5-&gt;7</code>这个链表后，再处理第二个输入串<code>5-1-9</code>，根据以上的逻辑就会把<code>Node1</code>直接插到<code>Node5</code>身后，得到<code>3-&gt;5-&gt;1-&gt;9-&gt;7</code>,显然是不对的，主要原因就是局部的相对顺序不一定能直接映射全局顺序。</strong> <strong>所以，这道题的核心就在于记录顺序，并且是全局顺序。</strong>由之前的想法拓展开来，我们已经有了<strong>为每个数字建立对应的<code>ListNode</code></strong>的想法，那么这个<code>Node</code>是否可以是一个<code>GraphNode</code>呢？我们既然可以用<code>LinkedList</code>存这些数据，是否也可以拓展成用<code>Graph</code>存这些数据呢？ 如果我们用<code>Graph</code>存储这些数据，那么在<code>Graph</code>中能体现<strong>顺序</strong>的无非就是<strong>有向边</strong>（若存在边<code>A ---&gt; B</code>，代表得先到达<code>A</code>才能到达<code>B</code>）。<strong>有向边 + 点，我们就得到了有向图</strong>，结合条件中说明的<code>target</code>中不存在重复元素，我们就得到了<strong>有向无环图（<code>DAG</code>）</strong>。那么在<code>DAG</code>中，能找出所谓的<strong>全局顺序</strong>的，就是<code>Topological Sort</code>。</p>
+<h3 id="具体代码"><a href="#具体代码" class="headerlink" title="具体代码"></a>具体代码</h3><pre><code>package google;
+
+import java.util.*;
+
+public class Solution {
+
+    public static void main(String[] args) {
+        Solution solution = new Solution();
+        List&lt;String&gt; stream = new ArrayList&lt;&gt;();
+        stream.add(&quot;3-5-7&quot;);
+        stream.add(&quot;3-1&quot;);
+        stream.add(&quot;5-1-9&quot;);
+        stream.add(&quot;7-1&quot;);
+        stream.add(&quot;1-9&quot;);
+        solution.reconstruct(stream);
+    }
+
+    /**
+     * Reconstruct an ordered sequence from the given stream.
+     * @param stream stream of sequences
+     */
+    public void reconstruct(List&lt;String&gt; stream) {
+        if (stream == null || stream.size() == 0) {
+            return;
+        }
+
+        // 1. extract nodes, edges from the input stream
+        Map&lt;Integer, Integer&gt; map = new HashMap&lt;&gt;();    // mapping between node_num and node_index
+        Map&lt;Integer, String&gt; outputMapping = new HashMap&lt;&gt;();   // mapping between node_index and output_str
+        List&lt;Integer[]&gt; edges = new ArrayList&lt;&gt;();  // record the edges [A, B] means an edge pointing from A to B
+        int nodeIndex = 0;
+        for (String s : stream) {
+            String[] nums = s.split(&quot;-&quot;);
+            for (int i = 0;i &lt; nums.length;i++) {
+                int nodeNum = Integer.parseInt(nums[i]);
+                if (!map.containsKey(nodeNum)) {
+                    map.put(nodeNum, nodeIndex++);
+                    outputMapping.put(nodeIndex - 1, nums[i]);
+                }
+                if (i != nums.length - 1) {
+                    edges.add(new Integer[]{nodeNum, Integer.parseInt(nums[i + 1])});
+                }
+            }
+        }
+
+        // 2. construct the graph structure
+        int nodeCount = map.keySet().size();
+        boolean[][] graph = new boolean[nodeCount][nodeCount];  // adjacency matrix
+        int[] indegrees = new int[nodeCount];   // record the indegree of each node
+        for (Integer[] edge : edges) {
+            int from = edge[0];
+            int to = edge[1];
+            if (!graph[map.get(from)][map.get(to)]) {
+                // avoid duplicated edges in the input stream
+                graph[map.get(from)][map.get(to)] = true;
+                indegrees[map.get(to)]++;
+            }
+        }
+
+        // 3. finding out nodes with 0 indegree
+        Queue&lt;Integer&gt; queue = new LinkedList&lt;&gt;();
+        StringBuilder result = new StringBuilder();
+        for (int i = 0;i &lt; indegrees.length;i++) {
+            if (indegrees[i] == 0) {
+                queue.add(i);
+                result.append(outputMapping.get(i) + &quot;-&quot;);
+            }
+        }
+
+        // 4. topological sort
+        while (!queue.isEmpty()) {
+            int index = queue.poll();
+            for (int j = 0;j &lt; graph[index].length;j++) {
+                if (graph[index][j]) {
+                    graph[index][j] = false;
+                    indegrees[j]--;
+                    if (indegrees[j] == 0) {
+                        queue.add(j);
+                        result.append(outputMapping.get(j) + &quot;-&quot;);
+                    }
+                }
+            }
+        }
+
+        System.out.println(result.substring(0, result.length() - 1));
+    }
+
+}
+</code></pre><h3 id="解析"><a href="#解析" class="headerlink" title="解析"></a>解析</h3><p>在上述代码中，我们主要做了以下几件事情</p>
+<ol>
+<li>处理每一个输入串，将其内部的数字解析出来，并为每个数字“生成”一个对应的<code>Node</code>和其<code>NodeIndex</code>。</li>
+<li>根据第一步得到的各个<code>Node</code>和其<code>NodeIndex</code>，结合输入串，“生成”各点之间的有向边，即我们的<strong>图结构</strong>，此处用<code>adjacency matrix</code>实现。</li>
+<li>开始执行<code>topological sort</code>的逻辑，先构建<code>indegree</code>数组，找到入度为<code>0</code>的点。</li>
+<li>基于入度为<code>0</code>的点，利用<code>Queue</code>实现<code>topological sort</code>。</li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/09/28/google-interview0/" data-id="cjpg78r5m0001bxuyqe5h2yvw" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Java/">Java</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/算法/">算法</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-recsys-note4" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/06/01/recsys-note4/" class="article-date">
+  <time datetime="2018-06-01T23:15:03.000Z" itemprop="datePublished">2018-06-01</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/推荐系统/">推荐系统</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/06/01/recsys-note4/">《推荐系统实践》笔记 #4</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
+</blockquote>
+<h3 id="利用上下文信息进行推荐"><a href="#利用上下文信息进行推荐" class="headerlink" title="利用上下文信息进行推荐"></a>利用上下文信息进行推荐</h3><p>在推荐时，应该考虑<code>时间</code>，<code>地点</code>，<code>心情</code>……</p>
+<ol>
+<li><p>时间上下文信息</p>
+<ul>
+<li>时间效应<ul>
+<li>用户兴趣持续变化</li>
+<li>物品本身有生命周期</li>
+<li>季节／节日效应（圣诞节，奥斯卡……）</li>
+</ul>
+</li>
+<li><p>时间上下文推荐算法</p>
+<ul>
+<li><p>最近最热门算法 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/recentlyhot.png" alt=""></p>
+</li>
+<li><p>结合时间上下文的<code>Item-based CF</code> <strong>用户在相隔时间很短内喜欢的物品具有更高相似度</strong>，<strong>近期行为相比很久之前的行为更能体现用户现在的兴趣，应加强用户近期行为的权重。</strong> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time1.png" alt=""> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time2.png" alt=""> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time3.png" alt=""></p>
+</li>
+<li><p>结合时间上下文的<code>User-based CF</code> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time_ubcf1.png" alt=""> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time_ubcf2.png" alt=""></p>
+</li>
+<li><p>时间段图模型</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>地点上下文信息 <strong>不同地区的用户兴趣有所不同（距离很重要）</strong></p>
+<ul>
+<li><p>基于位置的推荐算法</p>
+<ul>
+<li>物品／用户均可分为有空间属性的和无空间属性的，例如餐馆／商店带有空间属性，图书／电影则没有。</li>
+<li>数据结构：<code>(user, user_location, item, item_location, rating)</code></li>
+<li><p>可将位置信息数据集划分成树状结构 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/country.png" alt=""></p>
+</li>
+<li><p>只有<code>user_location</code>时，对于给定的一个<code>user_location</code>，将其分配到某个叶子节点中，利用该叶子节点上的用户行为给用户作推荐。缺点是叶子节点上的用户数量&amp;用户行为数据较少，推荐只是基于局部。所以可以从<code>root</code>出发，到叶子的路径中利用每个中间节点训练出一个推荐模型，最终的推荐模型是一系列的中间推荐列表加权而成。</p>
+</li>
+<li><p>只有<code>item_location</code>时，先忽略物品位置信息，直接用<code>Item-based CF</code>计算出<code>p(u, i)</code>，最后再引入距离代价作惩罚。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/penalty.png" alt=""></p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+<h3 id="利用社交网络数据"><a href="#利用社交网络数据" class="headerlink" title="利用社交网络数据"></a>利用社交网络数据</h3><ol>
+<li><p>获取社交网络数据的途径</p>
+<ul>
+<li>e-mail</li>
+<li>用户注册信息</li>
+<li>用户的位置数据</li>
+<li>论坛 &amp; 讨论组</li>
+<li>即时聊天工具</li>
+<li>社交网站</li>
+</ul>
+</li>
+<li>社交网络数据简介<ul>
+<li>图结构<code>G = (V, E, W)</code>, 其中<code>V</code>是用户节点，<code>E</code>是用户关系边，<code>W</code>是边权重</li>
+<li>单向关注 => 有向图（如Twitter）；互相关注 =&gt; 无向图（如Facebook）；基于社区关系，无明确方向</li>
+</ul>
+</li>
+<li><p>基于社交网络的推荐</p>
+<ul>
+<li>基于邻域的社会化推荐算法 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/familiarity.png" alt=""> 熟悉程度 = 双方共同好友的比例 相似度 = <code>User-based CF</code>中余弦相似度 优化：<ul>
+<li>不需要取所有的好友进行计算，只取相似度高的前<code>K</code>个</li>
+<li>只取最近短时间内发生的操作记录进行计算</li>
+</ul>
+</li>
+<li>基于图的社会化推荐<ul>
+<li>结合社交网络图 &amp; 用户物品二分图（也可加入社区的顶点）</li>
+<li>用户与用户之间的权重 = <code>a * (相似度 + 熟悉度)</code></li>
+<li>用户与物品之间的权重 = <code>b * (用户对物品的喜爱程度)</code></li>
+<li>通过调节<code>a</code>和<code>b</code>参数确定哪部分对系统影响较大</li>
+</ul>
+</li>
+<li>信息流（Feed）推荐 帮助用户从信息墙上挑选有用的信息，综合考虑信息流中每个会话的长度、时间、用户兴趣间的相似度等。</li>
+</ul>
+</li>
+<li><p>好友推荐系统</p>
+<ul>
+<li><p>基于内容的匹配 给用户推荐和他们有相似内容属性的用户（人口统计学属性、用户兴趣、用户位置……）</p>
+</li>
+<li><p>基于共同兴趣的好友推荐 利用<code>User-based CF</code>计算用户之间的兴趣相似度</p>
+</li>
+<li><p>基于社交网络图 <strong>推荐好友的好友 => 推荐熟悉的好友的好友</strong> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/w_out.png" alt=""> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/w_in.png" alt=""> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/w_out_in.png" alt=""></p>
+<p><strong>算法时间复杂度不高，适合在线应用</strong></p>
+</li>
+</ul>
+</li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/06/01/recsys-note4/" data-id="cjpg78r61000lbxuyjhtwqgfl" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/推荐/">推荐</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-recsys-note3" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/05/24/recsys-note3/" class="article-date">
+  <time datetime="2018-05-25T04:05:24.000Z" itemprop="datePublished">2018-05-24</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/推荐系统/">推荐系统</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/05/24/recsys-note3/">《推荐系统实践》笔记 #3</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文100%由本人（Haoxiang Ma)原创，如需转载请注明出处。</p>
+</blockquote>
+<h3 id="推荐系统冷启动问题"><a href="#推荐系统冷启动问题" class="headerlink" title="推荐系统冷启动问题"></a>推荐系统冷启动问题</h3><p><strong><em>如何在没有大量用户数据的情况下设计推荐系统</em></strong> => <strong><em>冷启动问题</em></strong></p>
+<ol>
+<li>冷启动问题<ul>
+<li>用户冷启动 => 如何给全新的用户作推荐</li>
+<li>物品冷启动 => 如何把新加入的物品推荐给用户</li>
+<li>系统冷启动 => 如何在一个新开发的网站上设计开发个性化推荐系统</li>
+</ul>
+</li>
+<li>常见的冷启动解决方案<ul>
+<li>作<strong>非个性化</strong>的推荐：直接按热门排行榜进行推荐</li>
+<li>利用用户注册时提供的个人信息：<code>age</code>, <code>sex</code>……</li>
+<li>利用用户的社交网络信息：<code>Facebook</code>, <code>微博</code>……</li>
+<li>用户注册／登陆时先让其对一些给定物品进行反馈，采集其兴趣爱好</li>
+<li>对于新物品，可从<strong>内容相似性</strong>的方向进行推荐，不一定只考虑行为相似性</li>
+<li>事先引入、建立专家知识库，建立物品相关度表</li>
+</ul>
+</li>
+<li><p>详细解决方案</p>
+<ul>
+<li><p>利用用户注册信息</p>
+<ul>
+<li><p><code>sex</code>, <code>age</code>, <code>DOB</code>, <code>job</code>, <code>ethnic</code>, <code>edu</code>, <code>location</code>等人口统计学信息 &amp; 用户兴趣描述…</p>
+</li>
+<li><p>推荐流程</p>
+<ul>
+<li>获取用户注册信息</li>
+<li>根据信息给用户分类</li>
+<li>推荐其所属分类中用户喜欢的物品</li>
+</ul>
+</li>
+<li>理论依据 <code>p(f, i)</code>为物品<code>i</code>在<code>f</code>特征人群中受喜爱的程度。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/p(f,i" alt="">.png)</li>
+</ul>
+</li>
+<li><p>启动初期先让用户给部分物品评分 待评分的物品要</p>
+<ul>
+<li>比较热门</li>
+<li>具有代表性 &amp; 区分性</li>
+<li>具有多样性</li>
+</ul>
+<p>可用一个<code>Decision Tree</code>来选择启动评分物品集合</p>
+</li>
+<li><p>利用物品的内容属性 在<code>Item-based CF</code>中，新<code>item</code>加入时，不会立刻更新物品相关性矩阵，因为计算耗时特别大，所以要利用物品的内容属性进行冷启动推荐。 对于文本数据而言，计算内容相似度前，需要利用NLP相关技术转化为向量（<code>keyword vector</code>），但向量空间模型丢失了多个<code>keyword</code>之间的关联和位置信息。<strong>而且很多时候，两篇文本没有（或很少）直接相同的关键词，但是主题却高度相关。</strong>在这种情况下，可使用<code>LDA（Latent Dirichlet Allocation）</code>来挖掘文本主题。 LDA核心元素</p>
+<ul>
+<li>文档<code>D</code>: <code>D[i]</code>代表文档集合中第<code>i</code>篇文档</li>
+<li>话题<code>Z</code>: <code>Z[i][j]</code>代表<code>i</code>文档中<code>j</code>词所属的话题</li>
+<li>词语<code>W</code>: <code>W[i][j]</code>代表<code>i</code>文档中的<code>j</code>词</li>
+</ul>
+<p>计算步骤</p>
+<ul>
+<li>先利用<code>LDA</code>挖掘出两篇文本的话题分布</li>
+<li>再通过<code>KL-Divergence（KL散度）</code>比较两个分布的相似度</li>
+</ul>
+</li>
+<li>利用专家的作用 => 让专家手动／半手动地打标签</li>
+</ul>
+</li>
+</ol>
+<h3 id="利用用户标签数据"><a href="#利用用户标签数据" class="headerlink" title="利用用户标签数据"></a>利用用户标签数据</h3><ol>
+<li><p><code>UGC</code> = User Generated Content 用户生成数据，即让普通用户给物品打标签。</p>
+</li>
+<li><p>标签系统的推荐问题</p>
+<ul>
+<li>如何利用用户打标签的行为为其推荐物品</li>
+<li>如何在用户给物品打标签时为其推荐适合该物品的标签</li>
+</ul>
+</li>
+<li><p>用户标签行为 数据结构：<code>behavior = (u, i, b)</code>, <code>u</code> = 用户，<code>i</code> = 物品，<code>b</code> = 标签。</p>
+</li>
+<li><p>基于标签的简单推荐算法</p>
+<ul>
+<li>统计每个用户最常用的标签</li>
+<li>对于每个常用标签，统计被打过该标签次数最多的物品</li>
+</ul>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/tag_rec1.png" alt=""> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/tag_rec2.png" alt=""> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/tag_rec3.png" alt=""></p>
+</li>
+<li><p>基于邻域的标签扩展 <strong>若两个标签同时出现在很多物品的标签集合中，这两个标签就具有较大的相似度</strong>，所以可以基于邻域原理计算出相似标签。</p>
+</li>
+<li><p>标签清理</p>
+<ul>
+<li>去除词频很高的<code>stopword</code></li>
+<li>去除因词根不同造成的同义词</li>
+<li>去除因分隔符造成的同义词</li>
+<li>让用户主动反馈不合适的词</li>
+</ul>
+</li>
+<li><p>基于图的标签推荐算法 数据结构：<code>V = {V(u), V(i), V(b)}</code>，<code>V(u)</code>代表用户顶点，<code>V(i)</code>代表物品顶点，<code>V(b)</code>代表标签顶点。 建立图结构之后，可用PersonalRank算法进行随机游走。</p>
+</li>
+<li><p>给用户推荐标签</p>
+<ul>
+<li>为什么要给用户推荐标签<ul>
+<li>方便用户输入标签，降低用户打标签的难度</li>
+<li>提高标签质量，减少冗余的同义词</li>
+</ul>
+</li>
+<li>如何给用户推荐标签<ul>
+<li>直接推荐整个系统里最热门的标签</li>
+<li>给用户推荐物品<code>i</code>上的最热门标签<code>item[i][b]</code></li>
+<li>给用户推荐他自己常用的标签</li>
+<li>融合以上两个方法，进行线性加权</li>
+<li>或者基于图作标签推荐</li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/05/24/recsys-note3/" data-id="cjpg78r5y000gbxuyu48ydwmg" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/推荐/">推荐</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-recsys-note2" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/05/19/recsys-note2/" class="article-date">
+  <time datetime="2018-05-19T20:33:43.000Z" itemprop="datePublished">2018-05-19</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/推荐系统/">推荐系统</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/05/19/recsys-note2/">《推荐系统实践》笔记 #2</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
+</blockquote>
+<h3 id="利用用户行为数据"><a href="#利用用户行为数据" class="headerlink" title="利用用户行为数据"></a>利用用户行为数据</h3><ol>
+<li>用户行为数据类别<ul>
+<li>session log</li>
+<li>impression log</li>
+<li>click log</li>
+</ul>
+</li>
+<li>用户行为类型<ul>
+<li>显性反馈 => 明确选择<code>喜欢</code> or <code>不喜欢</code>，数量较少</li>
+<li>隐性反馈 => 没有明确选择，多数为<code>浏览</code> or <code>点击</code>，数据极多</li>
+</ul>
+</li>
+<li><p>用户行为记录的数据结构</p>
+<p>item</p>
+<p>remark</p>
+<p>user_id</p>
+<p>用户id</p>
+<p>item_id</p>
+<p>物品id</p>
+<p>behavior_type</p>
+<p>行为类型（购买／浏览／点赞／点灭。。。）</p>
+<p>context</p>
+<p>上下文信息（时间／地点。。。）</p>
+<p>behavior_weight</p>
+<p>权重（视频观看时长／文章评分。。。）</p>
+<p>behavior_content</p>
+<p>内容（评论的文本／打标签中的标签。。。）</p>
+</li>
+<li><p>基于用户行为数据的算法</p>
+<ul>
+<li>用户协同过滤算法（User-based CF）</li>
+<li>物品协同过滤算法（Item-based CF）</li>
+</ul>
+</li>
+<li><p>用户协同过滤算法</p>
+<ul>
+<li><p>算法步骤</p>
+<ol>
+<li>找到和目标用户相似的用户集合<code>U</code></li>
+<li>找到<code>U</code>中每个用户<code>u</code>喜欢的物品<code>i</code>，且当前目标用户未对<code>i</code>有过任何行为</li>
+<li>利用余弦相似度计算用户间的相似度 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/cosine_similarity.png" alt=""></li>
+</ol>
+</li>
+<li><p>三个中间结果矩阵</p>
+<ul>
+<li><code>W[][]</code>：<code>W[u][v]</code>代表了用户<code>u</code>和用户<code>v</code>间的相似度</li>
+<li><code>C[][]</code>：<code>C[u][v]</code>等于<code>|N(u)|∩|N(v)|</code></li>
+<li><code>N[]</code>：<code>N[u]</code>等于用户<code>u</code>发生过行为的物品数</li>
+</ul>
+</li>
+<li>优化改进<ul>
+<li>为了提高算法效率，其实当<code>|N(u)|∩|N(v)| = 0</code>的时候（即两个用户间没有任何交集），压根不用去计算<code>u</code>和<code>v</code>间的相似度。所以可以建立<code>物品-用户倒排表</code>，没有交集的用户<strong>绝对不会</strong>出现在同一个物品所属的链中。</li>
+<li>从理论上讲，应该<strong>多考虑冷门物品的贡献度，适当惩罚热门物品带来的相关性</strong>，因为热门物品可能每个人都会买，不应该带来太多的个性化相关性。所以要对原始的公式引入惩罚机制。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/user_penalty.png" alt=""></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>物品协同过滤算法 <strong>物品相似度并不是利用物品的内容属性计算其相似度，而是从用户行为记录的角度计算</strong></p>
+<ul>
+<li>算法步骤<ol>
+<li>计算物品间的相似度（矩阵）</li>
+<li>根据相似度矩阵和用户的历史行为记录生成推荐列表</li>
+</ol>
+</li>
+<li>三个中间结果矩阵<ul>
+<li><code>W[][]</code>：<code>W[i][j]</code>代表了物品<code>i</code>和物品<code>j</code>间的相似度</li>
+<li><code>C[][]</code>：<code>C[i][j]</code>等于<code>|N(i)|∩|N(j)|</code>, 就是同时对<code>i</code>和<code>j</code>发生过行为的用户数</li>
+<li><code>N[]</code>：<code>N[i]</code>等于对物品<code>i</code>发生过行为的用户数</li>
+</ul>
+</li>
+<li><p>算法优点 能够提供推荐解释，利用用户历史上喜欢的物品为现在的推荐结果进行解释。不像<code>User-based CF</code>那样无法提供合理的解释。</p>
+</li>
+<li><p>优化改进</p>
+<ul>
+<li><p>引入Inverse User Frequency对活跃用户进行惩罚 =&gt; 活跃用户对物品相似度的贡献应小于非活跃用户 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/IUF.png" alt=""> <strong>在实际生产环境中，可直接忽略特别大的兴趣列表，提高算法效率。</strong></p>
+</li>
+<li><p>将相似度矩阵按行归一化 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/normalize.png" alt=""> Example: <code>A</code>类类内物品相似度0.5，<code>B</code>类类内物品相似度0.6，AB类间物品相似度0.2。由于<code>B</code>类类内物品相似度最高，所以推荐10个物品时10个都会是<code>B</code>类物品。进行归一化后，<code>A</code>类与<code>B</code>类类内物品相似度均为1，推荐10个物品时会有5个<code>A</code>物品&amp;5个<code>B</code>物品</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><code>User-based CF</code>与<code>Item-based CF</code>综合比较</p>
+<ul>
+<li><code>User-based CF</code>着重于反映和用户兴趣相似的小群体的热点</li>
+<li><code>Item-based CF</code>着重于维护目标用户的历史兴趣</li>
+<li><code>User-based CF</code>维护用户相似度矩阵，<code>Item-based CF</code>维护物品相似度矩阵。需要考虑数据存储的代价和矩阵计算的代价 => 用户数多 or 物品数多</li>
+</ul>
+</li>
+<li><p>哈利波特问题 《哈利波特》很热门，几乎买了任何书的人都会去买《哈利波特》，所以<strong>对热门物品要进行惩罚</strong>。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/harryporter.png" alt=""> 通过提高alpha的取值（<code>[0.5, 1.0]</code>），可惩罚热门物品。</p>
+</li>
+<li><p>隐语义模型（<code>Latent Factor Model</code>)</p>
+<ul>
+<li><p>模型背景 <strong>仅靠用户行为数据无法解决跨领域的问题</strong>，例如很多人看完7点的新闻联播会继续开着电视看8点的电视剧，但给看了电视剧的人推荐新闻联播显然是不合理的。<strong>两个不同领域的最热门物品间往往会存在较高的相似度</strong>，不是因为它们真的相似，只是因为它们都很热门，所以大家都会看。</p>
+</li>
+<li><p>需要解决的问题 隐语义模型（<code>Latent Factor Model</code>) => <strong>基于用户行为数据的聚类</strong>，解决</p>
+<ul>
+<li>如何给物品分类（基于用户行为，而不是内容属性）</li>
+<li>如何确定用户对哪些类的物品感兴趣，以及感兴趣的程度</li>
+<li>对于一个给定的泪，选择其中哪些物品作推荐，推荐的权重是多少？</li>
+</ul>
+</li>
+<li><p>理论 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/LFM1.png" alt=""> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/LFM2.png" alt=""> 后面带<code>lambda</code>的两项为正则项，防止过拟合。 使用（随机）梯度下降，最小化损失函数<code>C</code>，计算得到<code>p</code>和<code>q</code>。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/LFM3.png" alt=""> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/LFM4.png" alt=""></p>
+</li>
+<li><p>关键参数</p>
+<ul>
+<li>隐特征个数<code>F</code>(或者叫<code>K</code>)</li>
+<li>梯度下降的步长／学习速率<code>alpha</code></li>
+<li>正则化参数<code>lambda</code></li>
+<li>正／负样本的比例<code>ratio</code></li>
+</ul>
+</li>
+<li>常见问题 隐语义模型（<code>Latent Factor Model</code>)在<strong>显式评分数据集</strong>上表现很好，而对于<strong>隐式评分数据集</strong>而言重点在于如何生成负样本。生成负样本的原则有<ul>
+<li>对于每个用户，要保证正／负样本的平衡（相近或相等）</li>
+<li>将原数据集中非常热门，但用户却没有过行为的物品当作负样本 => 不将冷门物品作为负样本是因为用户可能压根没有发现冷门物品，而不是对冷门物品不感兴趣。</li>
+</ul>
+</li>
+<li>模型特点<ul>
+<li>隐语义模型（<code>Latent Factor Model</code>)有较好的理论基础，是一种学习方法，有学习过程</li>
+<li>中间结果的存储空间只需要<code>O(F * (M + N))</code>，（<code>F</code>为隐特征个数，<code>M</code>为用户数，<code>N</code>为物品数），而协同过滤则需要<code>O(N * N)</code></li>
+<li>时间复杂度为<code>O(K * F *S)</code>，（<code>F</code>为隐特征个数，<code>K</code>为行为记录数，<code>S</code>为迭代次数）</li>
+<li>不适合用于实时推荐，用户发生了新行为后，推荐列表不会发生变化</li>
+<li>很难像<code>Item-based CF</code>一样用自然语言解释推荐原因</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>基于<strong>图</strong>的推荐模型 <strong>用户行为容易用图结构表示</strong>，<code>G = (V, E)</code>，<code>V = V(u) ∩ V(i)</code>。用户和物品均是图中的顶点，若用户<code>u</code>对物品<code>i</code>发生过行为，则存在边<code>e(u, i)</code>。 所以给用户<code>u</code>推荐物品 = 找到跟<code>V(u)</code>无<strong>直接边</strong>相连的顶点中相关性最高的顶点。 顶点两两间的相关性取决于</p>
+<ul>
+<li>两点间的路径数</li>
+<li>两点间路径的长度</li>
+<li>两点间路径所经过的点</li>
+</ul>
+<p><strong>如果两点间有很多条不同路径／两点间每条路径的长度较短／两点间的路径不会经过出度较大的点，那么它们的相关性相对而言就比较高。</strong> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/PR.png" alt=""></p>
+<p><strong><em>PersonalRank算法</em></strong>，采用了<strong>随机游走</strong>的概念，图中每个物品顶点<code>V(i)</code>被访问的概率<code>PR(v(i))</code>即为该物品<code>i</code>最后在推荐列表中的权重。</p>
+</li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/05/19/recsys-note2/" data-id="cjpg78r7d003fbxuyj3kjn96b" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/推荐/">推荐</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-recsys-note1" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/05/12/recsys-note1/" class="article-date">
+  <time datetime="2018-05-13T05:27:20.000Z" itemprop="datePublished">2018-05-12</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/推荐系统/">推荐系统</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/05/12/recsys-note1/">《推荐系统实践》笔记 #1</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文100%由本人（Haoxiang Ma)原创，如需转载请注明出处</p>
+</blockquote>
+<h2 id="概念与定义"><a href="#概念与定义" class="headerlink" title="概念与定义"></a>概念与定义</h2><ol>
+<li>推荐系统是一个复合系统，用于将<code>User</code>和<code>Item</code>互相关联，给<code>User</code>推荐“合适的”<code>Item</code>，同时给<code>Item</code>找到潜在的买家／用户。系统起源于<strong>信息过载</strong>问题，随着互联网信息爆炸性增长，用户没有办法短时间内接受完所有信息。</li>
+<li>一般情况下，推荐系统的结构为<ul>
+<li>前端页面</li>
+<li>后端服务（日志系统）</li>
+<li>推荐算法系统</li>
+</ul>
+</li>
+<li>如何评价一个推荐系统的优劣？要从多个角度入手进行考察<ul>
+<li>离线实验<ol>
+<li>首先从海量日志文件中收集、清洗所需的用户数据，生成标准数据集</li>
+<li>将数据集随机分成<code>训练集</code> &amp; <code>测试集</code></li>
+<li>用<code>训练集</code>训练出兴趣模型，在<code>测试集</code>上进行预测测试</li>
+<li>建立一个评价公式去评估测试结果</li>
+</ol>
+</li>
+<li>用户调查（问卷）<ol>
+<li>设计问卷，按照一定的规则选取用户进行调查</li>
+<li><strong>成本较高，难以设计</strong></li>
+</ol>
+</li>
+<li>在线实验（<strong><em>A/B Test</em></strong>）<ol>
+<li>将用户随机／按照特定规则分成<code>K</code>组，在每组用户上各自应用不同的算法，然后比较不同组用户的评价指标（点击率，转化率等等）</li>
+<li>需要在前端的流量入口就将用户分组，并打上组别标签，各组分别收集日志</li>
+</ol>
+</li>
+<li>设计新系统时需要结合以上3种方法<ol>
+<li>用<code>离线实验</code>证明各个离线指标优于当前系统</li>
+<li>用<code>用户调查（问卷）</code>证明用户满意度高于当前系统</li>
+<li>用<code>在线实验（A/B Test）</code>确定商业指标&amp;其他所关心的指标上优于当前系统</li>
+</ol>
+</li>
+</ul>
+</li>
+<li><p>评价指标</p>
+<ul>
+<li>用户满意度 => 通过问卷调查或前端反馈页面</li>
+<li><p>预测准确度 => 通过<code>离线实验</code></p>
+<ol>
+<li><p>评分预测型系统（预测用户给他没有见过的<code>Item</code>打多少分）</p>
+<ul>
+<li><p>RMSE（均方根误差） <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/RMSE.png" alt=""></p>
+</li>
+<li><p>MAE（平均绝对误差） <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/MAE.png" alt=""></p>
+</li>
+</ul>
+</li>
+<li><p>TopN推荐型系统（给用户推荐<code>N</code>个他没见过的<code>Item</code>)</p>
+<ul>
+<li><p>Precision（准确率） 简单来说就是<strong>推荐出来的结果中有多少个是当前用户真正感兴趣的</strong> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/precision.png" alt=""></p>
+</li>
+<li><p>Recall（召回率） 简单来说就是<strong>有多少当前用户真正感兴趣的物品被成功推荐出来</strong> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/recall.png" alt=""></p>
+</li>
+<li><p>为了全面一点，可以对TopN中的<code>N</code>取多个值，绘制出一条<code>p/r curve</code></p>
+</li>
+</ul>
+</li>
+<li><p>在实际生产环境中更多会使用<strong>TopN</strong>模型，因为用户给一个<code>Item</code>打高分不等于他很想购买／阅读该物品</p>
+</li>
+</ol>
+</li>
+<li><p>覆盖率 => 系统能够推荐出来的物品占总物品集合的比例 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/coverage.png" alt=""></p>
+</li>
+<li><p>多样性</p>
+<ul>
+<li><p>推荐结果列表中物品两两之间的<strong>不相似性</strong> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/diversity1.png" alt=""></p>
+</li>
+<li><p>系统总体的<strong>不相似性</strong> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/diversity2.png" alt=""></p>
+</li>
+</ul>
+</li>
+<li><p>新颖性 => 给用户推荐他们从来未听说过的，千万不能推荐他们已经看过／购买过的</p>
+</li>
+<li><p>惊喜度</p>
+</li>
+<li>信任度</li>
+<li>实时性</li>
+<li>健壮性</li>
+<li>商业目标</li>
+</ul>
+</li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/05/12/recsys-note1/" data-id="cjpg78r5w000ebxuybu8dsw4j" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/推荐/">推荐</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-leetcode-105106" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/04/22/leetcode-105106/" class="article-date">
+  <time datetime="2018-04-22T20:51:55.000Z" itemprop="datePublished">2018-04-22</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/Leetcode/">Leetcode</a>►<a class="article-category-link" href="/categories/Leetcode/算法/">算法</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/04/22/leetcode-105106/">[Leetcode题解] - Construct Binary Tree from XX-Order</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文行文由本人(Haoxiang Ma)原创，思路借鉴了Leetcode高票答案，加以个人分析、实现、总结。如需转载请注明出处。</p>
+</blockquote>
+<h2 id="题目背景"><a href="#题目背景" class="headerlink" title="题目背景"></a>题目背景</h2><ul>
+<li><p><strong>[Leetcode 105]</strong> <code>Construct Binary Tree from Preorder and Inorder Traversal</code></p>
+<p>Given preorder and inorder traversal of a tree, construct the binary tree.</p>
+<p>Note:<br>You may assume that duplicates do not exist in the tree.</p>
+<p>For example, given</p>
+<p>preorder = [3,9,20,15,7]<br>inorder = [9,3,15,20,7]<br>Return the following binary tree:</p>
+<pre><code>3
+</code></pre><p>   / \<br>  9  20</p>
+<pre><code>/  \
+</code></pre><p>   15   7</p>
+</li>
+</ul>
+<p>简单来说，就是给定二叉树的先序遍历结果+二叉树的中序遍历结果，重构二叉树。</p>
+<ul>
+<li><p><strong>[Leetcode 106]</strong> <code>Construct Binary Tree from Inorder and Postorder Traversal</code></p>
+<p>Given inorder and postorder traversal of a tree, construct the binary tree.</p>
+<p>Note:<br>You may assume that duplicates do not exist in the tree.</p>
+<p>For example, given</p>
+<p>inorder = [9,3,15,20,7]<br>postorder = [9,15,7,20,3]<br>Return the following binary tree:</p>
+<pre><code>3
+</code></pre><p>   / \<br>  9  20</p>
+<pre><code>/  \
+</code></pre><p>   15   7</p>
+</li>
+</ul>
+<p>简单来说，就是给定二叉树的中序遍历结果+二叉树的后序遍历结果，重构二叉树。</p>
+<h2 id="思路分析"><a href="#思路分析" class="headerlink" title="思路分析"></a>思路分析</h2><p><code>105</code>和<code>106</code>两题的题目背景类似，都是给定某两种二叉树的遍历结果，要求重构二叉树，<strong>且两题均提供了中序遍历结果</strong>。 首先，对题例中的二叉树结构以及其对应的三种遍历结果进行对比和分析。</p>
+<pre><code>    3
+   / \
+  9  20
+    /  \
+   15   7
+
+preorder = [3,9,20,15,7]
+inorder = [9,3,15,20,7]
+postorder = [9,15,7,20,3]
+</code></pre><p>仔细观察以上三种遍历结果，不难发现以下规律：</p>
+<ol>
+<li><p><strong>从左到右</strong>遍历<code>preorder</code>序列，对于每一个元素，均能在<code>inorder</code>序列中找到。且该元素在二叉树中的<strong>左子树</strong>中的所有元素都在<code>inorder</code>序列里该元素的<strong>左边</strong>，该元素在二叉树中的<strong>右子树</strong>中的所有元素都在<code>inorder</code>序列里该元素的<strong>右边</strong>。例如对于<code>3</code>，其在二叉树中左子树里有<code>9</code>，正好在<code>inorder</code>序列里<code>9</code>在<code>3</code>的左边；其右子树里有<code>20</code>,<code>15</code>,<code>7</code>，正好在<code>inorder</code>序列里<code>20</code>,<code>15</code>,<code>7</code>都在<code>3</code>的右边。</p>
+</li>
+<li><p><strong>从右到左</strong>遍历<code>postorder</code>序列，对于每一个元素，均能在<code>inorder</code>序列中找到。且该元素在二叉树中的<strong>左子树</strong>中的所有元素都在<code>inorder</code>序列里该元素的<strong>左边</strong>，该元素在二叉树中的<strong>右子树</strong>中的所有元素都在<code>inorder</code>序列里该元素的<strong>右边</strong>。例如对于<code>20</code>，其在二叉树中左子树里有<code>15</code>，正好在<code>inorder</code>序列里<code>15</code>在<code>20</code>的左边；其右子树里有<code>7</code>，正好在<code>inorder</code>序列里<code>7</code>在<code>20</code>的右边。</p>
+</li>
+</ol>
+<p>根据以上观察到的规律，我们可以大致得出以下思路： 对于<code>105</code>这道题，给定<code>preorder</code>和<code>inorder</code>，我们可以<strong>从左到右</strong>遍历<code>preorder</code>序列，对于每一个元素<strong>Ei</strong>，我们：</p>
+<ol>
+<li>选定<strong>Ei</strong>，构造当前节点。</li>
+<li>在<code>inorder</code>序列中找到<strong>Ei</strong>，假定其index为<code>j</code>。</li>
+<li>在<code>inorder</code>序列中，从<code>inorder_start</code>到<code>j-1</code>的元素肯定在<strong>Ei</strong>的左子树里，从<code>j+1</code>到<code>inorder_end</code>的元素肯定在<strong>Ei</strong>的右子树里。</li>
+<li>继续递归构造左子树和右子树</li>
+</ol>
+<p>对于<code>106</code>这道题，给定<code>postorder</code>和<code>inorder</code>，我们可以<strong>从右到左</strong>遍历<code>postorder</code>序列，对于每一个元素<strong>Ei</strong>，我们：</p>
+<ol>
+<li>选定<strong>Ei</strong>，构造当前节点。</li>
+<li>在<code>inorder</code>序列中找到<strong>Ei</strong>，假定其index为<code>j</code>。</li>
+<li>在<code>inorder</code>序列中，从<code>inorder_start</code>到<code>j-1</code>的元素肯定在<strong>Ei</strong>的左子树里，从<code>j+1</code>到<code>inorder_end</code>的元素肯定在<strong>Ei</strong>的右子树里。</li>
+<li>继续递归构造左子树和右子树</li>
+</ol>
+<p>可以看到，<code>105</code>和<code>106</code>的思路基本一致，差别仅仅在于<code>preorder</code>和<code>postorder</code>本身的性质差异，一个先访问<code>root</code>，另一个后访问<code>root</code>。所以对于<code>preorder</code>序列我们要<strong>从左到右</strong>遍历，而对于<code>postorder</code>我们要<strong>从右到左</strong>遍历。</p>
+<h2 id="具体代码"><a href="#具体代码" class="headerlink" title="具体代码"></a>具体代码</h2><ul>
+<li><p><strong>[Leetcode 105]</strong> <code>Construct Binary Tree from Preorder and Inorder</code></p>
+<p>class Solution {</p>
+<pre><code>public TreeNode buildTree(int[] preorder, int[] inorder) {
+
+    return build(preorder, inorder, 
+                 0, preorder.length - 1, 
+                 0, inorder.length - 1);
+}
+
+public TreeNode build(int[] pre, int[] in, 
+                      int preStart, int preEnd, 
+                      int inStart, int inEnd) {
+
+    if(pre == null || in == null || preStart &gt; preEnd || inStart &gt; inEnd) {
+        // corner case
+        return null;
+    }
+
+    // select current root element
+    int curVal = pre[preStart];
+    TreeNode cur = new TreeNode(curVal);
+
+    // search for current root element in inorder sequence
+    int index = -1;
+    for(int i = inStart;i &lt;= inEnd;i++) {
+        if(in[i] == curVal) {
+            index = i;
+            break;
+        }
+    }
+    if(index == -1) {
+        // invalid sequence
+        return null;
+    }
+
+    // count how many elements are in left &amp; right subtree
+    int left = index - inStart;
+    int right = inEnd - index;
+
+    // build recursively
+    cur.left = build(pre, in, preStart + 1, preStart + left, inStart, index - 1);
+    cur.right = build(pre, in, preStart + left + 1, preEnd, index + 1, inEnd);
+    return cur;
+}
+</code></pre><p>}</p>
+</li>
+</ul>
+<ul>
+<li><p><strong>[Leetcode 106]</strong> <code>Construct Binary Tree from Inorder and Postorder</code></p>
+<p>class Solution {</p>
+<pre><code>public TreeNode buildTree(int[] inorder, int[] postorder) {
+
+    return build(inorder, postorder, 
+                 0, inorder.length - 1, 
+                 0, postorder.length - 1);
+}
+
+public TreeNode build(int[] in, int[] post, 
+                      int inStart, int inEnd, 
+                      int postStart, int postEnd) {
+
+    if(in == null || post == null || inStart &gt; inEnd || postStart &gt; postEnd) {
+        // corner case
+        return null;
+    }
+
+    // select current root element
+    int curVal = pre[preStart];
+    TreeNode cur = new TreeNode(curVal);
+
+    // search for current root element in inorder sequence
+    int index = -1;
+    for(int i = inStart;i &lt;= inEnd;i++) {
+        if(in[i] == curVal) {
+            index = i;
+            break;
+        }
+    }
+    if(index == -1) {
+        // invalid sequence
+        return null;
+    }
+
+    // count how many elements are in left &amp; right subtree
+    int left = index - inStart;
+    int right = inEnd - index;
+
+    // build recursively
+    cur.left = build(in, post, inStart, index - 1, postStart, postStart + left - 1);
+    cur.right = build(in, post, index + 1, inEnd, postStart + left, postEnd - 1);
+    return cur;
+}
+</code></pre><p>}</p>
+</li>
+</ul>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>对于这两道题，需要注意以下几点</p>
+<ol>
+<li><code>preorder</code>序列里<code>root</code>排在前面，<code>postorder</code>序列里<code>root</code>排在后面。</li>
+<li>从<strong>数组</strong>中重构二叉树，往往就是<strong>类似于先序遍历的递归写法</strong>，先在数组中定位到当前节点的值，构造好当前节点，接着<strong>确定好数组边界</strong>，递归构造左子树 &amp; 右子树。</li>
+<li><p>类似的构造二叉树题目，可参考</p>
+<ul>
+<li><strong>[Leetcode 108]</strong> <code>Convert Sorted Array to Binary Search Tree</code></li>
+</ul>
+<p>同样是从<strong>数组</strong>中重构二叉树。</p>
+</li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/04/22/leetcode-105106/" data-id="cjpg78r5s0005bxuyy0g79pjf" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Java/">Java</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/算法/">算法</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-lc-uniquebstiii" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/04/05/lc-uniquebstiii/" class="article-date">
+  <time datetime="2018-04-05T19:30:30.000Z" itemprop="datePublished">2018-04-05</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/Leetcode/">Leetcode</a>►<a class="article-category-link" href="/categories/Leetcode/算法/">算法</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/04/05/lc-uniquebstiii/">[Leetcode题解] - Unique BST I &amp;&amp; II</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文行文由本人(Haoxiang Ma)原创，思路借鉴了Leetcode高票答案，加以个人分析与总结。如需转载请注明出处。</p>
+</blockquote>
+<h2 id="题目"><a href="#题目" class="headerlink" title="题目"></a>题目</h2><ul>
+<li><p><strong><em>Unique Binary Search Tree II</em></strong></p>
+<p>Given an integer n, generate all structurally unique BST’s (binary search trees) that store values 1…n.</p>
+<p>For example,<br>Given n = 3, your program should return all 5 unique BST’s shown below.</p>
+</li>
+</ul>
+<pre><code>1         3     3      2      1
+ \       /     /      / \      \
+  3     2     1      1   3      2
+ /     /       \                 \
+2     1         2                 3
+</code></pre><ul>
+<li><p>即给定一个正整数<code>n</code>，求出<code>1 ~ n</code>能构成的<strong>所有</strong>二叉搜索树，返回所有可能的根节点。</p>
+</li>
+<li><p><strong><em>Unique Binary Search Trees</em></strong></p>
+</li>
+</ul>
+<pre><code>Given n, how many structurally unique BST&apos;s (binary search trees) that store values 1...n?
+
+For example,
+Given n = 3, there are a total of 5 unique BST&apos;s.
+
+   1         3     3      2      1
+    \       /     /      / \      \
+     3     2     1      1   3      2
+    /     /       \                 \
+   2     1         2                 3
+</code></pre><ul>
+<li>即给定一个正整数<code>n</code>，求出<code>1 ~ n</code>能构成的<strong>所有</strong>二叉搜索树的总棵数，返回总棵数。</li>
+</ul>
+<h2 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h2><p>以上两道题殊途同归，输入均为一个正整数<code>n</code>，一个是要生成<strong>所有</strong>合法的二叉搜索树，另一个则想求出<strong>合法</strong>二叉搜索树的总棵树。 <strong>假如我们有办法基于<code>1 ~ n</code>生成所有合法的<code>BST</code>，那么不管是题1还是题2均能被轻松解决了。</strong> 思路主要有以下两点：</p>
+<ol>
+<li>凡是遇到求<strong>所有</strong>，<strong>全部</strong>的题目，基本可参考<code>DFS</code>的思路。因为<code>DFS</code>就是在解集构成的图里不断走走走，一路走到黑，遇到满足条件的就塞进结果里，遇到死路就往回走试试别的路。自然就能把整个解集（所有可能性）给遍历完，<strong>所有</strong>符合条件的解也就都被找到了。</li>
+<li>既然让我们生成<code>BST</code>，那我们就参考参考<code>BST</code>的特性。用最通俗易懂的话来讲，<code>BST</code>中的每个节点，其左子树里所有子孙的值均小于它，其右子树里所有子孙的值均大于它。</li>
+</ol>
+<p>基于以上两点，我们进行<code>DFS</code>的流程就很清晰了。 在<code>1 ~ n</code>中，我们随便挑一个数<code>k</code>作为当前的<code>root</code>，<code>k</code>可以是<code>1 ~ n</code>中的任意一个，为了生成所有可能性，我们可用一个<code>for</code>循环对所有可能的取值进行遍历。此外，因为以上提及的<code>BST</code>的性质，所以比<code>k</code>小的<code>1 ~ k-1</code>都要被放到左子树，比<code>k</code>大的<code>k+1 ~ n</code>都要被放到右子树。即到了构建左子树的时候，能用的数字就是<code>1 ~ k-1</code>，到了构建右子树的时候，能用的数字就是<code>k+1 ~ n</code>。一直这样<code>DFS</code>走下去构建左子树和右子树，<strong>直到没有任何可用的数字</strong>，就返回<code>null</code>。</p>
+<h2 id="详细代码"><a href="#详细代码" class="headerlink" title="详细代码"></a>详细代码</h2><pre><code>/**
+ * Definition for a binary tree node.
+ * public class TreeNode {
+ *     int val;
+ *     TreeNode left;
+ *     TreeNode right;
+ *     TreeNode(int x) { val = x; }
+ * }
+ */
+class Solution {
+    public List&lt;TreeNode&gt; generateTrees(int n) {
+        // 处理corner case
+        if(n &lt;= 0) {
+            return new ArrayList&lt;&gt;();
+        }
+        return dfs(1, n);
+    }
+
+    public List&lt;TreeNode&gt; dfs(int start, int end) {
+        List&lt;TreeNode&gt; result = new LinkedList&lt;&gt;();
+
+        // 没有任何可用数字时，只能返回null
+        if(start &gt; end) {
+            result.add(null);
+            return result;
+        }
+
+        // 对于当前可选的数字start ~ end，其中任意一个都能选为当前的根节点
+        for(int i = start;i &lt;= end;i++) {
+            // 生成所有可能的左子树(start ~ i-1)和右子树(i+1 ~ end)
+            List&lt;TreeNode&gt; leftNodes = dfs(start, i - 1);
+            List&lt;TreeNode&gt; rightNodes = dfs(i + 1, end);
+
+            // 对于左子树的根节点的所有可能性和右子树的根节点的所有可能性，
+            // 作一个笛卡尔积，求出所有组合的可能性
+            for(TreeNode left : leftNodes) {
+                for(TreeNode right : rightNodes) {
+                    TreeNode cur = new TreeNode(i);
+                    cur.left = left;
+                    cur.right = right;
+                    result.add(cur);
+                }
+            }
+        }
+        return result;
+    }
+}
+</code></pre><h2 id="优化"><a href="#优化" class="headerlink" title="优化"></a>优化</h2><p>基于以上<code>DFS</code>思路的代码，我们可以用<code>1 ~ n</code>生成所有合法的<code>BST</code>，解决了问题。</p>
+<ul>
+<li>如果需要返回所有可能的<code>BST</code>，直接返回最终的<code>List&lt;TreeNode&gt;</code>即可。</li>
+<li>如需返回总棵数，返回最终生成的<code>List</code>的<code>size</code>即可。</li>
+</ul>
+<p>⚠️<strong>但是，我们能不能再做得更好一点呢？像题目2中只要求出一个总棵数，一个正整数而已，我们需要如此“大兴土木”地把所有合法的<code>BST</code>构造出来，最后“轻描淡写”地返回<code>List</code>的<code>size</code>吗？是否存在一些数学规律，能够让我们直接求出基于<code>1 ~ n</code>的合法<code>BST</code>的总棵数呢？</strong> 首先我们可以尝试将问题公式化。 我们用<code>Sum(n)</code>表示<code>n</code>个连续数能构成的合法<code>BST</code>总棵数；用<code>F(k, n)</code>表示给定<code>n</code>个连续数时，以<code>k</code>为根的合法<code>BST</code>的棵数。显然我们能够得到以下的推导式：</p>
+<pre><code>// 给定n个连续数，
+// 能够构成的合法BST总棵数 = 以1为根的BST棵数 
+                        + 以2为根的BST棵数 
+                        + ... 
+                        + 以n为根的BST棵数。
+
+Sum(n) = F(1, n) + F(2, n) + F(3, n) + ... + F(n, n)     (1)
+</code></pre><p>同时，以<code>k</code>为根的合法<code>BST</code>的棵数：<code>F(k, n)</code>又等于多少呢？很简单，以<code>k</code>为根，根据<code>BST</code>的性质，<strong>左子树里只能存放<code>1 ~ k-1</code>这<code>k-1</code>个连续数，右子树里只能存放<code>k+1 ~ n</code>这<code>n-k</code>个连续数</strong>。所以<code>F(k, n)</code>取决于其左子树的可能性 * 其右子树的可能性：</p>
+<pre><code>F(k, n) = Sum(k-1) * Sum(n-k)     (2)
+</code></pre><p>基于以上(1)和(2)推导式，我们可以改写得到：</p>
+<pre><code>// Corner Case: Sum(0) = 1 因为0个数只能生成空树，空树永远只有1种
+// Corner Case: Sum(1) = 1 因为1个数只能生成单个节点的树，也永远只有1种
+
+Sum(n) = F(1, n) + F(2, n) + ... + F(n, n)
+       = Sum(0)*Sum(n-1) + Sum(1)*Sum(n-2) + ... + Sum(n-1)*Sum(0)     (3)
+</code></pre><p>用(3)式进行计算，一种非常类似于<code>DP</code>的思想，即可避免浪费大片内存和时间生成所有合法的<code>BST</code>，直接能通过<strong>数值运算</strong>得到最终结果。 代码如下</p>
+<pre><code>class Solution {
+    public int numTrees(int n) {
+        if(n &lt;= 0) {
+            return 0;
+        }
+
+        int[] Sum = new int[n + 1];
+        Sum[0] = 1;    // 0个数时只有1种，空树
+        Sum[1] = 1;    // 1个数时只有1种，单个节点的树
+
+        for(int i = 2;i &lt;= n;i++) {
+            for(int j = 0;j &lt; i;j++) {
+                Sum[i] += Sum[j] * Sum[i - j - 1];
+            }
+        }
+        return Sum[n];
+    }
+}
+</code></pre><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>此题利用了</p>
+<ol>
+<li><code>BST</code>的特性，“左小右大”来构建所需的结果。</li>
+<li><code>DFS</code>的思想生成<strong>所有</strong>解。</li>
+<li>数学推导式进行优化，<strong>当所求的解只是一个简单的整数值时，可思考是否需要真正生成所有数据，很多情况下只是需要我们进行推导，利用DP的思想进行数值运算即可。</strong></li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/04/05/lc-uniquebstiii/" data-id="cjpg78r5q0004bxuy6k32275z" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Java/">Java</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/算法/">算法</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-whatiscow" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/03/31/whatiscow/" class="article-date">
+  <time datetime="2018-03-31T19:12:21.000Z" itemprop="datePublished">2018-03-31</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/Java/">Java</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/03/31/whatiscow/">什么是Copy-On-Write</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文为本人（Haoxiang Ma)原创，如需转载请注明出处。</p>
+</blockquote>
+<h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>所谓<code>Copy-On-Write</code>，简称<code>COW</code>，正如它的名字所示，即为<code>写时复制</code>。具体而言，它是容器的一种特性，或者说可以利用这种特性开发一种<code>COW容器</code>。 简单来说，<code>写时复制</code>就是在用户（线程）对某一个容器（如List）进行写操作（增／删／改）时，不直接在容器上进行操作，而是先<strong>复制</strong>一个与原容器一模一样的容器出来，然后在复制出来的容器上进行真正的写操作。 在<code>Java</code>中，常见的<code>COW容器</code>有<code>CopyOnWriteArrayList&lt;E&gt;</code>和<code>CopyOnWriteArraySet&lt;E&gt;</code>。</p>
+<h2 id="具体解析"><a href="#具体解析" class="headerlink" title="具体解析"></a>具体解析</h2><p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/Timeline.png" alt=""> 如上图所示，最开始我们只有一个容器（内存地址<code>0x80</code>），和一个指向该容器的引用<code>A</code>。经过<code>T1</code>和<code>T2</code>后，没有任何用户（线程）对其进行写操作。 到达<code>T3</code>时刻时，某个用户（线程）申请向容器写入<code>123</code>这个数据。此时由于<code>Copy-On-Write</code>特性，并不是直接往<code>0x80</code>地址的容器写入，而是先复制出一个跟原容器一模一样的容器B（内存地址<code>0x95</code>），然后往<code>0x95</code>处的这个容器B写入<code>123</code>这条数据。<strong>写入完成后，关键是要将<code>引用A</code>进行重指向，指向<code>0x95</code>，不再指向原本的<code>0x80</code>。</strong>一系列动作完成后，到了<code>T4</code>时刻，<code>引用A</code>所指向的就是一个存有<code>123</code>这条数据的容器。 （⚠️如无意外，<code>0x80</code>处的原容器所占的内存空间在某个时候会被gc回收掉） 经过了以上的图解，相信读者已经对<code>Copy-On-Write</code>过程有了一定的理解。接下来谈谈其中的一些细节点。</p>
+<ol>
+<li><p>排他性的写操作 在对<code>COW容器</code>进行写操作时，会于内存中额外复制一个副本出来进行操作，所以<strong>写操作必然是排他性的</strong>。绝<strong>不能</strong>允许<code>N</code>个线程同时进行写操作，然后复制出<code>N</code>个副本，各线程自己对自己的那个副本进行操作，那样的话无法保证容器内的数据一致性，<code>N</code>个副本中的数据都不是完整的数据。 <strong>为了保证数据的一致性，需要对写操作加上一个<code>排他锁</code>，在某一时刻只能有一个线程对<code>COW容器</code>进行写操作。</strong></p>
+</li>
+<li><p>读写分离 对于<code>读</code>操作而言，允许多个线程并发读取容器内的数据，不存在任何数据一致性问题或安全问题。对于<code>写</code>操作，因为会复制一个副本容器，在副本容器上写，写成功后再修改引用，所以在某个时刻，<code>写</code>和<code>读</code>针对的并不是同一个容器，实现了<strong>读写分离</strong>。 有了<strong>读写分离</strong>，就能显著提高<code>读</code>操作的效率，因为写锁是会排斥其他所有操作的，一旦一个容器／表／文件被加上了写锁，那么任何人都无法再读／写该容器／表／文件的内容。既然<code>COW容器</code>的复制机制能保证读和写是在不同的容器上进行，也就意味着永远都不会因为写锁的存在而阻塞<code>读</code>操作，自然就能顺畅无比地并发读取了。</p>
+</li>
+</ol>
+<h2 id="优缺点"><a href="#优缺点" class="headerlink" title="优缺点"></a>优缺点</h2><p>基于写时复制的特点，<code>COW容器</code>特别适用于大量读取，极少量写入的应用场景。因为写操作是排他性阻塞的，所以一旦有较多的写操作需求，那<code>COW容器</code>的性能将会灾难性地下降。当写操作较多时，可将多个写操作合并成一批写操作，call一次写入方法写入多条数据，避免多次call写方法，避免多次容器复制。</p>
+<ol>
+<li>优点<ul>
+<li>适用于<strong>大量读取，极少量写入</strong>的应用场景，支持高效的并发读取</li>
+</ul>
+</li>
+<li>缺点<ul>
+<li><strong>内存消耗大</strong>。当容器中的数据很多时，复制操作将会消耗大量的内存，可能会频繁引发GC</li>
+<li><strong>无法保证数据<code>强一致性</code>，只能保证<code>最终一致性</code></strong>，因为读的时候有可能已完成了写操作，但容器指针未来得及重指向，但经过多个时间窗口后最终数据是一致的</li>
+</ul>
+</li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/03/31/whatiscow/" data-id="cjpg78r65000qbxuyp8wrtuwd" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Java/">Java</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/数据结构/">数据结构</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-deepcopyinjava" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/03/23/deepcopyinjava/" class="article-date">
+  <time datetime="2018-03-23T16:57:57.000Z" itemprop="datePublished">2018-03-23</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/Java/">Java</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/03/23/deepcopyinjava/">Java中的深复制&amp;浅复制</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文内容均为本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
+</blockquote>
+<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>在程序中，出于特定的需求，往往要对一些对象进行复制，然后对复制后的对象进行操作，<strong>且不想让这些操作影响到原对象的数据</strong>。在这种情况下，搞清楚<code>深复制（Deep Copy）</code>和<code>浅复制（Shallow Copy）</code>是非常有必要的。 何谓<code>浅复制</code>？简单来说，就是对一个对象进行复制，得到一个新对象，然后“照搬”原对象中的数据来填充新对象的数据域。虽然新旧对象是两个不同的对象（在内存中的地址不同），但是它们内部的数据是一样的。 这样看来，<code>浅复制</code>不正是我们所需的<code>复制</code>嘛，可以得到一个新的对象，且新对象中的数据跟原对象一样，已经是非常完美的复制啊，为什么还要加一个<code>浅</code>字呢？ <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/shallow.png" alt=""> 原因在于，<strong>在Java中</strong>，一个对象里可能有<code>primitive</code>类型的数据如<code>int</code>,<code>long</code>等，更可能包含了<code>referrence（引用）</code>类型的数据如指向自定义类实例的引用。众所周知，<strong>引用的值仅仅是其所指向对象的内存地址</strong>。通过<code>浅复制</code>，我们会把这个内存地址“照搬”过去新对象中，那么新对象和旧对象中的一个成员引用就会指向同一块内存，操作的时候将会互相影响，与我们理想状态下的<code>复制</code>相差甚远。如上图所示，从<code>Building1</code>对象复制出来<code>Building2</code>对象后，它们本身所处的内存地址不一样，已经成为了两个独立的对象，但由于<code>Building</code>中包含了一个引用类型的数据<code>Floor</code>，而<code>浅复制</code>只将引用的值照搬过去新对象中，导致两个不同的<code>Building</code>中的<code>Floor</code>指向了内存里的同一个<code>Floor</code>。 <strong>所谓的<code>浅</code>指的就是对于<code>referrence（引用）</code>类型的数据只是“浅显”地“照搬”其值，没有深度地“复制”出一个新的对象。</strong> 所以对应<code>浅复制</code>，为了解决它的问题，我们自然就有<code>深复制</code>的概念。所谓<code>深复制</code>就是为了完完全全、彻彻底底地对一个对象进行<strong>深度</strong>的复制，避免新旧对象中的引用仍指向同一块内存区域，互相影响。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/deep.png" alt=""> 如上图所示，从<code>Building1</code>对象复制出来<code>Building2</code>对象，两者的<code>Floor</code>引用指向的已是内存区域中不同的<code>Floor</code>对象，无论对<code>Building1</code>再怎么折腾，也不会对<code>Building2</code>产生影响，完成真正理想状态下的<code>复制</code>。 <strong>本文将探讨在<code>Java</code>中如何实现对象的<code>深复制</code>。</strong></p>
+<h2 id="具体实现"><a href="#具体实现" class="headerlink" title="具体实现"></a>具体实现</h2><p>首先来看看我们的自定义类<code>Building</code>和<code>Floor</code></p>
+<pre><code>// Building 类
+class Building{
+    public Floor floor;
+
+    public Building() {
+        this.floor = new Floor();
+    }
+
+    public Building(Floor floor) {
+        this.floor = floor;
+    }
+}
+
+// Floor类
+class Floor implements Cloneable {
+    public int count;
+
+    public Floor() {
+
+    }
+
+    public Floor(int count) {
+        this.count = count;
+    }
+}
+</code></pre><p>可以看到一个<code>Building</code>中包含一个<code>Floor</code>成员变量。</p>
+<ol>
+<li><p><code>clone</code>方法与<code>Cloneable</code>接口 <strong>实现<code>深复制</code>的第一种方法，需要复制的类实现<code>Cloneable</code>接口，并重写<code>clone</code>方法。</strong>在<code>Java</code>的上帝类<code>Object</code>中，有一个纯天然的<code>clone</code>方法，但是其中并没有具体的代码逻辑，仅仅是声明了一个<code>CloneNotSupportedException</code>异常，所以必须对其进行重写。</p>
+<pre><code>protected native Object clone() throws CloneNotSupportedException;
+</code></pre></li>
+</ol>
+<pre><code>而`Cloneable`接口中也没有任何的方法声明，完全是一个标记性的空接口(`Mark-Interface`)。**实现该接口的作用仅仅是作一个`标记(mark)`，告诉JVM，我实现了这个接口，这个类的实例对象可被复制**。
+
+    public interface Cloneable {
+    }
+
+
+&gt; ⚠️ ⚠️ ⚠️注意，如果不实现`Cloneable`接口，即使重写了`clone`方法，在调用时也会自动抛出异常，因为没有**标记**，没有**“告诉”**JVM，这是可以被复制的。
+
+所以基于`Building`类和`Floor`类的定义，我们应该让它们都实现`Cloneable`接口，且重写`clone`方法。
+
+    // Building类实现Cloneable接口
+    class Building implements Cloneable {
+        public Floor floor;
+
+        public Building() {
+            this.floor = new Floor();
+        }
+
+        public Building(Floor floor) {
+            this.floor = floor;
+        }
+
+        @Override
+        public Object clone() throws CloneNotSupportedException {
+            // 先clone出一个Building对象
+            Building newBuilding = (Building) super.clone(); 
+
+            // 然后再手动clone出一个Floor对象
+            newBuilding.floor = (Floor) floor.clone();
+
+            // 返回clone出的Building对象
+            return newBuilding;
+        }
+    }
+
+    // Floor类实现Cloneable接口
+    class Floor implements Cloneable {
+        public int count;
+
+        public Floor() {
+
+        }
+
+        public Floor(int count) {
+            this.count = count;
+        }
+
+        @Override
+        public Object clone() throws CloneNotSupportedException {
+            return super.clone();
+        }
+    }
+
+
+为了测试是否真的进行了`深复制`，我们看看新旧`Building`对象的内存地址是否相同，再看看它们内部的`Floor`引用所指向的对象内存地址是否相同。
+
+    public static void main(String[] args) throws Exception{
+        Building b1 = new Building();
+        Building b2 = b1;
+        System.out.println(b2 == b1);   // true
+
+        Building b3 = (Building) b1.clone(); 
+        System.out.println(b3 == b1);       // false
+        System.out.println(b3.floor == b1.floor); // false
+    }
+
+
+通过实现`Cloneable`接口，重写`clone`方法，成功进行了`深复制`。 **⚠️然而，如下图所示，使用这种方法实现`深复制`，有着巨大的缺陷。** ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/chain.png) 在以上例子中，我们只有2个自定义类，`Building`包含`Floor`。但是当这种包含关系变得更加复杂，有无数多个自定义类，一层又一层地包含下去时，我们需要为每个自定义类都实现`Cloneable`接口，重写`clone`方法。（例如`Building`包含`Floor`，`Floor`包含`Room`）。更麻烦的是，处于高层次的类的`clone`方法会很复杂，要一个一个地对低层次的类调用`clone`方法，一旦其中有几个类的结构发生了变化，又要重新改写多个`clone`方法，一点也不科学。
+</code></pre><ol start="2">
+<li><p>利用<code>Serializable</code>接口 首先说说什么是<code>Serialize（序列化）</code>和<code>Deserialize(反序列化）</code>。</p>
+<ul>
+<li><strong><code>Serialize（序列化）</code>指的是将内存中的对象转化为二进制数据，进而将对象数据存储到磁盘文件里</strong>。</li>
+<li><p><strong><code>Deserialize(反序列化）</code>指的是从磁盘文件中读取二进制数据，根据一定的规则转化为内存中的对象</strong>。</p>
+<p>public interface Serializable {<br>}</p>
+</li>
+</ul>
+</li>
+</ol>
+<pre><code>在`Java`中，如果想将一个对象序列化，首先得标记其为“可序列化”，即实现`Serializable`接口。**跟`Cloneable`接口一样，`Serializable`接口也是一个空荡荡的`Mark-Interface`，它的唯一作用是用于标记该类可被序列化。** 为了便于区分，不再使用`Building`和`Floor`进行说明。以下使用`Human`类和`Head`类。
+
+    class Human implements Serializable {
+        public Head head;
+
+        public Human() {
+            this.head = new Head();
+        }
+
+        public Human(Head head) {
+            this.head = head;
+        }
+
+        /**
+         * 深复制
+         * @return 复制得到的Human对象
+         * @throws Exception
+         */
+        public Human deepClone() throws Exception {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ObjectOutputStream objectOutputStream = new ObjectOutputStream(baos);
+            objectOutputStream.writeObject(this);
+
+
+            ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+            ObjectInputStream objectInputStream = new ObjectInputStream(bais);
+            return (Human) objectInputStream.readObject();
+        }
+    }
+
+    class Head implements Serializable {
+        public int val;
+
+        public Head() {
+
+        }
+
+        public Head(int val) {
+            this.val = val;
+        }
+    }
+
+
+核心代码为`Human`类中的`deepClone()`方法。首先先将当前对象(`this`)写到一个`ObjectOutputStream`中，然后再新建一个`ObjectInputStream`，并利用该`ObjectInputStream`的`readObject()`方法从流中获得一个**新构建**的Java对象。 接下来，我们检测一下是否真正完成了`深复制`。
+
+    public static void main(String[] args) throws Exception{
+
+        Human h1 = new Human();
+        Human h2 = h1.deepClone();
+        System.out.println(h1 == h2);       // false
+        System.out.println(h1.head == h2.head);  // false
+
+    }
+
+
+⚠️通过实现`Serializable`接口，可以避免重写多个`clone()`方法，也可实现深复制。
+</code></pre><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>在<code>Java</code>中，想要实现真正的<code>深复制</code>，有以下两种方法</p>
+<ol>
+<li>实现<code>Cloneable</code>接口，重写<code>clone()</code>方法。<ul>
+<li>优点：直观，容易理解，贴合人类思维。</li>
+<li>缺点：当有非常多个自定义类，且互相包含的情况下，需要大量复杂地重写方法，对结构改动非常不友好。</li>
+</ul>
+</li>
+<li>实现<code>Serializable</code>接口，利用<code>序列化</code>和<code>反序列化</code>。<ul>
+<li>优点：当多个类结构发生变化时，不需要大量重写复制代码。</li>
+<li>缺点：不直观，不贴合人类思维。</li>
+</ul>
+</li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/03/23/deepcopyinjava/" data-id="cjpg78r6v002nbxuy13ndchbm" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Java/">Java</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+
+
+  <nav id="page-nav">
+    
+    <a class="extend prev" rel="prev" href="/">&laquo; Prev</a><a class="page-number" href="/">1</a><span class="page-number current">2</span><a class="page-number" href="/page/3/">3</a><a class="extend next" rel="next" href="/page/3/">Next &raquo;</a>
+  </nav>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/BigData/">BigData</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Go/">Go</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/">Leetcode</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/">分布式</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/推荐系统/">推荐系统</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/未分类/">未分类</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/">Go</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/">Java</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/">zookeeper</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/分布式/">分布式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/推荐/">推荐</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/源码/">源码</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/笔记/">笔记</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Go/" style="font-size: 18.33px;">Go</a> <a href="/tags/Java/" style="font-size: 16.67px;">Java</a> <a href="/tags/Leetcode/" style="font-size: 11.67px;">Leetcode</a> <a href="/tags/bigdata/" style="font-size: 15px;">bigdata</a> <a href="/tags/hadoop/" style="font-size: 16.67px;">hadoop</a> <a href="/tags/mapreduce/" style="font-size: 15px;">mapreduce</a> <a href="/tags/zookeeper/" style="font-size: 10px;">zookeeper</a> <a href="/tags/分布式/" style="font-size: 13.33px;">分布式</a> <a href="/tags/推荐/" style="font-size: 15px;">推荐</a> <a href="/tags/数据结构/" style="font-size: 18.33px;">数据结构</a> <a href="/tags/源码/" style="font-size: 11.67px;">源码</a> <a href="/tags/笔记/" style="font-size: 20px;">笔记</a> <a href="/tags/算法/" style="font-size: 18.33px;">算法</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/09/">September 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/06/">June 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">March 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">February 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed/">__trashed</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed-2/">[Raft]</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/08/hello-world/">Hello World</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 John Doe<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

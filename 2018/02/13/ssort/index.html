@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>如何在Map-Reduce中实现二次排序（对Value排序） | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  问题背景众所周知，Map-Reduce任务完成后，输出的结果文件总是按照Key进行升序排列（shuffle阶段完成）。 例如Hadoop里经典的word count程序： // File1原始数据 hello world hello apple apple apple baby  // 输出结果文件，已按Key进行升序排序 app">
+<meta name="keywords" content="bigdata,hadoop,mapreduce">
+<meta property="og:type" content="article">
+<meta property="og:title" content="如何在Map-Reduce中实现二次排序（对Value排序）">
+<meta property="og:url" content="http://yoursite.com/2018/02/13/ssort/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  问题背景众所周知，Map-Reduce任务完成后，输出的结果文件总是按照Key进行升序排列（shuffle阶段完成）。 例如Hadoop里经典的word count程序： // File1原始数据 hello world hello apple apple apple baby  // 输出结果文件，已按Key进行升序排序 app">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="http://yoursite.com/Users/marco/Desktop/ss.png">
+<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="如何在Map-Reduce中实现二次排序（对Value排序）">
+<meta name="twitter:description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  问题背景众所周知，Map-Reduce任务完成后，输出的结果文件总是按照Key进行升序排列（shuffle阶段完成）。 例如Hadoop里经典的word count程序： // File1原始数据 hello world hello apple apple apple baby  // 输出结果文件，已按Key进行升序排序 app">
+<meta name="twitter:image" content="http://yoursite.com/Users/marco/Desktop/ss.png">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-ssort" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/02/13/ssort/" class="article-date">
+  <time datetime="2018-02-13T14:54:02.000Z" itemprop="datePublished">2018-02-13</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/BigData/">BigData</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      如何在Map-Reduce中实现二次排序（对Value排序）
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>全文为本人（Haoxiang Ma）原创内容，转载请标明出处。</p>
+</blockquote>
+<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>众所周知，Map-Reduce任务完成后，输出的结果文件总是按照Key进行升序排列（shuffle阶段完成）。 例如Hadoop里经典的word count程序：</p>
+<pre><code>// File1原始数据
+hello
+world
+hello
+apple
+apple
+apple
+baby
+
+// 输出结果文件，已按Key进行升序排序
+apple 3
+baby 1
+hello 2
+world 1
+</code></pre><p>显然，这种默认的排序方式很多时候能帮开发者减轻负担，因为开发者不用去自行实现对Key进行排序的算法，所有的排序操作均由Hadoop帮开发者完成（详情参考Map-Reduce中的shuffle原理，<strong><em>具体参考map端的partition-&gt;spill-&gt;(spill.sort)-&gt;(combine)过程</em></strong>）。 <strong>一切似乎很美好，可是如果我们遇到了要对value排序的需求呢？</strong></p>
+<pre><code>// 假设有如下电影评分数据 movies.dat
+// 且我们希望对rating进行降序排序, 以便分析每部电影的评分趋势
+MovieID, rating
+  001,    75.5
+  001,    89
+  001,    60
+  002,    55
+  002,    79
+  003,    92.5
+  003,    92.8
+  003,    60
+ ......
+
+// 期望输出值（Key有序的同时，按rating降序排序）
+  001   89.0
+  001   75.5
+  001   60.0
+  002   79.0
+  002   55.0
+  003   92.8
+  003   92.5
+  003   60.0
+</code></pre><p>在“排序”的需求下，我们很自然地会想到：</p>
+<ul>
+<li>利用系统默认的排序。</li>
+<li>预处理数据，把rating当成Key，movieID当成Value。</li>
+</ul>
+<p>虽然按照以上的想法，确实是对作为Key的rating排序了，但我们需要的是<strong>降序</strong>输出而非默认的升序输出，且输出格式不符合要求（第一列应为movieID）。 此时，就需要引入一种<strong><em>二次排序（Secondary Sort）</em></strong>的概念了。所谓<strong><em>二次排序（Secondary Sort）</em></strong>其实就是人工地对所需字段进行排序，在系统的默认排序基础上做第二次的排序。</p>
+<h2 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h2><p><strong><em>二次排序（Secondary Sort）</em></strong>概念上不难理解，无非就是自行多做一次特定的排序。可是该如何实现呢？怎么在map-reduce的流程框框内对Value进行人工排序呢？ 其实关键技巧就是利用map-reduce会对Key排序的特点，让它“顺带”对Value进行排序。为了达到这种“顺带”的效果，<strong>我们可以将原始数据中的Key（MovieID）和Value（rating）合并到一起作为新的Key（MovieBean），同时仍然保持原Value（rating）作为Value。当系统对这个合并的Key（MovieBean）按照某种特性进行排序时，其对应的Value也会被相应地“排序”（因为map端输出时，Key和Value是一个整体数据结构）</strong>，为此我们应设计一个自定义的Bean类。</p>
+<pre><code>/**
+ * 自定义的MovieBean类, 将原始数据中的Key和Value合并到一个类中。
+ */
+public class MovieBean implements WritableComparable&lt;MovieBean&gt;{
+    public Text movieID;
+    public DoubleWritable score;
+
+    public MovieBean() {
+
+    }
+
+    public MovieBean(Text movieID, DoubleWritable score) {
+        this.movieID = movieID;
+        this.score = score;
+    }
+
+    public void set(Text movieID, DoubleWritable score) {
+        this.movieID = movieID;
+        this.score = score;
+    }
+
+    public Text getMovieID() {
+        return movieID;
+    }
+
+    public void setMovieID(Text movieID) {
+        this.movieID = movieID;
+    }
+
+    public DoubleWritable getScore() {
+        return score;
+    }
+
+    public void setScore(DoubleWritable score) {
+        this.score = score;
+    }
+
+    @Override
+    public String toString() {
+        return &quot;movieID=&quot; + movieID +
+                &quot;, score=&quot; + score;
+    }
+
+    /**
+     * 重点! 利用自定义的compareTo方法实现排序效果!
+     * @param o object of MovieBean
+     * @return result of comparison
+     */
+    @Override
+    public int compareTo(MovieBean o) {
+        if(o == null) {
+            throw new RuntimeException();
+        }
+
+        // movieID相同时, 按照score进行降序排序
+        if(this.movieID.compareTo(o.getMovieID()) == 0) {
+            return -score.compareTo(o.getScore());
+        }
+
+        // movieID不相同时, 直接按照MovieID排序
+        return this.movieID.compareTo(o.getMovieID());
+    }
+
+    /**
+     * @param dataOutput 序列化输出
+     */
+    @Override
+    public void write(DataOutput dataOutput) throws IOException {
+        dataOutput.writeUTF(movieID.toString());
+        dataOutput.writeDouble(score.get());
+    }
+
+    /**
+     * @param dataInput 序列化输入
+     */
+    @Override
+    public void readFields(DataInput dataInput) throws IOException {
+        movieID = new Text(dataInput.readUTF());
+        score = new DoubleWritable(dataInput.readDouble());
+    }
+}
+</code></pre><p>有了这个自定义的<strong><em>MovieBean</em></strong>类作为新的Key后，Mapper端的输出就从原来的 <strong><em>\&lt;MovieID, Rating&gt;</em></strong>键值对转换成了<strong><em>\&lt;MovieBean, Rating&gt;</em></strong>键值对。</p>
+<pre><code>&lt;MovieID, Rating&gt;  =&gt;  &lt;(MovieID, Rating), Rating&gt;
+</code></pre><p>那么Reducer端接收到的将是大量的<strong><em>\&lt;MovieBean, Rating&gt;</em></strong>数据。此时问题就来了，当我们的Key是<strong>简单类型</strong>时（如IntWritable，Text，DoubleWritable），很自然就能将多个K-V对中相同的Key提取出来，且将多个Value合并成一个集合，构成Reducer端的输入数据结构<strong><em>\&lt;Key, List></em></strong>。但是当我们的Key是复合类型，例如MovieBean是MovieID和Rating的复合结构时，<strong>即使两个MovieBean对象的MovieID相同，但这两个MovieBean却是不会被认为是同一个对象的。</strong></p>
+<pre><code>// 1号K-V对
+&lt;(&quot;0001&quot;, 85.0), 85.0&gt;
+
+// 2号K-V对
+&lt;(&quot;0001&quot;, 68.0), 68.0&gt;
+
+// Reducer接收到以上两个K-V对后，并不会把它们合并成&lt;MovieBean, List&lt;Value&gt;&gt;的数据结构
+// 因为两个K-V对的Key（MovieBean）并不相同
+</code></pre><p>为了解决这个问题，让Reducer把相同MovieID的MovieBean当成是一样的Key，继而把相同MovieID所对应的Ratings合并成<strong><em>\&lt;MovieBean, List></em></strong>结构，<strong>我们需要通过实现自定义的GroupingComparator来 _欺骗_ Reducer。</strong></p>
+<pre><code>/**
+ * 自定义的GroupingComparator
+ */
+public class MovieGroupingComparator extends WritableComparator {
+
+    /**
+     * 构造函数, 告知自定义Bean类
+     */
+    protected MovieGroupingComparator() {
+        super(MovieBean.class, true);
+    }
+
+    /**
+     * 重写WritableComparator接口的compare方法(类似于普通Comparator接口)
+     * @param a movieA
+     * @param b movieB
+     * @return result of comparison
+     */
+    @Override
+    public int compare(WritableComparable a, WritableComparable b) {
+        MovieBean movieA = (MovieBean) a;
+        MovieBean movieB = (MovieBean) b;
+
+        // 只比较两个MovieBean的MovieID, 忽略其他属性
+        return movieA.getMovieID().compareTo(movieB.getMovieID());
+    }
+}
+</code></pre><p>实现以上的自定义GroupingComparator时，我们在compare方法中只考虑<strong><em>MovieID</em></strong>这一个属性，等同于<strong>_欺骗_</strong>了Reducer。Reducer判断两个Key是否相同时<strong>只考虑MovieID是否相同</strong>，从而将不同的MovieBean对象抽取成一个统一的MovieBean作为Reducer的输入Key，即可顺利合并出<strong><em>\&lt;MovieBean, List></em></strong>这样的数据结构。</p>
+<pre><code>// example
+// 假设Reducer0接收到了以下K-V对
+&lt;(&quot;0001&quot;, 89.0), 89.0&gt;
+&lt;(&quot;0001&quot;, 76.8), 76.8&gt;
+&lt;(&quot;0001&quot;, 69.5), 69.5&gt;
+&lt;(&quot;0001&quot;, 69.3), 69.3&gt;
+
+
+// 由于compare方法只比较MovieBean中的MovieID属性, 完全忽略Rating, 所以
+// 以上4个K-V对中的MovieBean均会被视作一样的Key，最终合并成的数据结构如下
+// (为什么是有序的, 因为在map端的spill过程中已经依照rating降序排列了,参考MovieBean
+// 类中重写的compareTo方法)
+
+&lt; Key, List&lt;Value&gt;&gt;
+&lt;(&quot;0001&quot;, 89.0), [89.0, 76.8, 69.5, 69.3]&gt;
+</code></pre><h2 id="作业提交"><a href="#作业提交" class="headerlink" title="作业提交"></a>作业提交</h2><p>至此，二次排序中所有自定义的工作已经完成。<strong>但是千万不要忘记在提交Job之前，给Job设置以上自定义GroupingComparator</strong>，否则Job会使用内置默认的GroupingComparator，那我们的二次排序就无法生效了。</p>
+<pre><code>movieJob.setGroupingComparatorClass(MovieGroupingComparator.class);
+</code></pre><p>另外，<strong>如果需要自定义Reducer数量</strong>（例如有时希望输出N个结果文件，则需要N个Reducer），还要自定义Partitioner。Partitioner的作用简单来说就是给Mapper端产生的K-V对打上一个<strong><em>partition id</em></strong>烙印，让系统知道这个K-V对应该被哪个Reducer取走。在本例中，<strong>如有需要（不是必须）</strong>，我们可以按照MovieID进行划分，不同MovieID的K-V对划分到不同的Reducer上进行处理。</p>
+<pre><code>/**
+ * 自定义Partitioner, 用于划分K-V对被哪个Reducer取走
+ */
+public class MoviePartitioner extends Partitioner&lt;MovieBean, DoubleWritable&gt; {
+
+    @Override
+    public int getPartition(MovieBean movieBean, DoubleWritable doubleWritable, int numReducers) {
+        // 相同MovieID的必定会到同一个Reducer上
+        return movieBean.getMovieID().hashCode() % numReducers;
+    }
+}
+</code></pre><p>最后给Job设定自定义的Reducer数，即可启动N个Reducer进行数据处理。</p>
+<pre><code>final int NUM_REDUCE_TASK = 5;
+movieJob.setNumReduceTasks(NUM_REDUCE_TASK);
+</code></pre><p><img src="/Users/marco/Desktop/ss.png" alt=""></p>
+<p>单Reducer运行结果</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>使用SecondarySort可以使我们在Map-Reduce框架内完成自定义排序。依托Map-Reduce会对Key进行排序的特性，可以将需要排序的字段（Value）与原始Key合成为自定义的Bean作为新的Key，原Value保持不动。有了SecondarySort，我们就不必在框架外做额外的工作进行排序，干扰程序的可读性；也不必将原始Key和Value对换，影响输出格式。</p>
+<h2 id="代码地址"><a href="#代码地址" class="headerlink" title="代码地址"></a>代码地址</h2><p><a href="https://github.com/AcepcsMa/hadoop_examples/tree/master/src/sort" target="_blank" rel="noopener">Github-Secondary Sort</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/02/13/ssort/" data-id="cjpg78r7g003jbxuyz7f21l7t" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/mapreduce/">mapreduce</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/02/13/osxmr/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          OS X下MapReduce程序运行的几种模式
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/02/13/zkserver/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">利用ZooKeeper开发服务器上下线感知程序</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/BigData/">BigData</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Go/">Go</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/">Leetcode</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/">分布式</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/推荐系统/">推荐系统</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/未分类/">未分类</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/">Go</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/">Java</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/">zookeeper</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/分布式/">分布式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/推荐/">推荐</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/源码/">源码</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/笔记/">笔记</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Go/" style="font-size: 18.33px;">Go</a> <a href="/tags/Java/" style="font-size: 16.67px;">Java</a> <a href="/tags/Leetcode/" style="font-size: 11.67px;">Leetcode</a> <a href="/tags/bigdata/" style="font-size: 15px;">bigdata</a> <a href="/tags/hadoop/" style="font-size: 16.67px;">hadoop</a> <a href="/tags/mapreduce/" style="font-size: 15px;">mapreduce</a> <a href="/tags/zookeeper/" style="font-size: 10px;">zookeeper</a> <a href="/tags/分布式/" style="font-size: 13.33px;">分布式</a> <a href="/tags/推荐/" style="font-size: 15px;">推荐</a> <a href="/tags/数据结构/" style="font-size: 18.33px;">数据结构</a> <a href="/tags/源码/" style="font-size: 11.67px;">源码</a> <a href="/tags/笔记/" style="font-size: 20px;">笔记</a> <a href="/tags/算法/" style="font-size: 18.33px;">算法</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/09/">September 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/06/">June 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">March 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">February 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed/">__trashed</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed-2/">[Raft]</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/08/hello-world/">Hello World</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 John Doe<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

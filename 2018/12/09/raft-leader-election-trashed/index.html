@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>[Raft]Leader Election(选主)笔记 | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。  为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。  选主过程最重要的限制是： Leader必须存有所有已经c">
+<meta name="keywords" content="笔记,算法,分布式">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Raft]Leader Election(选主)笔记">
+<meta property="og:url" content="http://yoursite.com/2018/12/09/raft-leader-election-trashed/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。  为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。  选主过程最重要的限制是： Leader必须存有所有已经c">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_1.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_2.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_election.png">
+<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Raft]Leader Election(选主)笔记">
+<meta name="twitter:description" content="Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。  为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。  选主过程最重要的限制是： Leader必须存有所有已经c">
+<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_1.png">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-raft-leader-election-trashed" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/12/09/raft-leader-election-trashed/" class="article-date">
+  <time datetime="2018-12-09T16:42:51.000Z" itemprop="datePublished">2018-12-09</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/分布式/">分布式</a>►<a class="article-category-link" href="/categories/分布式/算法/">算法</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      [Raft]Leader Election(选主)笔记
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <ol>
+<li><p>Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。</p>
+</li>
+<li><p>为了保证不丢数据（<strong>特指已经commit且成功通知client的数据</strong>），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。</p>
+</li>
+<li><p>选主过程最重要的限制是： <strong><em>Leader必须存有所有已经commit过的log entry，这样才能保证整个分布式系统的一致性。</em></strong> <strong>在外部用户看来，已经commit成功的就必然是100%正常存储好了的。</strong>如果选出一个Leader，结果它上面缺了几条已经comm<a href="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/it过的数据，那这个分布式系统就没有任何意义了。几分钟前跟用户说“我已经commit了，你放心吧”，过一会用户想查一查数据却发现“尼玛，怎么丢数据了，说好的已经commit了呢？！”" target="_blank" rel="noopener">https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/it过的数据，那这个分布式系统就没有任何意义了。几分钟前跟用户说“我已经commit了，你放心吧”，过一会用户想查一查数据却发现“尼玛，怎么丢数据了，说好的已经commit了呢？！”</a></p>
+</li>
+<li><p>为了满足这个条件（Leader上必须存有所有已经commit过的数据），Raft中提出了两个限制条件，<strong>如果严格遵守以下两个条件，是能保证选出合法Leader的</strong>。</p>
+<ul>
+<li>在选主过程中，每台服务器只会投票给拥有比自己更新的log entry的服务器。</li>
+<li><p>Leader在commit log entry的时候，只允许<strong>直接</strong>commit当前term（任期）的log entry，决不允许<strong>直接</strong>commit“历史”log entry。（历史log entry只能<strong>间接被动</strong>commit） （1）先来看看第一个条件：每台server只会投票给拥有比自己更新的log entry的server。这句话里最关键的是如何定义<strong><em>“更新的log entry”</em></strong>。按照Raft论文里给出的定义：</p>
+<blockquote>
+<p>Raft determines which of two logs is more up-to-date by comparing the index and term of the last entries in the logs. If the logs have last entries with different terms, then the log with the later term is more up-to-date. If the logs end with the same term, then whichever log is longer is more up-to-date.</p>
+</blockquote>
+<ul>
+<li>两台服务器上的<strong>最后一条</strong>log entry，如果它们的term不同，则term更大者是“更新”的。</li>
+<li>两台服务器上的<strong>最后一条</strong>log entry，如果它们的term相同，则index更大者是“更新”的。</li>
+</ul>
+<p>（这里我觉得论文里漏了一个小细节，如果两条log entry的term和index都相同，<strong>应该会默认把发起投票的服务器当成更新的</strong>，term和index都一样的情况下不存在所谓的“更新”，一切为了选主的顺利进行，能快速有效选出leader才是最重要的。） <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_1.png" alt=""> 如上图所示，根据Raft的判断标准，<strong>下者的记录比上者更新，因为下者最后一条log entry的term为5，5比4大</strong>。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_2.png" alt=""> 如上图所示，根据Raft的判断标准，<strong>上者的记录比上者更新，因为上者最后一条log entry的index为4，下者最后一条log entry的index为3，4比3大</strong>。 （2）再研究第二个条件：Leader只允许<strong>直接</strong>commit当前term（任期）的log entry，决不允许<strong>直接</strong>commit“历史”log entry。这条前提一看上去有点云里雾里的，感觉并没有什么必要性。<strong>实则不然，这条前提非常重要，是用来避免异常情况下频繁换Leader可能造成的commited log entry被覆盖的问题。</strong> Raft原版论文里也给出了一个经典场景： <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_election.png" alt=""></p>
+<ul>
+<li>在(a)阶段，已经处于<code>term:2</code>了，<code>S1</code>是本轮（<code>term:2</code>）的leader。在<code>S1</code>上任后没多久，收到了客户端的请求，写入一条<code>{term:2, index:2}</code>的log，并将此log成功复制到<code>S2</code>这个小兄弟上。<strong>结果天不如人愿，还没来得及把log复制到其他小兄弟上，<code>S1</code>自己就宕机了。</strong></li>
+<li>到了(b)阶段，<code>S1</code>宕机后，整个集群处于无领导状态。经过了一小会，<code>S5</code>很幸运率先结束timeout，自增term号（从<code>term:2</code>自增到<code>term:3</code>），发起了选主。由于此时<code>S3</code>和<code>S4</code>上的记录都和<code>S5</code>一样新，所以都愿意投票给<code>S5</code>，<code>S5</code>成功当选，成为leader。<code>S5</code>成为leader后马上又收到了客户端的请求，于是在本机上写入一条<code>{term:3, index:2}</code>的log。<strong>然而<code>S5</code>的命运比<code>S1</code>更惨，只来得及存在本地，来不及把log entry复制给任何一个小兄弟，直接就挂了。</strong></li>
+<li>此时来到了(c)状态，<code>S5</code>挂了之后，<code>S1</code>成功重启恢复运转。<code>S1</code>自告奋勇，自增全局term号（从<code>term:3</code>自增到<code>term:4</code>），请求大家选主。<code>S2 ~ S4</code>都会投给<code>S1</code>，<code>S1</code>顺利当选leader。<code>S1</code>成了leader后做了第一件事情，发现之前<code>{term:2, index:2}</code>的log还没有成功复制给大部分兄弟，于是开始复制工作，把log复制到了<code>S3</code>上。突然<code>S1</code>又收到了客户端的请求，写入一条<code>{term:4, index:3}</code>的log到本机。</li>
+</ul>
+<p>以上3步都非常理所当然，没有任何的争议点，最大的争议点就出现在了(d)和(e)上。<strong>(d)和(e)实际上是(c)发生之后的两种互斥的可能情况，(d)是忽视第二条前提会发生的情况，(e)是满足第二条前提会发生的情况。</strong></p>
+<ul>
+<li>先看(d)。<strong>假设我们忽略第二条前提，也就是说leader可以随意commit任何term的log entry。</strong>那么在(c)结束之后，作为<code>term:4</code>的leader的<code>S1</code><strong>可以commit掉<code>{term:2, index:2}</code>的log，并且把结果返回给客户端。</strong>结果刚完成以上步骤，<code>S1</code>又倒霉地宕机了，<code>{term:4, index:3}</code>的log没来得及复制给任何一个小兄弟。过了一会，<code>S5</code>恢复正常，自增全局term号（从<code>term:4</code>自增到<code>term:5</code>），要求选主。由于此时<code>S5</code>上的最后一条log是<code>{term:3, index:2}</code>，比<code>S2 ~ S4</code>的都更新，大家都会投票给<code>S5</code>，<code>S5</code>成功当上<code>term:5</code>的leader。当上leader后，<code>S5</code>的第一件事情就是把它还没来得及复制给多个小兄弟的log复制出去，所以就造成了(d)状态，所有服务器上的log记录都被<code>S5</code>自己的log记录覆盖了。<strong>之前已经成功commit的<code>{term:2, index:2}</code>的log直接被覆盖，消失无踪⚠️！</strong></li>
+<li>再看(e)。<strong>假设我们一定要坚守第二条前提，也就是说leader只能直接commit当前term的log entry，不能直接commit历史log entry。</strong>那么在(c)结束后，<code>S1</code>也不能commit<code>{term:2, index:2}</code>的log，因为<code>S1</code>此时是<code>term:4</code>的leader，而不是<code>term:2</code>的leader。只有如(e)所示，之后<code>S1</code>有机会commit属于当前term的log entry（<code>{term:4, index:3}</code>）时，才有机会<strong>间接地</strong>把之前<code>term:2</code>的历史记录也commit掉。即使此时<code>S1</code>宕机，<code>S5</code>也绝对不可能选上下一轮的leader，因为<code>S5</code>上最新的log<code>{term:3, index:2}</code>已经不如<code>S1 ~ S3</code>的新了，他拿不到过半的选票，做不了leader，也就不会发生已经commit的记录被覆盖的错误了。</li>
+</ul>
+<p>经过这一轮例子分析，可以很清晰地看到第二条前提的重要性了。如果允许leader随便直接commit历史记录的话，极端情况下很可能会造成数据丢失的系统错误（客户端知道你commit成功了，他就应该能放心了，结果过了一会你跟客户说commit也不算数，我搞丢了。。。。。。）<strong>所以，对于历史记录的commit只能被动触发！！！在commit当前term的log entry时顺便把之前未处理的log entry给commit掉。</strong></p>
+</li>
+</ul>
+</li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/12/09/raft-leader-election-trashed/" data-id="cjpg78r5t0006bxuy9mvmyr9b" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/分布式/">分布式</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/算法/">算法</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+  
+    <a href="/2018/12/09/trashed/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">__trashed</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/BigData/">BigData</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Go/">Go</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/">Leetcode</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/">分布式</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/推荐系统/">推荐系统</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/未分类/">未分类</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/">Go</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/">Java</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/">zookeeper</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/分布式/">分布式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/推荐/">推荐</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/源码/">源码</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/笔记/">笔记</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Go/" style="font-size: 18.33px;">Go</a> <a href="/tags/Java/" style="font-size: 16.67px;">Java</a> <a href="/tags/Leetcode/" style="font-size: 11.67px;">Leetcode</a> <a href="/tags/bigdata/" style="font-size: 15px;">bigdata</a> <a href="/tags/hadoop/" style="font-size: 16.67px;">hadoop</a> <a href="/tags/mapreduce/" style="font-size: 15px;">mapreduce</a> <a href="/tags/zookeeper/" style="font-size: 10px;">zookeeper</a> <a href="/tags/分布式/" style="font-size: 13.33px;">分布式</a> <a href="/tags/推荐/" style="font-size: 15px;">推荐</a> <a href="/tags/数据结构/" style="font-size: 18.33px;">数据结构</a> <a href="/tags/源码/" style="font-size: 11.67px;">源码</a> <a href="/tags/笔记/" style="font-size: 20px;">笔记</a> <a href="/tags/算法/" style="font-size: 18.33px;">算法</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/09/">September 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/06/">June 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">March 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">February 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed/">__trashed</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed-2/">[Raft]</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/08/hello-world/">Hello World</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 John Doe<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

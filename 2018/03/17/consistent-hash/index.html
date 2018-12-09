@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>一致性Hash算法——分析与模拟 | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="如需转载请注明出处。  问题背景假设现在有一个存储集群——Cluster_A，Cluster_A包含了N个存储节点，每个存储节点上存储了大量数据。那么在一般情况下，新进入集群的数据会被计算出其对应的Hash值，然后按照一定的规则被分配到某个存储节点上。最常见的分配策略如下： // sha256或者md5均为常见的hash函数 node_id = hash(data) % N 在正常情况下，这种数">
+<meta name="keywords" content="算法,数据结构,分布式">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一致性Hash算法——分析与模拟">
+<meta property="og:url" content="http://yoursite.com/2018/03/17/consistent-hash/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="如需转载请注明出处。  问题背景假设现在有一个存储集群——Cluster_A，Cluster_A包含了N个存储节点，每个存储节点上存储了大量数据。那么在一般情况下，新进入集群的数据会被计算出其对应的Hash值，然后按照一定的规则被分配到某个存储节点上。最常见的分配策略如下： // sha256或者md5均为常见的hash函数 node_id = hash(data) % N 在正常情况下，这种数">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/consistent_hash.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/case2.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/case3.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/case4.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/v_node.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/v_node_query.png">
+<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="一致性Hash算法——分析与模拟">
+<meta name="twitter:description" content="如需转载请注明出处。  问题背景假设现在有一个存储集群——Cluster_A，Cluster_A包含了N个存储节点，每个存储节点上存储了大量数据。那么在一般情况下，新进入集群的数据会被计算出其对应的Hash值，然后按照一定的规则被分配到某个存储节点上。最常见的分配策略如下： // sha256或者md5均为常见的hash函数 node_id = hash(data) % N 在正常情况下，这种数">
+<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/consistent_hash.png">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-consistent-hash" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/03/17/consistent-hash/" class="article-date">
+  <time datetime="2018-03-17T20:30:01.000Z" itemprop="datePublished">2018-03-17</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/算法/">算法</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      一致性Hash算法——分析与模拟
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>如需转载请注明出处。</p>
+</blockquote>
+<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>假设现在有一个存储集群——<code>Cluster_A</code>，<code>Cluster_A</code>包含了<code>N</code>个存储节点，每个存储节点上存储了大量数据。那么在一般情况下，新进入集群的数据会被计算出其对应的Hash值，然后按照一定的规则被分配到某个存储节点上。最常见的分配策略如下：</p>
+<pre><code>// sha256或者md5均为常见的hash函数
+node_id = hash(data) % N
+</code></pre><p>在正常情况下，这种数据分配策略的性能取决于hash算法的性能，一般不会出什么大问题。但是往往在一个大集群中会出现<strong>增／删节点</strong>的需求，试想当<code>N</code>变成<code>N+1</code>或<code>N-1</code>时，数据所对应的新<code>node_id</code>大概率会与原<code>node_id</code>不一样。那么用户想从集群读数据时就会找不到该数据，因为算出来的新<code>node_id</code>与数据真正存储的<code>node_id</code>不一样了。</p>
+<pre><code>// 原data_1所属的node_id = 50
+// data_1被存在50号节点上
+node_id1 = hash(data_1) % N = 50 
+
+// 增加一个存储节点后data_1对应的node_id
+// 用户读取data_1时，系统算出应该去30号节点取数据，导致读取失败
+node_id1 = hash(data_1) % (N+1) = 30
+</code></pre><p>为了保证数据的不丢失，在增／删节点发生后，需要对集群里的所有数据进行<strong>重新Hash</strong>，以进行数据的重新分配。<strong>然而，如果每次增／删节点都对所有数据进行重分配，系统开销将会是一个天文数字，在实际工程中难以承受，总不可能让用户等待几十分钟的重Hash过程才能成功读取数据吧</strong>。 为了解决这个问题，一种特殊的解决方案——<strong><em>一致性Hash算法</em></strong>横空出世。</p>
+<h2 id="算法详解"><a href="#算法详解" class="headerlink" title="算法详解"></a>算法详解</h2><p><strong>一致性Hash算法的核心，是把节点本身也映射到和数据一致的Hash空间。</strong> 这句话听起来似乎有点拗口，<strong>简单而言就是使用一样的Hash方法，不仅对数据进行Hash，同时也对节点进行Hash。</strong>通过这样做，就能将数据和节点放置到一个空间中，假设<code>hash(x)</code>的值域为<code>[0, M]</code>，如下图所示，可以用一个二维的环表示此Hash空间。然后对每一条数据<code>data</code>计算<code>hash(data)</code>，把数据放置到环上顺时针方向最近的节点进行存储。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/consistent_hash.png" alt=""></p>
+<ul>
+<li><p>正常情况（无节点增删） 假设集群内节点数量<code>N = 100</code>，数据条数<code>DATA_COUNT = 100000</code>。理想情况下，如果Hash算法的结果是均匀的，每个节点应该存储<code>100000 / 100 = 1000</code>条数据。为此我用Python写了一个模拟程序。</p>
+<pre><code># encoding=utf-8
+from struct import unpack_from
+from hashlib import md5
+import matplotlib.pyplot as plt
+
+NUM_NODES = 100
+NUM_DATA = 100000
+nodes = [0 for i in range(NUM_NODES)]
+
+# hash function
+def hash(data):
+    data_md5 = md5(str(data)).digest()
+    return unpack_from(&quot;=I&quot;, data_md5)[0]
+
+# distribute data to different nodes
+def distribute():
+    for data in range(NUM_DATA):
+        h = hash(data)
+        index = h % NUM_NODES
+        nodes[index] += 1
+
+if __name__ == &apos;__main__&apos;:
+    &apos;&apos;&apos;
+        Case 1: 正常情况下的数据分布
+    &apos;&apos;&apos;
+
+    distribute()
+    max_node = max(nodes)
+    min_node = min(nodes)
+    print (&quot;Node with max data: {0} piece of data&quot;.format(max_node))
+    print (&quot;Node with min data: {0} piece of data&quot;.format(min_node))
+
+    # plot scatter graph
+    x = [i for i in range(NUM_NODES)]
+    y = nodes
+    plt.scatter(x, y, c=&apos;r&apos;)
+    plt.yticks(range(0, 2 * NUM_DATA / NUM_NODES, 100))
+    plt.xlabel(&quot;Node Index&quot;)
+    plt.ylabel(&quot;Data Count&quot;)
+    plt.show()
+</code></pre></li>
+</ul>
+<pre><code>经过模拟，得到如下的数据分布散点图： ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/common.png) 可以看出每个节点存储的数据均在`1000`上下浮动，差距不大，可以看作是均匀分布。
+</code></pre><ul>
+<li><p>增加／删除一个节点</p>
+<pre><code># encoding=utf-8
+from struct import unpack_from
+from hashlib import md5
+
+LESS_NUM_NODES = 99         # less nodes
+ORIGINAL_NUM_NODES = 100    # original nodes
+MORE_NUM_NODES = 101        # more nodes
+NUM_DATA = 100000
+
+# hash function
+def hash(data):
+    data_md5 = md5(str(data)).digest()
+    return unpack_from(&quot;=I&quot;, data_md5)[0]
+
+# distribute data to more nodes
+def distribute_more():
+    transfer_count = 0
+    for data in range(NUM_DATA):
+        h = hash(data)
+        original_index = h % ORIGINAL_NUM_NODES
+        more_index = h % MORE_NUM_NODES
+        if original_index != more_index:
+            transfer_count += 1
+    return transfer_count
+
+# distribute data to less nodes
+def distribute_less():
+    transfer_count = 0
+    for data in range(NUM_DATA):
+        h = hash(data)
+        original_index = h % ORIGINAL_NUM_NODES
+        less_index = h % LESS_NUM_NODES
+        if original_index != less_index:
+            transfer_count += 1
+    return transfer_count
+
+if __name__ == &apos;__main__&apos;:
+    &apos;&apos;&apos;
+        Case 2: 当出现增/删节点时的数据分布情况
+    &apos;&apos;&apos;
+
+    # 新增节点
+    transfer_count = distribute_more()
+    print(&quot;##### When one new node is added #####&quot;)
+    print(&quot;Data that need to be transferred: {}&quot;.format(transfer_count))
+    print(&quot;Percentage of data that need to be transferred: {}%&quot;.format(transfer_count * 100.0 / NUM_DATA))
+
+    # 删除节点
+    transfer_count = distribute_less()
+    print(&quot;\n##### When one old node is deleted #####&quot;)
+    print(&quot;Data that need to be transferred: {}&quot;.format(transfer_count))
+    print(&quot;Percentage of data that need to be transferred: {}%&quot;.format(transfer_count * 100.0 / NUM_DATA))
+</code></pre></li>
+</ul>
+<p>数据迁移情况如下图所示 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/case2.png" alt=""> 可以看到，将节点个数从<code>N</code>增加到<code>N+1</code>后或从<code>N</code>减少到<code>N-1</code>后，有差不多<code>99%</code>的数据经过重Hash后都要进行数据迁移，这样的数据迁移压力绝对是无法承受的。</p>
+<ul>
+<li><p>应用一致性Hash算法后数据迁移情况</p>
+<h1 id="encoding-utf-8"><a href="#encoding-utf-8" class="headerlink" title="encoding=utf-8"></a>encoding=utf-8</h1><p>from struct import unpack_from<br>from hashlib import md5<br>from bisect import bisect_left</p>
+<p>ORIGINAL_NUM_NODES = 100    # original node count<br>NEW_NUM_NODES = 101         # new node count<br>NUM_DATA = 100000</p>
+<h1 id="hash-function"><a href="#hash-function" class="headerlink" title="hash function"></a>hash function</h1><p>def hash(data):</p>
+<pre><code>data_md5 = md5(str(data)).digest()
+return unpack_from(&quot;=I&quot;, data_md5)[0]
+</code></pre><h1 id="distribute-data-to-different-nodes"><a href="#distribute-data-to-different-nodes" class="headerlink" title="distribute data to different nodes"></a>distribute data to different nodes</h1><p>def distribute(original_nodes, new_nodes):</p>
+<pre><code>transfer_count = 0
+for data in range(NUM_DATA):
+    h = hash(data)
+    original_index = bisect_left(original_nodes, h) % ORIGINAL_NUM_NODES
+    new_index = bisect_left(new_nodes, h) % NEW_NUM_NODES
+    if original_index != new_index:
+        transfer_count += 1
+return transfer_count
+</code></pre><p>if <strong>name</strong> == ‘<strong>main</strong>‘:</p>
+<pre><code>&apos;&apos;&apos;
+    Case 3: 应用一致性Hash后, 需要移动的节点比例
+&apos;&apos;&apos;
+
+original_nodes = sorted([hash(i) for i in range(ORIGINAL_NUM_NODES)])   # 对node本身也取hash
+new_nodes = sorted([hash(i) for i in range(NEW_NUM_NODES)])             # 对node本身也取hash
+
+transfer_count = distribute(original_nodes, new_nodes)
+print(&quot;Percentage of data that need to be transferred: {}%&quot;.format(transfer_count * 100.0 / NUM_DATA))
+</code></pre></li>
+</ul>
+<p>数据迁移情况如下图所示 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/case3.png" alt=""> 实现了一致性Hash算法后，我们将节点也映射到了同一片Hash空间，成功地将数据迁移的比例从<code>99%</code>降低到<code>37%</code>左右。</p>
+<ul>
+<li><p>应用一致性Hash算法后数据分布情况</p>
+<h1 id="encoding-utf-8-1"><a href="#encoding-utf-8-1" class="headerlink" title="encoding=utf-8"></a>encoding=utf-8</h1><p>from struct import unpack_from<br>from hashlib import md5<br>from bisect import bisect_left<br>import matplotlib.pyplot as plt</p>
+<p>NUM_NODES = 100    # original node count<br>NUM_DATA = 100000</p>
+<h1 id="hash-function-1"><a href="#hash-function-1" class="headerlink" title="hash function"></a>hash function</h1><p>def hash(data):</p>
+<pre><code>data_md5 = md5(str(data)).digest()
+return unpack_from(&quot;=I&quot;, data_md5)[0]
+</code></pre><h1 id="distribute-data-to-different-nodes-1"><a href="#distribute-data-to-different-nodes-1" class="headerlink" title="distribute data to different nodes"></a>distribute data to different nodes</h1><p>def distribute(nodes, stat):</p>
+<pre><code>for data in range(NUM_DATA):
+    h = hash(data)
+    index = bisect_left(nodes, h) % NUM_NODES
+    stat[index] += 1
+</code></pre></li>
+</ul>
+<pre><code>if __name__ == &apos;__main__&apos;:
+    &apos;&apos;&apos;
+        Case 4: 应用一致性Hash后, 数据的分布情况
+    &apos;&apos;&apos;
+
+    nodes = sorted([hash(i) for i in range(NUM_NODES)])
+    stat = [0 for i in range(NUM_NODES)]
+
+    distribute(nodes, stat)
+    max = max(stat)
+    min = min(stat)
+    print(&quot;Node with max data: {} piece of data&quot;.format(max))
+    print(&quot;Node with min data: {} piece of data&quot;.format(min))
+
+    # plot scatter graph
+    x = [i for i in range(NUM_NODES)]
+    y = stat
+    plt.scatter(x, y, c=&apos;r&apos;)
+    plt.yticks(range(0, 10 * NUM_DATA / NUM_NODES, 1000))
+    plt.xlabel(&quot;Node Index&quot;)
+    plt.ylabel(&quot;Data Count&quot;)
+    plt.show()
+</code></pre><p>应用一致性Hash后，数据分布情况如下图所示 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/case4.png" alt=""> 可以看到，相比期望值<code>1000</code>，出现了偏移的数据，存在很多低于<code>1000</code>条数据的节点。虽然数据迁移率降低了，但是出现了另一个问题——<strong>无法充分利用集群上的所有节点进行数据存储，造成了数据不平衡</strong>。</p>
+<ul>
+<li>一致性Hash算法——解决数据不平衡</li>
+</ul>
+<p>数据不平衡问题，根本原因就在于对节点进行Hash后，它们的Hash值在环上分布不够均匀。那么为了“分布均匀”，自然而然我们可以在环上稀疏的区域多添加一些“假”节点，也就是<strong>虚拟节点（Virtual Node）</strong>，以将稀疏的区域填充得满一点。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/v_node.png" alt=""> 如图所示，通过在稀疏区域增加<strong>虚拟节点（Virtual Node）</strong>，原本介于<code>Node #3</code>和<code>data #1</code>间的数据可以被“存储”在<code>V-Node #2</code>或者<code>V-Node #1</code>上。再通过查询<code>V-Node</code>到<code>Node</code>的映射关系，即可从实际的存储节点取出数据。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/v_node_query.png" alt=""> 通过保存<code>V-Node</code>到<code>Node</code>的<code>mapping</code>，可以迅速定位到实际存储节点。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>一致性Hash算法，核心在于解决集群节点增删场景下的数据丢失 &amp; 大量数据迁移问题。实现的关键是将节点本身也通过Hash函数映射到数据所在的Hash空间，从而使数据能够在某一固定空间内作“物理性”（顺时针、逆时针……）的位置分配。</p>
+<h2 id="相关代码"><a href="#相关代码" class="headerlink" title="相关代码"></a>相关代码</h2><p>具体代码请查看<a href="https://github.com/AcepcsMa/Consistent_Hash" target="_blank" rel="noopener">我的Github目录</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/03/17/consistent-hash/" data-id="cjpg78r6u002mbxuyaacg9z76" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/分布式/">分布式</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/算法/">算法</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/03/23/deepcopyinjava/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          Java中的深复制&amp;浅复制
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/03/04/join-di/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">浅谈join与数据倾斜解决方案</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/BigData/">BigData</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Go/">Go</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/">Leetcode</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/">分布式</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/推荐系统/">推荐系统</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/未分类/">未分类</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/">Go</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/">Java</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/">zookeeper</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/分布式/">分布式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/推荐/">推荐</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/源码/">源码</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/笔记/">笔记</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Go/" style="font-size: 18.33px;">Go</a> <a href="/tags/Java/" style="font-size: 16.67px;">Java</a> <a href="/tags/Leetcode/" style="font-size: 11.67px;">Leetcode</a> <a href="/tags/bigdata/" style="font-size: 15px;">bigdata</a> <a href="/tags/hadoop/" style="font-size: 16.67px;">hadoop</a> <a href="/tags/mapreduce/" style="font-size: 15px;">mapreduce</a> <a href="/tags/zookeeper/" style="font-size: 10px;">zookeeper</a> <a href="/tags/分布式/" style="font-size: 13.33px;">分布式</a> <a href="/tags/推荐/" style="font-size: 15px;">推荐</a> <a href="/tags/数据结构/" style="font-size: 18.33px;">数据结构</a> <a href="/tags/源码/" style="font-size: 11.67px;">源码</a> <a href="/tags/笔记/" style="font-size: 20px;">笔记</a> <a href="/tags/算法/" style="font-size: 18.33px;">算法</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/09/">September 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/06/">June 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">March 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">February 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed/">__trashed</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed-2/">[Raft]</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/08/hello-world/">Hello World</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 John Doe<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>[Golang]奇怪的“类”和多态（Polymorphism） | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/14，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction多态这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可以指向子类的对象，在Java里面虽然没有指针这样的概念，">
+<meta name="keywords" content="Go,笔记">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Golang]奇怪的“类”和多态（Polymorphism）">
+<meta property="og:url" content="http://yoursite.com/2018/11/15/polymorphism/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/14，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction多态这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可以指向子类的对象，在Java里面虽然没有指针这样的概念，">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Golang]奇怪的“类”和多态（Polymorphism）">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/14，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction多态这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可以指向子类的对象，在Java里面虽然没有指针这样的概念，">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-polymorphism" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/15/polymorphism/" class="article-date">
+  <time datetime="2018-11-15T21:08:21.000Z" itemprop="datePublished">2018-11-15</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/Go/">Go</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      [Golang]奇怪的“类”和多态（Polymorphism）
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/14，基于<code>Go 1.11</code>。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
+</blockquote>
+<h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p><strong>多态</strong>这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可以指向子类的对象，在Java里面虽然没有指针这样的概念，但是我们一般会说，如果某个子类实现了一个接口，那么这个接口的引用就可以引用这个子类的一个实例对象。 但是类似于C++和Java里面的实现基本上都是基于接口和类的相互合作去构建的。而在Go里面，是有接口的定义，但是并不存在严格意义上的类（Class），只是单纯的结构体（Struct），而且实现方法时还有略显奇葩的<code>Receiver</code>机制。所以本文的目标就是来探索一下在Go语言里面多态是如何实现的，以及在Go语言时实现多态的过程中有哪些奇奇怪怪的坑。</p>
+<h4 id="类、方法、多态"><a href="#类、方法、多态" class="headerlink" title="类、方法、多态"></a>类、方法、多态</h4><ol>
+<li><p>基本接口实现 首先看看一下在Go语言里面如何去实现一个接口，其实就是让一个结构体去实现接口里定义的所有方法。但是在Go里面结构体（Struct）并不是我们在Java中认知的类（Class），所以我们所谓的实现一个方法是要写在结构体的外部，并且为每个方法定义一个接收者（Receiver）。</p>
+<pre><code>// Human接口，内含breathe()方法，因为所有人类都能呼吸
+type Human interface {
+    breathe()
+}
+
+// 学生结构体，内含姓名和年龄
+type Student struct {
+    name string
+    age int
+}
+
+// 实现Student类的breathe方法，实现了Human接口
+func (s Student) breathe() {
+    fmt.Println(&quot;I can breathe.&quot;)
+}
+</code></pre></li>
+</ol>
+<ol start="2">
+<li><p>Receiver的选择 在为每个方法定义Receiver的时候，不仅可以把Receiver定义为一个结构体的对象（值），还可以定义为该结构体的一个指针。当你需要对某个对象（值）里面的属性做修改的时候，例如更新或者删除原值，一般情况下会把Receiver定义为结构体的<strong>指针</strong>。</p>
+<pre><code>// Driver接口，内含updateLicense()方法，因为司机有时需要更新驾照信息
+type Driver interface {
+    updateLicense()
+}
+
+// Man结构体
+type Man struct {
+    name string
+    age int
+    license string
+}
+
+// 实现Man的updateLicense方法，实现了Driver接口
+func (m *Man) updateLicense() {
+    m.license = &quot;new license&quot;
+    fmt.Println(&quot;License is updated.&quot;)
+}
+</code></pre></li>
+</ol>
+<ol start="3">
+<li><p>方法调用 无论你是用指针还是用某个结构体具体的值，都可以直接对该结构体所实现的方法进行直接的调用。当你使用指针调用某个接收者是值的方法时，Go语言的内部会帮你把指针指向的对象（值）找出来，然后再进行调用。如果某个方法的接收者是一个指针，同样也可以用对象（值）来进行调用。这是因为go语言内部会自动把对象（值）的地址找到，然后构建出指向该对象（值）的指针，就可以顺利进行调用。</p>
+<pre><code>// 学生结构体，内含姓名和年龄
+type Student struct {
+    name string
+    age int
+}
+
+// Receiver为对象（值）的方法
+func (s Student) breathe() {
+    fmt.Println(&quot;I can breathe.&quot;)
+}
+
+// Receiver为指针的方法
+func (s *Student) grow() {
+    s.age += 1
+    fmt.Println(&quot;Grow older.&quot;)
+}
+
+func main() {
+
+    student := Student{name: &quot;hh&quot;, age: 18} //学生对象（值）
+    pointer := &amp;student //指针
+
+    student.breathe() //直接调用正常，打印出I can breathe.
+    pointer.breathe() //通过指针调用也正常，也打印出I can breathe.
+
+    student.grow() //直接调用正常，打印出Grow older
+    pointer.grow() //通过指针调用也正常，也打印出Grow older
+
+}
+</code></pre></li>
+</ol>
+<pre><code>**从上述代码可以看出，无论某个方法的Receiver是对象（值）还是指针，都可以通过对象（值）或者指针来进行方法调用。**再仔细想一想也是非常合理的，因为Go内部可以轻松地找到一个对象（值）的地址，自然就能构建出指向它的指针（`&amp;obj`），调用Receiver为指针的方法；另外也很容易通过指针找到其指向的对象（值）（`*p`），自然也能轻松调用Receiver为对象（值）的方法。
+</code></pre><ol start="4">
+<li><p>最简单的多态示例</p>
+<pre><code>// Human接口，内含breathe()方法，因为所有人类都能呼吸
+type Human interface {
+    breathe()
+}
+
+// 学生结构体，内含姓名和年龄
+type Student struct {
+    name string
+    age int
+}
+
+// 实现Student类的breathe方法，实现了Human接口
+func (s Student) breathe() {
+    fmt.Println(&quot;I can breathe.&quot;)
+}
+
+// 测试多态的Test方法
+func Test(h Human) {
+    h.breathe()
+}
+
+func main() {
+
+    student := Student{name: &quot;hh&quot;, age: 18}
+    Test(student) //打印出I can breathe.
+
+}
+</code></pre></li>
+</ol>
+<pre><code>上述是最简单直接描述`多态`的代码例子，`Test`方法的入参是一个接口类型（`Human`），**只要实现了`Human`接口的任一类型的对象都可以传进去，可以是这里的`Student`，也可以是`Driver`，也可以是`Teacher`。无所谓，只要实现了`Human`接口就没问题。**
+</code></pre><ol start="5">
+<li><p>实现多态时诡异的报错 在上面最简单的多态例子里，<code>Student</code>实现了<code>Human</code>接口，实现了一个以值为Receiver的<code>breathe()</code>方法，便可成功传入<code>Test</code>方法里。<strong>那假如接口中声明了不止一个方法，且实现时Receiver不一定是值，还可能是指针呢？那样可以吗？</strong></p>
+<pre><code>// Human接口，内含breathe()和grow()
+type Human interface {
+    breathe()
+    grow()
+}
+
+// 学生结构体，内含姓名和年龄
+type Student struct {
+    name string
+    age int
+}
+
+// 实现Human接口中的breathe()
+func (s Student) breathe() {
+    fmt.Println(&quot;I can breathe.&quot;)
+}
+
+// 实现Human接口中的grow()，因为要改变age属性，所以Receiver为指针
+func (s *Student) grow() {
+    s.age += 1
+    fmt.Println(&quot;I can grow.&quot;)
+}
+
+// 测试多态的Test方法
+func Test(h Human) {
+    h.breathe()
+    h.grow()
+}
+
+func main() {
+
+    student := Student{name: &quot;hh&quot;, age: 18}
+    Test(student) // 此处报错！！！
+
+    // 报错信息如下
+    // cannot use student (type Student) as type Human in argument to Test:
+    // Student does not implement Human (grow method has pointer receiver)
+
+}
+</code></pre></li>
+</ol>
+<pre><code>从上述代码的报错中看到，`Student`没有实现`Human`接口，因为`grow`方法的Receiver是指针？？？**可是我明明实现了`grow`方法啊，只是它的Receiver是指针而已！难道`*Student`和`Student`居然被认为是两种不同的类型？？？** **没错！在Go的设计理念中，`type pointer`和`type value`确实就是两种不同的类型！** **所以如果想让某个结构体实现一个接口，必须要分离开来思考，你到底是想让`type pointer`实现还是想让`type value`实现？** 这个时候，正常人都会想：我要实现一些需要改变对象属性值的方法（像上面的`grow()`），当然需要让这些方法的Receiver为指针，不然怎么改变对象内部的属性值啊？而对于那些不需要改变对象属性值的方法，Receiver为指针也不会出错，顶多就是看着不规范而已。**好，那就把所有实现的方法的Receiver都改成指针，肯定能正常实现那个接口~** 于是便有了下面的代码👇
+
+    // Human接口，内含breathe()和grow()
+    type Human interface {
+        breathe()
+        grow()
+    }
+
+    // 学生结构体，内含姓名和年龄
+    type Student struct {
+        name string
+        age int
+    }
+
+    // 全改成指针Receiver，美滋滋
+    func (s *Student) breathe() {
+        fmt.Println(&quot;I can breathe.&quot;)
+    }
+
+    // 全改成指针Receiver，美滋滋
+    func (s *Student) grow() {
+        s.age += 1
+        fmt.Println(&quot;I can grow.&quot;)
+    }
+
+    // 测试多态的Test方法
+    func Test(h Human) {
+        h.breathe()
+        h.grow()
+    }
+
+    func main() {
+
+        student := Student{name: &quot;hh&quot;, age: 18}
+        Test(student) // 此处还是报错！！！
+
+        // 报错信息如下
+        // Cannot use &apos;student&apos; (type Student) as type Human 
+        // Type does not implement &apos;Human&apos; as &apos;breathe&apos; method has a pointer receiver less... (⌘F1) 
+        //Inspection info: Reports incompatible types.
+
+    }
+
+
+**又出错了？！甚至都不用run，IDE直接报错？！** **之前说好的指针和对象在调用方法时可以随便互换使用呢？？？为什么这里不行了？？？** 此时就要搬出`Go specification`里的经典表格来解释这个表层现象了👇👇👇。 ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gospec.png) 注意看第二个表格。第一行：当`Methods Receivers`为对象（值）（`t T`）的时候，可用对象（值）或者指针作为多态方法的接口参数；第二行：当`Methods Receivers`为指针时，只能用指针作为多态方法的接口参数。我们实现的方法的Receiver全都是指针，所以我们传一个对象（值）进去，像`Test(student)`就会报错。**如果我们把main中的代码改成`Test(&amp;student)`，用指针作为方法的多态接口参数，自然就不会报错了。** **但这些只是表层现象，再研究得深入一点，为什么会这样呢？原来我们一直认为“有了对象（值）就一定能找到它的地址，从而构建出指向它自己的指针”，其实这种想法在一定程度上是有问题的。**在`Go In Action`一书中给出了一段示意代码，展示了为什么有的时候是找不到对象（值）的地址的👇👇👇。
+
+    01 // Sample program to show how you can&apos;t always get the
+    02 // address of a value.
+    03 package main
+    04
+    05 import &quot;fmt&quot;
+    06
+    07 // duration is a type with a base type of int.
+    08 type duration int
+    09
+    10 // format pretty-prints the duration value.
+    11 func (d *duration) pretty() string {
+    12     return fmt.Sprintf(&quot;Duration: %d&quot;, *d)
+    13 }
+    14
+    15 // main is the entry point for the application.
+    16 func main() {
+    17     duration(42).pretty()
+    18
+    19     // cannot call pointer method on duration(42)
+    20     // cannot take the address of duration(42)
+    21 }
+
+
+**当你拥有一个对象（值），你有可能拿不到它的地址，那就没有办法构建出指向它的指针，自然也就没有办法访问到Receiver为指针的那些方法。所以该对象所拥有的方法集合（`Method Set`）中只包含Receiver为对象（值）的那部分方法** **而当你拥有一个指针的时候，你肯定、必然、100%能拿到它指向的对象（值）。那你既能访问到Receiver为指针的方法，也能访问到Receiver为对象（值）的方法。所以该指针所拥有的方法集合（`Method Set`）中包含了Receiver为指针和Receiver为对象（值）的所有方法** **这也就是上面第一个表格的含义。然后我们试着把第一个表格转置一下，也就能得到第二个表格。**解释了为什么我们把`Test(student)`改成`Test(&amp;student)`就能通过的原因。另外如果把那两个方法改成`func (s Student) breathe()`和`func (s Student) grow()`，那无论是`Test(student)`还是`Test(&amp;student)`都可以正常运行，因为参照第二个表格，当实现接口中的方法的Receiver为对象（值）时，以接口类型作为参数的多态方法可以接收对象（值）也可以接收指针，无所谓。
+</code></pre><h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p>本人文笔水平有限，在文字解释部分可能稍显混乱，如有疑问请反复参照示意代码、表格、图片，也欢迎留言讨论。 在Go实现多态这一部分，最麻烦的莫过于同一个结构体的<code>指针类型</code>和<code>值类型</code>，在实现接口时被认为是不一样的类型。当某个结构体想实现一个接口，统一了所有方法的Receiver后，在传参给接口参数时又出现了类型不匹配方面的小坑。表面上fix掉报错很容易，但其底层的原理掰开来还是有点小复杂的。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/15/polymorphism/" data-id="cjpg78r7c003cbxuyj2fe7pgt" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Go/">Go</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/11/20/close-channel/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          [Golang]更正“神贴”《如何优雅地关闭Go Channel》
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/11/10/go-slice/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">[Golang]奇葩数据结构之Slice（切片）</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/BigData/">BigData</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Go/">Go</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/">Leetcode</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/">分布式</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/推荐系统/">推荐系统</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/未分类/">未分类</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/">Go</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/">Java</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/">zookeeper</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/分布式/">分布式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/推荐/">推荐</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/源码/">源码</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/笔记/">笔记</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Go/" style="font-size: 18.33px;">Go</a> <a href="/tags/Java/" style="font-size: 16.67px;">Java</a> <a href="/tags/Leetcode/" style="font-size: 11.67px;">Leetcode</a> <a href="/tags/bigdata/" style="font-size: 15px;">bigdata</a> <a href="/tags/hadoop/" style="font-size: 16.67px;">hadoop</a> <a href="/tags/mapreduce/" style="font-size: 15px;">mapreduce</a> <a href="/tags/zookeeper/" style="font-size: 10px;">zookeeper</a> <a href="/tags/分布式/" style="font-size: 13.33px;">分布式</a> <a href="/tags/推荐/" style="font-size: 15px;">推荐</a> <a href="/tags/数据结构/" style="font-size: 18.33px;">数据结构</a> <a href="/tags/源码/" style="font-size: 11.67px;">源码</a> <a href="/tags/笔记/" style="font-size: 20px;">笔记</a> <a href="/tags/算法/" style="font-size: 18.33px;">算法</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/09/">September 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/06/">June 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">March 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">February 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed/">__trashed</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed-2/">[Raft]</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/08/hello-world/">Hello World</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 John Doe<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

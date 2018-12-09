@@ -1,0 +1,2042 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta property="og:type" content="website">
+<meta property="og:title" content="Hexo">
+<meta property="og:url" content="http://yoursite.com/page/3/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:locale" content="default">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Hexo">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main">
+  
+    <article id="post-consistent-hash" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/03/17/consistent-hash/" class="article-date">
+  <time datetime="2018-03-17T20:30:01.000Z" itemprop="datePublished">2018-03-17</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/算法/">算法</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/03/17/consistent-hash/">一致性Hash算法——分析与模拟</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>如需转载请注明出处。</p>
+</blockquote>
+<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>假设现在有一个存储集群——<code>Cluster_A</code>，<code>Cluster_A</code>包含了<code>N</code>个存储节点，每个存储节点上存储了大量数据。那么在一般情况下，新进入集群的数据会被计算出其对应的Hash值，然后按照一定的规则被分配到某个存储节点上。最常见的分配策略如下：</p>
+<pre><code>// sha256或者md5均为常见的hash函数
+node_id = hash(data) % N
+</code></pre><p>在正常情况下，这种数据分配策略的性能取决于hash算法的性能，一般不会出什么大问题。但是往往在一个大集群中会出现<strong>增／删节点</strong>的需求，试想当<code>N</code>变成<code>N+1</code>或<code>N-1</code>时，数据所对应的新<code>node_id</code>大概率会与原<code>node_id</code>不一样。那么用户想从集群读数据时就会找不到该数据，因为算出来的新<code>node_id</code>与数据真正存储的<code>node_id</code>不一样了。</p>
+<pre><code>// 原data_1所属的node_id = 50
+// data_1被存在50号节点上
+node_id1 = hash(data_1) % N = 50 
+
+// 增加一个存储节点后data_1对应的node_id
+// 用户读取data_1时，系统算出应该去30号节点取数据，导致读取失败
+node_id1 = hash(data_1) % (N+1) = 30
+</code></pre><p>为了保证数据的不丢失，在增／删节点发生后，需要对集群里的所有数据进行<strong>重新Hash</strong>，以进行数据的重新分配。<strong>然而，如果每次增／删节点都对所有数据进行重分配，系统开销将会是一个天文数字，在实际工程中难以承受，总不可能让用户等待几十分钟的重Hash过程才能成功读取数据吧</strong>。 为了解决这个问题，一种特殊的解决方案——<strong><em>一致性Hash算法</em></strong>横空出世。</p>
+<h2 id="算法详解"><a href="#算法详解" class="headerlink" title="算法详解"></a>算法详解</h2><p><strong>一致性Hash算法的核心，是把节点本身也映射到和数据一致的Hash空间。</strong> 这句话听起来似乎有点拗口，<strong>简单而言就是使用一样的Hash方法，不仅对数据进行Hash，同时也对节点进行Hash。</strong>通过这样做，就能将数据和节点放置到一个空间中，假设<code>hash(x)</code>的值域为<code>[0, M]</code>，如下图所示，可以用一个二维的环表示此Hash空间。然后对每一条数据<code>data</code>计算<code>hash(data)</code>，把数据放置到环上顺时针方向最近的节点进行存储。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/consistent_hash.png" alt=""></p>
+<ul>
+<li><p>正常情况（无节点增删） 假设集群内节点数量<code>N = 100</code>，数据条数<code>DATA_COUNT = 100000</code>。理想情况下，如果Hash算法的结果是均匀的，每个节点应该存储<code>100000 / 100 = 1000</code>条数据。为此我用Python写了一个模拟程序。</p>
+<pre><code># encoding=utf-8
+from struct import unpack_from
+from hashlib import md5
+import matplotlib.pyplot as plt
+
+NUM_NODES = 100
+NUM_DATA = 100000
+nodes = [0 for i in range(NUM_NODES)]
+
+# hash function
+def hash(data):
+    data_md5 = md5(str(data)).digest()
+    return unpack_from(&quot;=I&quot;, data_md5)[0]
+
+# distribute data to different nodes
+def distribute():
+    for data in range(NUM_DATA):
+        h = hash(data)
+        index = h % NUM_NODES
+        nodes[index] += 1
+
+if __name__ == &apos;__main__&apos;:
+    &apos;&apos;&apos;
+        Case 1: 正常情况下的数据分布
+    &apos;&apos;&apos;
+
+    distribute()
+    max_node = max(nodes)
+    min_node = min(nodes)
+    print (&quot;Node with max data: {0} piece of data&quot;.format(max_node))
+    print (&quot;Node with min data: {0} piece of data&quot;.format(min_node))
+
+    # plot scatter graph
+    x = [i for i in range(NUM_NODES)]
+    y = nodes
+    plt.scatter(x, y, c=&apos;r&apos;)
+    plt.yticks(range(0, 2 * NUM_DATA / NUM_NODES, 100))
+    plt.xlabel(&quot;Node Index&quot;)
+    plt.ylabel(&quot;Data Count&quot;)
+    plt.show()
+</code></pre></li>
+</ul>
+<pre><code>经过模拟，得到如下的数据分布散点图： ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/common.png) 可以看出每个节点存储的数据均在`1000`上下浮动，差距不大，可以看作是均匀分布。
+</code></pre><ul>
+<li><p>增加／删除一个节点</p>
+<pre><code># encoding=utf-8
+from struct import unpack_from
+from hashlib import md5
+
+LESS_NUM_NODES = 99         # less nodes
+ORIGINAL_NUM_NODES = 100    # original nodes
+MORE_NUM_NODES = 101        # more nodes
+NUM_DATA = 100000
+
+# hash function
+def hash(data):
+    data_md5 = md5(str(data)).digest()
+    return unpack_from(&quot;=I&quot;, data_md5)[0]
+
+# distribute data to more nodes
+def distribute_more():
+    transfer_count = 0
+    for data in range(NUM_DATA):
+        h = hash(data)
+        original_index = h % ORIGINAL_NUM_NODES
+        more_index = h % MORE_NUM_NODES
+        if original_index != more_index:
+            transfer_count += 1
+    return transfer_count
+
+# distribute data to less nodes
+def distribute_less():
+    transfer_count = 0
+    for data in range(NUM_DATA):
+        h = hash(data)
+        original_index = h % ORIGINAL_NUM_NODES
+        less_index = h % LESS_NUM_NODES
+        if original_index != less_index:
+            transfer_count += 1
+    return transfer_count
+
+if __name__ == &apos;__main__&apos;:
+    &apos;&apos;&apos;
+        Case 2: 当出现增/删节点时的数据分布情况
+    &apos;&apos;&apos;
+
+    # 新增节点
+    transfer_count = distribute_more()
+    print(&quot;##### When one new node is added #####&quot;)
+    print(&quot;Data that need to be transferred: {}&quot;.format(transfer_count))
+    print(&quot;Percentage of data that need to be transferred: {}%&quot;.format(transfer_count * 100.0 / NUM_DATA))
+
+    # 删除节点
+    transfer_count = distribute_less()
+    print(&quot;\n##### When one old node is deleted #####&quot;)
+    print(&quot;Data that need to be transferred: {}&quot;.format(transfer_count))
+    print(&quot;Percentage of data that need to be transferred: {}%&quot;.format(transfer_count * 100.0 / NUM_DATA))
+</code></pre></li>
+</ul>
+<p>数据迁移情况如下图所示 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/case2.png" alt=""> 可以看到，将节点个数从<code>N</code>增加到<code>N+1</code>后或从<code>N</code>减少到<code>N-1</code>后，有差不多<code>99%</code>的数据经过重Hash后都要进行数据迁移，这样的数据迁移压力绝对是无法承受的。</p>
+<ul>
+<li><p>应用一致性Hash算法后数据迁移情况</p>
+<h1 id="encoding-utf-8"><a href="#encoding-utf-8" class="headerlink" title="encoding=utf-8"></a>encoding=utf-8</h1><p>from struct import unpack_from<br>from hashlib import md5<br>from bisect import bisect_left</p>
+<p>ORIGINAL_NUM_NODES = 100    # original node count<br>NEW_NUM_NODES = 101         # new node count<br>NUM_DATA = 100000</p>
+<h1 id="hash-function"><a href="#hash-function" class="headerlink" title="hash function"></a>hash function</h1><p>def hash(data):</p>
+<pre><code>data_md5 = md5(str(data)).digest()
+return unpack_from(&quot;=I&quot;, data_md5)[0]
+</code></pre><h1 id="distribute-data-to-different-nodes"><a href="#distribute-data-to-different-nodes" class="headerlink" title="distribute data to different nodes"></a>distribute data to different nodes</h1><p>def distribute(original_nodes, new_nodes):</p>
+<pre><code>transfer_count = 0
+for data in range(NUM_DATA):
+    h = hash(data)
+    original_index = bisect_left(original_nodes, h) % ORIGINAL_NUM_NODES
+    new_index = bisect_left(new_nodes, h) % NEW_NUM_NODES
+    if original_index != new_index:
+        transfer_count += 1
+return transfer_count
+</code></pre><p>if <strong>name</strong> == ‘<strong>main</strong>‘:</p>
+<pre><code>&apos;&apos;&apos;
+    Case 3: 应用一致性Hash后, 需要移动的节点比例
+&apos;&apos;&apos;
+
+original_nodes = sorted([hash(i) for i in range(ORIGINAL_NUM_NODES)])   # 对node本身也取hash
+new_nodes = sorted([hash(i) for i in range(NEW_NUM_NODES)])             # 对node本身也取hash
+
+transfer_count = distribute(original_nodes, new_nodes)
+print(&quot;Percentage of data that need to be transferred: {}%&quot;.format(transfer_count * 100.0 / NUM_DATA))
+</code></pre></li>
+</ul>
+<p>数据迁移情况如下图所示 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/case3.png" alt=""> 实现了一致性Hash算法后，我们将节点也映射到了同一片Hash空间，成功地将数据迁移的比例从<code>99%</code>降低到<code>37%</code>左右。</p>
+<ul>
+<li><p>应用一致性Hash算法后数据分布情况</p>
+<h1 id="encoding-utf-8-1"><a href="#encoding-utf-8-1" class="headerlink" title="encoding=utf-8"></a>encoding=utf-8</h1><p>from struct import unpack_from<br>from hashlib import md5<br>from bisect import bisect_left<br>import matplotlib.pyplot as plt</p>
+<p>NUM_NODES = 100    # original node count<br>NUM_DATA = 100000</p>
+<h1 id="hash-function-1"><a href="#hash-function-1" class="headerlink" title="hash function"></a>hash function</h1><p>def hash(data):</p>
+<pre><code>data_md5 = md5(str(data)).digest()
+return unpack_from(&quot;=I&quot;, data_md5)[0]
+</code></pre><h1 id="distribute-data-to-different-nodes-1"><a href="#distribute-data-to-different-nodes-1" class="headerlink" title="distribute data to different nodes"></a>distribute data to different nodes</h1><p>def distribute(nodes, stat):</p>
+<pre><code>for data in range(NUM_DATA):
+    h = hash(data)
+    index = bisect_left(nodes, h) % NUM_NODES
+    stat[index] += 1
+</code></pre></li>
+</ul>
+<pre><code>if __name__ == &apos;__main__&apos;:
+    &apos;&apos;&apos;
+        Case 4: 应用一致性Hash后, 数据的分布情况
+    &apos;&apos;&apos;
+
+    nodes = sorted([hash(i) for i in range(NUM_NODES)])
+    stat = [0 for i in range(NUM_NODES)]
+
+    distribute(nodes, stat)
+    max = max(stat)
+    min = min(stat)
+    print(&quot;Node with max data: {} piece of data&quot;.format(max))
+    print(&quot;Node with min data: {} piece of data&quot;.format(min))
+
+    # plot scatter graph
+    x = [i for i in range(NUM_NODES)]
+    y = stat
+    plt.scatter(x, y, c=&apos;r&apos;)
+    plt.yticks(range(0, 10 * NUM_DATA / NUM_NODES, 1000))
+    plt.xlabel(&quot;Node Index&quot;)
+    plt.ylabel(&quot;Data Count&quot;)
+    plt.show()
+</code></pre><p>应用一致性Hash后，数据分布情况如下图所示 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/case4.png" alt=""> 可以看到，相比期望值<code>1000</code>，出现了偏移的数据，存在很多低于<code>1000</code>条数据的节点。虽然数据迁移率降低了，但是出现了另一个问题——<strong>无法充分利用集群上的所有节点进行数据存储，造成了数据不平衡</strong>。</p>
+<ul>
+<li>一致性Hash算法——解决数据不平衡</li>
+</ul>
+<p>数据不平衡问题，根本原因就在于对节点进行Hash后，它们的Hash值在环上分布不够均匀。那么为了“分布均匀”，自然而然我们可以在环上稀疏的区域多添加一些“假”节点，也就是<strong>虚拟节点（Virtual Node）</strong>，以将稀疏的区域填充得满一点。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/v_node.png" alt=""> 如图所示，通过在稀疏区域增加<strong>虚拟节点（Virtual Node）</strong>，原本介于<code>Node #3</code>和<code>data #1</code>间的数据可以被“存储”在<code>V-Node #2</code>或者<code>V-Node #1</code>上。再通过查询<code>V-Node</code>到<code>Node</code>的映射关系，即可从实际的存储节点取出数据。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/v_node_query.png" alt=""> 通过保存<code>V-Node</code>到<code>Node</code>的<code>mapping</code>，可以迅速定位到实际存储节点。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>一致性Hash算法，核心在于解决集群节点增删场景下的数据丢失 &amp; 大量数据迁移问题。实现的关键是将节点本身也通过Hash函数映射到数据所在的Hash空间，从而使数据能够在某一固定空间内作“物理性”（顺时针、逆时针……）的位置分配。</p>
+<h2 id="相关代码"><a href="#相关代码" class="headerlink" title="相关代码"></a>相关代码</h2><p>具体代码请查看<a href="https://github.com/AcepcsMa/Consistent_Hash" target="_blank" rel="noopener">我的Github目录</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/03/17/consistent-hash/" data-id="cjpg78r6u002mbxuyaacg9z76" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/分布式/">分布式</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/算法/">算法</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-join-di" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/03/04/join-di/" class="article-date">
+  <time datetime="2018-03-04T23:08:53.000Z" itemprop="datePublished">2018-03-04</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/BigData/">BigData</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/03/04/join-di/">浅谈join与数据倾斜解决方案</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文100%为本人（Haoxiang Ma）原创内容，如需转载请注明出处。</p>
+</blockquote>
+<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p><code>join</code>操作在传统的关系型数据库中特别常见，往往用来连接两张或多张在某些键上有关联的表。但当我们的数据并没有被结构化存储到数据库中，手上仅有大量的<strong><em>raw data</em></strong> —— 成千上万个磁盘数据文件（如.dat或.txt）时，又或者当大量的数据文件存放在分布式的文件系统（HDFS）里，难以将其高效导入MySQL中时，我们很自然地就会思考：<strong>有没有不需要依靠关系型数据库而实现的join呢？对于海量文件能不能用Map-Reduce实现join操作呢？</strong> 假设现在系统中有两类数据文件：</p>
+<ol>
+<li><strong><em>用户数据文件（User）</em></strong></li>
+<li><p><strong><em>订单数据文件（Order）</em></strong></p>
+<p>// user文件结构<br>user_id, user_name, phone</p>
+<pre><code>1,      aa,     10086
+2,      bb,     10010
+......
+</code></pre><p>// order文件结构<br>order_id, user_id,  price,  date</p>
+<pre><code>1,      1,      15.5    2018-01-01
+2,      1,      3.9     2018-01-01
+3,      1,      26.0    2018-01-03
+4,      2,      2.2     2018-01-04
+......
+</code></pre></li>
+</ol>
+<p>需求是将<strong><em>用户数据文件（User）</em></strong>和<strong><em>订单数据文件（Order）</em></strong>通过<code>user_id</code>键相关联，得到总的用户信息+用户订单信息的总“表”（一个数据文件的内容可看作表的一部分）。</p>
+<pre><code>// 期望得到的总表结构
+user_id, user_name, phone, order_id, price, date
+    1,      aa,     10086,      1,    15.5, 2018-01-01
+    ......  
+</code></pre><p>本文将基于以上需求，对Map-Reduce实现两表关联（join）进行探讨。</p>
+<h2 id="问题分析"><a href="#问题分析" class="headerlink" title="问题分析"></a>问题分析</h2><p>要利用Map-Reduce实现两表关联，关键点有以下几个：</p>
+<ol>
+<li><p>如何辨别当前处理的数据来自于<strong><em>User表</em></strong>还是<strong><em>Order表</em></strong> 因为两种文件有不同的数据格式，我们在Mapper里对数据逐行进行处理时，必须要知道当前这行数据来自于<strong><em>User表</em></strong>还是<strong><em>Order表</em></strong>， 不然根本没有办法编写进一步的处理逻辑。其实看过我之前文章的同学应该见过在Mapper里获取当前数据所属文件名的方法。简单来说，就是<strong><em>map方法</em></strong>的<code>Context</code>参数其实带有了很多本次Job的运行信息，其中就包括了当前数据来自于哪个<code>FileSplit</code>，进一步可以获得该<code>FileSplit</code>所属的文件名。</p>
+<pre><code>FileSplit fileSplit = (FileSplit)context.getInputSplit();
+String fileName = fileSplit.getPath().getName();
+</code></pre></li>
+</ol>
+<ol start="2">
+<li><p>有两种不同的数据文件，可是一个MR任务里只有一种K-V对定义 两种文件格式，一种K-V对定义，那很自然我们就要想想如何将两种“合并”成一种，同时还能随时将这个合并的产物分开成两种。其实之前的文章已经多次提及一种在Map-Reduce里常用的概念——<strong>自定义JavaBean</strong>，作为一个自定义类，它的复合性质可以帮助我们“集成”很多原生数据类型。在当前问题里，我们可以定义一个<code>JavaBean</code>，<strong>集成User表与Order表的所有字段</strong>，并额外添加一个<code>flag</code>字段用以表明实例对象是<code>User</code>数据还是<code>Order</code>数据。通过这个<code>JavaBean</code>就可以实现“合并且随时可分离”的需求了。</p>
+<pre><code>JavaBean = {user_id, order_id, user_name, phone, price, date}
+</code></pre></li>
+</ol>
+<ol start="3">
+<li><p><strong><em>“join”</em></strong>的逻辑具体怎么写 基于第2点，实现了一个集成的JavaBean后，我们可以在map中将数据封装成JavaBean实例对象，然后用flag字段指明数据类型。为了实现join功能，我们必须确保同一个<code>User</code>的所有数据都到达同一个Reducer处，那样才能将该用户的所有订单与其用户信息关联起来，避免遗漏。为了让同一个User的数据都到达同一个Reducer，我们要让Map端输出的K-V对为<code>&lt;UserID, JavaBean&gt;</code>，那么在Partition的时候，同一个UserID的数据自然会被分配到同一个Reducer。 当Reducer拿到一批<code>&lt;UserID, JavaBean&gt;</code>数据后，将其整合为<code>&lt;UserID, Iterable&lt;JavaBean&gt;&gt;</code>。我们可以在<code>Iterable&lt;JavaBean&gt;&gt;</code>里通过判断<code>flag</code>的值找出<code>User</code>的JavaBean，称为<strong>_U_</strong>。然后对于每个<code>Order</code>的JavaBean（称为<strong>_O_</strong>），从<strong>_O_</strong>中取出<code>order_id</code>, <code>price</code>, <code>date</code>，从<strong>_U_</strong>中取出<code>user_id</code>, <code>user_name</code>, <code>phone</code>，组成结果数据<strong>_R_</strong>。</p>
+<pre><code>R = (order_id, price, date，user_id, user_name, phone)
+</code></pre></li>
+</ol>
+<pre><code>Reducer循环将多个`&lt;R, NullWritable&gt;`写到最终Context中，便完成了join逻辑。
+</code></pre><h2 id="具体实现"><a href="#具体实现" class="headerlink" title="具体实现"></a>具体实现</h2><ol>
+<li><p>自定义JavaBean</p>
+<pre><code>/**
+ * 自定义JavaBean, 实现Writable接口, 因本任务不存在&quot;比较&quot;, 无需实现WritableComparable
+ */
+public class JoinBean implements Writable{
+    public String userID;
+    public String uName;
+    public String phone;
+    public String orderID;
+    public String price;
+    public String date;
+    public String flag;     // 用于标识User还是Order
+
+    public JoinBean() {
+
+    }
+
+    public JoinBean(String userID, String uName, String phone, String orderID, String price, String date, String flag) {
+        this.userID = userID;
+        this.uName = uName;
+        this.phone = phone;
+        this.orderID = orderID;
+        this.price = price;
+        this.date = date;
+        this.flag = flag;
+    }
+
+    public void set(String userID, String uName, String phone, String orderID, String price, String date, String flag) {
+        this.userID = userID;
+        this.uName = uName;
+        this.phone = phone;
+        this.orderID = orderID;
+        this.price = price;
+        this.date = date;
+        this.flag = flag;
+    }
+
+    @Override
+    public String toString() {
+        return &quot;uName=&apos;&quot; + uName + &apos;\&apos;&apos; +
+                &quot;, phone=&apos;&quot; + phone + &apos;\&apos;&apos; +
+                &quot;, orderID=&apos;&quot; + orderID + &apos;\&apos;&apos; +
+                &quot;, price=&apos;&quot; + price + &apos;\&apos;&apos; +
+                &quot;, date=&apos;&quot; + date + &apos;\&apos;&apos;;
+    }
+
+    public String getUserID() {
+        return userID;
+    }
+
+    public void setUserID(String userID) {
+        this.userID = userID;
+    }
+
+    public String getFlag() {
+        return flag;
+    }
+
+    public void setFlag(String flag) {
+        this.flag = flag;
+    }
+
+    public String getuName() {
+        return uName;
+    }
+
+    public void setuName(String uName) {
+        this.uName = uName;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getOrderID() {
+        return orderID;
+    }
+
+    public void setOrderID(String orderID) {
+        this.orderID = orderID;
+    }
+
+    public String getPrice() {
+        return price;
+    }
+
+    public void setPrice(String price) {
+        this.price = price;
+    }
+
+    public String getDate() {
+        return date;
+    }
+
+    public void setDate(String date) {
+        this.date = date;
+    }
+
+    @Override
+    public void write(DataOutput dataOutput) throws IOException {
+        dataOutput.writeUTF(userID);
+        dataOutput.writeUTF(uName);
+        dataOutput.writeUTF(phone);
+        dataOutput.writeUTF(orderID);
+        dataOutput.writeUTF(price);
+        dataOutput.writeUTF(date);
+        dataOutput.writeUTF(flag);
+    }
+
+    @Override
+    public void readFields(DataInput dataInput) throws IOException      {
+        userID = dataInput.readUTF();
+        uName = dataInput.readUTF();
+        phone = dataInput.readUTF();
+        orderID = dataInput.readUTF();
+        price = dataInput.readUTF();
+        date = dataInput.readUTF();
+        flag = dataInput.readUTF();
+    }
+}
+</code></pre></li>
+</ol>
+<ol start="2">
+<li><p>Mapper</p>
+<pre><code>/**
+ * Mapper类
+ */
+public class JoinMapper extends Mapper&lt;LongWritable, Text, Text, JoinBean&gt; {
+
+    public static final String USER = &quot;user&quot;;
+    public static final String ORDER = &quot;order&quot;;
+
+    public JoinBean info = new JoinBean();
+    @Override
+    protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+
+        FileSplit fileSplit = (FileSplit)context.getInputSplit();
+        String fileName = fileSplit.getPath().getName();    // 获取数据所属文件名
+
+        String line = value.toString();
+        String[] data = line.split(&quot;,&quot;);
+        String userID = data[0];
+
+        // 通过flag标识实例对象是User还是Order
+        if(fileName.startsWith(&quot;user&quot;)) {
+            info.set(&quot;&quot;, data[1], data[2], &quot;&quot;, &quot;&quot;, &quot;&quot;, USER);
+        } else {
+            info.set(&quot;&quot;, &quot;&quot;, &quot;&quot;, data[1], data[2], data[3], ORDER);
+        }
+        context.write(new Text(userID), info);
+    }
+}
+</code></pre></li>
+</ol>
+<ol start="3">
+<li><p>Reducer</p>
+<pre><code>/**
+ * Reducer类
+ */
+public class JoinReducer extends Reducer&lt;Text, JoinBean, JoinBean, NullWritable&gt; {
+    @Override
+    protected void reduce(Text key, Iterable&lt;JoinBean&gt; values, Context context) throws IOException, InterruptedException {
+        JoinBean userInfo = new JoinBean();
+        List&lt;JoinBean&gt; orders = new ArrayList&lt;&gt;();
+
+        for(JoinBean info : values) {
+            // 同一个UserID，有且仅有1个User对象，其他均为该User的Order对象
+            if(info.getFlag().equals(&quot;user&quot;)) {
+                try {
+                    BeanUtils.copyProperties(userInfo, info);
+                } catch (Exception e) {
+                    System.out.println(e.toString());
+                }
+            } else if(info.getFlag().equals(&quot;order&quot;)){
+                JoinBean order = new JoinBean();
+                try {
+                    BeanUtils.copyProperties(order, info);
+                } catch (Exception e) {
+                    System.out.println(e.toString());
+                }
+                orders.add(order);
+            }
+        }
+
+        // 提取所需属性, 合并, 输出
+        for(JoinBean order : orders) {
+            JoinBean record = new JoinBean();
+            record.set(key.toString(), userInfo.getuName(), userInfo.getPhone(), order.getOrderID(), order.getPrice(), order.getDate(), order.getFlag());
+            context.write(record, NullWritable.get());
+        }
+    }
+}
+</code></pre></li>
+</ol>
+<ol start="4">
+<li><p>Driver（程序入口）</p>
+<pre><code>public class JoinDriver {
+    public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
+        Configuration conf = new Configuration();
+        conf.set(&quot;fs.defaultFS&quot;, &quot;hdfs://localhost:9000&quot;);
+        Job joinJob = Job.getInstance(conf);
+
+        joinJob.setMapperClass(JoinMapper.class);
+        joinJob.setReducerClass(JoinReducer.class);
+
+        joinJob.setJarByClass(JoinDriver.class);
+
+        joinJob.setMapOutputKeyClass(Text.class);
+        joinJob.setMapOutputValueClass(JoinBean.class);
+        joinJob.setOutputKeyClass(JoinBean.class);
+        joinJob.setOutputValueClass(NullWritable.class);
+
+        FileInputFormat.setInputPaths(joinJob, new Path(&quot;/join/input&quot;));
+        FileOutputFormat.setOutputPath(joinJob, new Path(&quot;/join/output&quot;));
+
+        System.exit(joinJob.waitForCompletion(true) ? 0 : 1);
+    }
+}
+</code></pre></li>
+</ol>
+<h2 id="极端情况——“数据倾斜”"><a href="#极端情况——“数据倾斜”" class="headerlink" title="极端情况——“数据倾斜”"></a>极端情况——“数据倾斜”</h2><p>在这个问题里，我们的数据分为<code>User</code>和<code>Order</code>两类，其中明显<code>User</code>的数据会比<code>Order</code>少得多。一位用户只可能有一行<code>User</code>记录（在系统不出错的情况下），而一位用户却可以有N行<code>Order</code>记录，因为他可以“疯狂购物”产生了成千上万条的订单数据。 极端情况下，有一位<code>User</code>：<code>user_1</code>对应了<code>1000000</code>条<code>Order</code>数据，另一位<code>User</code>：<code>user_2</code>对应了<code>2</code>条<code>Order</code>数据。那么必然有一个负责处理<code>user_1</code>的Reducer<code>reducer_1</code>的负载过高，因为要处理<code>1000000</code>条数据，其他负载极少的Reducer干完活之后就得白白浪费时间等着<code>reducer_1</code>完成任务（<strong><em>往往表现为Job进度卡在99%</em></strong>），才能汇报整个Job已完成。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/dataIncline.png" alt=""> 如图所示，因为大量的数据涌向少数的节点，像是一个倾斜的天平，一端重一端轻，所以以上的情况便称为<code>数据倾斜</code>。 为了解决当前问题引起的数据倾斜，我们可以采用一种<strong>”map端join“</strong>的方式进行关联操作，代替之前在Reducer端收集数据进行join的逻辑。相比<code>Order</code>表，<code>User</code>表无疑小得多，甚至可能是几百倍的量级差距，所以完全可能把这个小表分发给各个Mapper，让每个Mapper都拥有一份<strong><em>完整的User表</em></strong>，进而将其加载入内存构造一个<code>&lt;user_id, user_info&gt;</code>的哈希表。这么一来，在Mapper内只需要处理<code>Order</code>的数据，然后根据<code>Order</code>里的<code>user_id</code>查到哈希表里该id对应的<code>user_info</code>，连接起来，即可完成join操作。</p>
+<ul>
+<li><p>MapJoinMapper</p>
+<p>/**</p>
+<ul>
+<li><p>实现Map端join的Mapper<br>*/<br>public class MapJoinMapper extends Mapper&lt;LongWritable, Text, MapJoinBean, NullWritable&gt; {</p>
+<p> private Map&lt;String, List<string>&gt; userTable = new HashMap&lt;&gt;();<br> private MapJoinBean outputKey = new MapJoinBean();</string></p>
+<p> public static final String ORDER_FILE = “order.txt”;</p>
+<p> /**</p>
+<ul>
+<li>Mapper会自行调用的一个初始化方法</li>
+<li>@param context Job信息</li>
+<li>@throws IOException</li>
+<li><p>@throws InterruptedException<br>*/<br>@Override<br>protected void setup(Context context) throws IOException, InterruptedException {</p>
+<p> // 获取系统”投放”到本地的cache文件, 本问题中只有1个，即user.txt<br> URI[] uris = context.getCacheFiles();<br> FileSystem fs = FileSystem.get(context.getConfiguration());<br> FSDataInputStream inputStream = fs.open(new Path(uris[0]));<br> BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));</p>
+<p> // 逐行读取user.txt中的数据, 构建userTable<br> String line = null;<br> while((line = reader.readLine()) != null) {</p>
+<pre><code>String[] terms = line.split(&quot;,&quot;);
+if(!userTable.containsKey(terms[0])) {
+    userTable.put(terms[0], new ArrayList&lt;&gt;());
+}
+userTable.get(terms[0]).add(terms[1]);
+userTable.get(terms[0]).add(terms[2]);
+</code></pre><p> }</p>
+<p> reader.close();<br>}</p>
+<p>@Override<br>protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {</p>
+<p> FileSplit fileSplit = (FileSplit) context.getInputSplit();<br> String fileName = fileSplit.getPath().getName();</p>
+<p> // 不需要再处理User数据文件了, 因为已经通过setup把其数据加载到内存中的userTable<br> if(fileName.equals(ORDER_FILE)) {</p>
+<pre><code>String line = value.toString();
+String[] terms = line.split(&quot;,&quot;);
+
+// 从本地的&quot;小表&quot; —— userTable处获得userID对应的数据
+String userName = userTable.get(terms[0]).get(0);
+String phone = userTable.get(terms[0]).get(1);
+
+// 不再需要flag字段, 简单置为空串
+outputKey.set(terms[0], userName, phone, terms[1], terms[2], terms[3], &quot;&quot;);
+context.write(outputKey, NullWritable.get());
+</code></pre><p> }<br>}<br>}</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li><p>MapJoinReducer</p>
+<p>/**</p>
+<ul>
+<li><p>Map端Join的Reducer<br>*/<br>public class MapJoinReducer extends Reducer&lt;MapJoinBean, NullWritable, MapJoinBean, NullWritable&gt; {</p>
+<p> @Override<br> protected void reduce(MapJoinBean key, Iterable<nullwritable> values, Context context) throws IOException, InterruptedException {</nullwritable></p>
+<pre><code>context.write(key, NullWritable.get());
+</code></pre><p> }<br>}</p>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li><p>MapJoinBean</p>
+<p>/**</p>
+<ul>
+<li><p>自定义JavaBean, 实现WritableComparable接口<br>*/<br>public class MapJoinBean implements WritableComparable<mapjoinbean> {<br> public String userID;<br> public String uName;<br> public String phone;<br> public String orderID;<br> public String price;<br> public String date;<br> public String flag;</mapjoinbean></p>
+<p> public MapJoinBean() {</p>
+<p> }</p>
+<p> public MapJoinBean(String userID, String uName, String phone, String orderID, String price, String date, String flag) {</p>
+<pre><code>this.userID = userID;
+this.uName = uName;
+this.phone = phone;
+this.orderID = orderID;
+this.price = price;
+this.date = date;
+this.flag = flag;
+</code></pre><p> }</p>
+<p> public void set(String userID, String uName, String phone, String orderID, String price, String date, String flag) {</p>
+<pre><code>this.userID = userID;
+this.uName = uName;
+this.phone = phone;
+this.orderID = orderID;
+this.price = price;
+this.date = date;
+this.flag = flag;
+</code></pre><p> }</p>
+<p> @Override<br> public String toString() {</p>
+<pre><code>return &quot;uName=&apos;&quot; + uName + &apos;\&apos;&apos; +
+        &quot;, phone=&apos;&quot; + phone + &apos;\&apos;&apos; +
+        &quot;, orderID=&apos;&quot; + orderID + &apos;\&apos;&apos; +
+        &quot;, price=&apos;&quot; + price + &apos;\&apos;&apos; +
+        &quot;, date=&apos;&quot; + date + &apos;\&apos;&apos;;
+</code></pre><p> }</p>
+<p> public String getUserID() {</p>
+<pre><code>return userID;
+</code></pre><p> }</p>
+<p> public void setUserID(String userID) {</p>
+<pre><code>this.userID = userID;
+</code></pre><p> }</p>
+<p> public String getFlag() {</p>
+<pre><code>return flag;
+</code></pre><p> }</p>
+<p> public void setFlag(String flag) {</p>
+<pre><code>this.flag = flag;
+</code></pre><p> }</p>
+<p> public String getuName() {</p>
+<pre><code>return uName;
+</code></pre><p> }</p>
+<p> public void setuName(String uName) {</p>
+<pre><code>this.uName = uName;
+</code></pre><p> }</p>
+<p> public String getPhone() {</p>
+<pre><code>return phone;
+</code></pre><p> }</p>
+<p> public void setPhone(String phone) {</p>
+<pre><code>this.phone = phone;
+</code></pre><p> }</p>
+<p> public String getOrderID() {</p>
+<pre><code>return orderID;
+</code></pre><p> }</p>
+<p> public void setOrderID(String orderID) {</p>
+<pre><code>this.orderID = orderID;
+</code></pre><p> }</p>
+<p> public String getPrice() {</p>
+<pre><code>return price;
+</code></pre><p> }</p>
+<p> public void setPrice(String price) {</p>
+<pre><code>this.price = price;
+</code></pre><p> }</p>
+<p> public String getDate() {</p>
+<pre><code>return date;
+</code></pre><p> }</p>
+<p> public void setDate(String date) {</p>
+<pre><code>this.date = date;
+</code></pre><p> }</p>
+<p> @Override<br> public void write(DataOutput dataOutput) throws IOException {</p>
+<pre><code>dataOutput.writeUTF(userID);
+dataOutput.writeUTF(uName);
+dataOutput.writeUTF(phone);
+dataOutput.writeUTF(orderID);
+dataOutput.writeUTF(price);
+dataOutput.writeUTF(date);
+dataOutput.writeUTF(flag);
+</code></pre><p> }</p>
+<p> @Override<br> public void readFields(DataInput dataInput) throws IOException {</p>
+<pre><code>userID = dataInput.readUTF();
+uName = dataInput.readUTF();
+phone = dataInput.readUTF();
+orderID = dataInput.readUTF();
+price = dataInput.readUTF();
+date = dataInput.readUTF();
+flag = dataInput.readUTF();
+</code></pre><p> }</p>
+<p> @Override<br> public int compareTo(MapJoinBean o) {</p>
+<pre><code>if(o == null) {
+    throw new RuntimeException();
+}
+if(userID.compareTo(o.getUserID()) == 0) {
+    return orderID.compareTo(o.getOrderID());
+}
+return userID.compareTo(o.getUserID());
+</code></pre><p> }<br>}</p>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li><p>MapJoinDriver</p>
+<p>public class MapJoinDriver {</p>
+<pre><code>public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException, URISyntaxException {
+
+    Configuration conf = new Configuration();
+    conf.set(&quot;fs.defaultFS&quot;, &quot;hdfs://localhost:9000&quot;);
+    Job joinJob = Job.getInstance(conf);
+
+    // 使用Map端join的Mapper和Reducer
+    joinJob.setMapperClass(MapJoinMapper.class);
+    joinJob.setReducerClass(MapJoinReducer.class);
+
+    joinJob.setJarByClass(MapJoinDriver.class);
+
+    joinJob.setMapOutputKeyClass(MapJoinBean.class);
+    joinJob.setMapOutputValueClass(NullWritable.class);
+    joinJob.setOutputKeyClass(MapJoinBean.class);
+    joinJob.setOutputValueClass(NullWritable.class);
+
+    // 向各节点&quot;投放&quot;User数据文件
+    joinJob.addCacheFile(new URI(&quot;/join/input/user.txt&quot;));
+
+    FileInputFormat.setInputPaths(joinJob, new Path(&quot;/join/input&quot;));
+    FileOutputFormat.setOutputPath(joinJob, new Path(&quot;/join/output&quot;));
+
+    System.exit(joinJob.waitForCompletion(true) ? 0 : 1);
+}
+</code></pre><p>}</p>
+</li>
+</ul>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ol>
+<li>利用Map-Reduce可以完成数据文件的join操作。不需要先将数据结构化，导入MySQL。</li>
+<li>自定义<code>JavaBean</code>类，用于集成多个属性的思路仍然很有用。</li>
+<li>当join的双方是一张<strong>大表</strong>和一张<strong>小表</strong>时，可考虑将小表分发到所有map端，在本地将小表加载到内存，从而实现<strong>map端join</strong>。</li>
+</ol>
+<h2 id="代码"><a href="#代码" class="headerlink" title="代码"></a>代码</h2><p>具体代码请点击 <a href="https://github.com/AcepcsMa/hadoop_examples/tree/master/src/join" target="_blank" rel="noopener">Join操作与Map端join操作代码</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/03/04/join-di/" data-id="cjpg78r7t004fbxuyj9dl9cig" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/mapreduce/">mapreduce</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-ii-wc" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/02/25/ii-wc/" class="article-date">
+  <time datetime="2018-02-25T23:32:43.000Z" itemprop="datePublished">2018-02-25</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/BigData/">BigData</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/02/25/ii-wc/">谈谈倒排索引，升级版“WordCount”</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>全文为本人（Haoxiang Ma）原创内容，转载请标明出处。</p>
+</blockquote>
+<h2 id="问题背景：All-About-Search"><a href="#问题背景：All-About-Search" class="headerlink" title="问题背景：All About Search"></a>问题背景：All About Search</h2><p>在数据库领域和搜索引擎领域，<strong><em>倒排索引</em></strong>是一种很重要的数据结构。在大部分的应用场景中，文本型数据（Text）是主流，依靠<strong><em>倒排索引</em></strong>这种数据结构，可以显著提高<strong><em>文本数据项（Term）</em></strong>的搜索速度（无论是理论还是实际应用中）。 假设现在我们拥有以下数据。</p>
+<pre><code>// Document A
+My name is superman.
+
+// Document B
+I love my cat whose name is Kitty!
+
+// Document C
+Please name my car.
+</code></pre><p>如果不对以上原始数据作额外处理，径直将3个文件保存至磁盘的同一目录下，分别命名为<code>Document A</code>、<code>Document B</code>、<code>Document C</code>。那么当需要查找<code>car</code>这个数据项时，我们需要遍历文件目录下的所有文件，才能输出搜索结果：<code>Found in Document C!</code>。若将此场景扩展至<strong>_N_</strong>个数据文件，平均每个数据文件的Term Count为<strong>_K_</strong>，那么此搜索算法的时间复杂度将为<code>O(N*K)</code>，随着N和K的增长，这个时间复杂度无疑是灾难性的。 也许有人会说，既然每个文件是独立的，那么我们可以将目录下的数据文件进行<strong><em>“Partition”</em></strong>，分成<code>M</code>块，每一块包含<code>N/M</code>个文件，同时启动<code>M</code>个线程独立负责搜索自己块内的文件，不就能够大幅提高速度，解决搜索的性能问题了吗？先撇开硬盘的I/O性能不谈，<strong>启动、协同<code>M</code>个线程，合并多个线程的计算结果所需要的系统开销将会是一个天文数字</strong>，很有可能就因为这个搜索任务导致整个节点崩溃。再者，当系统的用户数快速增长，同时执行多个用户的搜索请求时根本无法保证搜索的及时性，难以并发。 所以这个时候我们就要转变思路，<strong>不要傻傻地把真正的“搜索”放在用户发送搜索请求时执行</strong>，而应该早早地为数据文件里的每个<strong><em>数据项（Term）</em></strong>建立起<strong><em>索引（Term Index）</em></strong>，到用户需要搜索时就可以通过已建立好的索引快速定位并返回结果，不需要一次又一次地扫描磁盘文件。 <strong><em>倒排索引（Inverted Index)</em></strong>这种数据结构就是基于以上需求而来到了这个世界上的。</p>
+<pre><code>// 正常情况下，我们第一反应下的索引应该是以下结构
+DocumentID          Terms
+    A         [My, name, is, superman]
+    B         [I, love, my, cat, whose, name, is, Kitty]
+    C         [Please, name, my, car]
+</code></pre><p>如果我们按照以上的结构建立索引，仍需要逐个ID扫描其对应的Terms，搜索的时间复杂度仍然是<code>O(N*K)</code>，压根没有提升任何性能。</p>
+<pre><code>// 所以我们需要通过“倒排”的方式改变索引结构
+Term        DocumentIDs
+My          [A, B, C]
+name        [A, B, C]
+is          [A, B]
+superman    [A]
+I           [B]
+love        [B]
+cat         [B]
+whose       [B]
+Kitty       [B]
+Please      [C]
+car         [C]
+</code></pre><p>所谓“倒排”，无非就是将原来的<strong><em>Key</em></strong>（<code>DocuementID</code>）和<strong><em>Value</em></strong>（<code>Terms</code>）颠倒过来，用<code>Term</code>作为<strong><em>Key</em></strong>，<code>DocumentIDs</code>作为<strong><em>Value</em></strong>。通过构建这样的索引结构，当我们需要搜索<code>car</code>这一数据项时，我们只需从头开始线性扫描<strong>一遍</strong>索引表，定位到<code>car</code>那一行并直接取出其对应的<code>DocumentIDs</code>，单次搜索的时间复杂度降低到了<code>O(N)</code>。 当然在数据量特别大时，<code>O(N)</code>仍然不是一个理想的指标，仍然有进步的空间。我们可以对每个<code>Term</code>进行Hash得到<code>h = Hash(Term)</code>，然后记录<code>h</code>与行号的映射表<code>H_TABLE</code>。那么每次搜索时根据搜索项的Hash可以查<code>H_TABLE</code>快速定位到具体的某一行，直接就可取出其对应的<code>DocumentIDs</code>，总的时间复杂度理论上是<code>O(1)</code>。<strong>（关于Hash冲突与优化的问题本文暂时不予探讨）</strong></p>
+<h2 id="实现方案：WordCount-Again？"><a href="#实现方案：WordCount-Again？" class="headerlink" title="实现方案：WordCount Again？"></a>实现方案：WordCount Again？</h2><p>当系统中有海量的数据文件时，第一反应肯定就是使用Hadoop以及Hadoop生态中的工具帮助我们处理数据。那么我们是不是可以用Map-Reduce来构建倒排索引表呢？ <strong>答案是肯定的，确实可以使用Map-Reduce。而且仔细一想，这不就是Hadoop中的“HelloWorld”——WordCount的翻版吗？？？</strong>确实也可以这么说，处理逻辑跟WordCount非常类似，只是我们需要在Reducer中稍微多做一点点工作，所以我称之为<strong><em>升级版WordCount</em></strong>哈哈😄😄😄。</p>
+<pre><code>// 如果100%照搬WordCount的逻辑，那么最终产出的结果文件会是
+My      A
+My      B
+My      C
+name    A
+name    B
+name    C
+......
+</code></pre><p>显然我们想要的倒排表格式是需要把同一个<code>Term</code>下的所有<code>DocumentID</code>合并到一行里。所以为了数据格式的正确性，我们需要对输出做点小处理。于是我们要设置一个自定义的<code>DocumentBean</code>类，逻辑上可以简单看作<code>DocumentBean = List&lt;DocumentID&gt;</code>。<strong>最终我们需要通过Reducer输出<code>&lt;Term, DocumentBean&gt;</code></strong>，那么结果里的每一行自然就是我们想要的格式了。</p>
+<pre><code>/**
+ * 集成多个DocumentID的Bean
+ */
+public class DocumentBean implements Writable {
+
+    private int documentCount;
+    private List&lt;String&gt; documentIDs;
+
+    public DocumentBean() {
+        documentCount = 0;
+        documentIDs = new ArrayList&lt;&gt;();
+    }
+
+    public void set(Iterable&lt;Text&gt; documentIDs) {
+        this.documentIDs.clear();
+        for(Text documentID : documentIDs) {
+            this.documentIDs.add(documentID.toString());
+        }
+        documentCount = this.documentIDs.size();
+    }
+
+    @Override
+    public void write(DataOutput dataOutput) throws IOException {
+        dataOutput.writeInt(documentCount);
+        for(String documentID : documentIDs) {
+            dataOutput.writeUTF(documentID);
+        }
+    }
+
+    @Override
+    public void readFields(DataInput dataInput) throws IOException {
+        documentCount = dataInput.readInt();
+        for(int i = 0;i &lt; documentCount;i++) {
+            documentIDs.add(dataInput.readUTF());
+        }
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        for(String documentID : documentIDs) {
+            sb.append(documentID).append(&quot;, &quot;);
+        }
+        return sb.substring(0, sb.length() - 2);
+    }
+}
+
+
+/**
+ * 倒排索引的Mapper
+ */
+public class InvertedMapper extends Mapper&lt;LongWritable, Text, Text, Text&gt; {
+
+    private Text outputKey = new Text();
+    private Text outputValue = new Text();
+
+    @Override
+    protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+        FileSplit split = (FileSplit) context.getInputSplit();
+        String fileName = split.getPath().getName();
+        outputValue.set(fileName);
+
+        String line = value.toString();
+        String[] terms = line.split(&quot; &quot;);
+        for(String term : terms) {
+            outputKey.set(term);
+            context.write(outputKey, outputValue);
+        }
+    }
+}
+
+
+/**
+ * 倒排索引的Reducer
+ */
+public class InvertedReducer extends Reducer&lt;Text, Text, Text, DocumentBean&gt; {
+
+    private DocumentBean outputValue = new DocumentBean();
+
+    @Override
+    protected void reduce(Text key, Iterable&lt;Text&gt; values, Context context) throws IOException, InterruptedException {
+        outputValue.set(values);
+        context.write(key, outputValue);
+    }
+}
+
+
+
+/**
+ * 程序入口
+ */
+public class InvertedDriver {
+
+    public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
+        Configuration conf = new Configuration();
+        conf.set(&quot;fs.defaultFS&quot;, &quot;hdfs://localhost:9000&quot;);
+
+        Job invertedJob = Job.getInstance(conf);
+
+        invertedJob.setJarByClass(InvertedDriver.class);
+
+        invertedJob.setMapperClass(InvertedMapper.class);
+        invertedJob.setReducerClass(InvertedReducer.class);
+
+        invertedJob.setMapOutputKeyClass(Text.class);
+        invertedJob.setMapOutputValueClass(Text.class);
+        invertedJob.setOutputKeyClass(Text.class);
+        invertedJob.setOutputValueClass(DocumentBean.class);
+
+        FileInputFormat.setInputPaths(invertedJob, new Path(&quot;/inverted_index/data/&quot;));
+        FileOutputFormat.setOutputPath(invertedJob, new Path(&quot;/inverted_index/output/&quot;));
+
+        System.exit(invertedJob.waitForCompletion(true) ? 1 : 0);
+    }
+}
+</code></pre><h2 id="总结：What-Should-Be-Remembered"><a href="#总结：What-Should-Be-Remembered" class="headerlink" title="总结：What Should Be Remembered"></a>总结：What Should Be Remembered</h2><ol>
+<li>利用自定义的<strong><code>Bean</code></strong>类来辅佐Map-Reduce，实现各种复杂功能的思路已经很普遍了，例如自定义输出输出格式／实现两表join／二次排序等等等等。</li>
+</ol>
+<p><img src="http://p0u4yewt0.bkt.clouddn.com/invertedIndex.png" alt=""> 2. <strong>倒排索引表的设计与优化其实很复杂，本文谈到的内容只是管中窥豹</strong>。如上图所示，在倒排索引表中甚至可以存储每个Term在不同文件中的出现次数／文件更新（插入）时间／Term的TF-IDF值等等等等。通过存储这些文本数据可以帮助搭建高效的推荐系统，或者对搜索排序进行优化。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/02/25/ii-wc/" data-id="cjpg78r750035bxuy5izwbtj4" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/数据结构/">数据结构</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-customizeinputformat" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/02/17/customizeinputformat/" class="article-date">
+  <time datetime="2018-02-17T17:59:41.000Z" itemprop="datePublished">2018-02-17</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/BigData/">BigData</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/02/17/customizeinputformat/">海量小文件优化之自定义InputFormat</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>全文为本人（Haoxiang Ma）原创内容，转载请标明出处。</p>
+</blockquote>
+<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>HDFS作为分布式文件存储系统，极其适用于海量大文件的存储场景。每个大文件在系统底层会被切分成多个<strong><em>Block</em></strong>（Block Size默认为128MB），且每个Block会自动被冗余处理（默认备份数为3份）以保证一定程度上的数据安全。 HDFS对大文件友好，但是世事往往不尽如人意。“存储”对于整个业务系统而言只是其中一环，在存储之前必须先有数据收集的流程。假如前端进行数据收集时raw data为海量的小数据文件（从1KB到10MB不等），且没有经过合并就直接通过HDFS的上传API写到HDFS中，那么NameNode上就会保存大量的Block元数据记录（<strong>即使单个小文件的大小远远不到一个Block的容量，但在逻辑上也会被切分为一个Block，虽然物理上并没有占用一个真正的Block的物理容量</strong>）。 相比NameNode中存储大量Block元数据带来的影响，更值得关注的是<strong>海量小文件输入对Map-Reduce任务的影响</strong>。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/normalMap.png" alt="理想情况"> 理想情况下，假设Map-Reduce任务的文件输入是/xx/xx/xx.dat，为了方便，我们假设xx.dat文件的大小刚好是3个Block的大小（3 * 128MB），暂且忽略备份情况。如图所示，在以该文件作为输入启动Map-Reduce任务时，系统getSplit()自然而然地将该文件分成3个Split，定位到各Split所在的DataNode并在上面启动Map任务。3个Map任务各自处理Local Data（Hadoop提倡的Data Locality），然后Map端输出会被相应的Reducer拉取进行Reduce操作。在以上理想情况中，各个Map任务负载基本均衡，每个Map处理的都是本地128MB的数据，系统运行状态良好。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/abnormalMap.png" alt="海量小文件"> 然而，如果Map端输入为海量的小文件，那么默认每个小文件本身就会被当作一个Split（小到不可再划分了）。如上图所示，假如系统中小文件的分布比较均匀，在每个存放有小文件的DataNode上都会启动一个Map任务。但是假如小文件的数目远远大于系统中DataNode的个数（100万个小文件，100个DataNode），也就是说一个DataNode上可能存放有N个小文件时，那么DataNode就要不断启动一个又一个的Map任务直到N个小文件都被处理完。更极端的情况是<strong>小文件分布不均匀，在某个特定的DataNode上存放了80%的小文件，剩余DataNode上只存放了20%的小文件</strong>，那么其他DataNode在结束自己本地的计算后，还得“默默等待”那个存放了80%小文件的DataNode完成它的所有map工作，严重影响了整个Map-Reduce任务的效率。 所以对于海量小文件数据，我们在启动Map-Reduce任务前必须对其进行优化，常见的优化思路有</p>
+<ol>
+<li>在系统前沿就把多个小文件合并，将合并后的大文件写入HDFS</li>
+<li>小文件已大量分布在HDFS中，通过一定手段在HDFS中合并它们</li>
+<li>在启动正式的Map-Reduce任务前，先预处理合并大量小文件</li>
+</ol>
+<p>其中<strong><em>思路1</em></strong>的逻辑无关HDFS，不在本文讨论范围。<strong><em>思路2与思路3本质上一样</em></strong>，是通过一定的手段让小文件合并为大文件，以大文件作为正式的Map-Reduce任务的数据输入。</p>
+<h2 id="源码分析"><a href="#源码分析" class="headerlink" title="源码分析"></a>源码分析</h2><p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/TextInputFormat.png" alt="Hadoop源码"> 默认情况下，Map-Reduce使用的默认输入格式（InputFormat）是<strong><em>TextInputFormat</em></strong>，通过查看源码可知<strong><em>TextInputFormat</em></strong>实现的泛型是<strong><em>&lt;LongWritable, Text&gt;</em></strong>，这也就解释了为什么默认情况下我们Map任务的输入是<strong><em>&lt;LongWritable, Text&gt;</em></strong>。 调用getRecordReader方法会返回一个真正的<strong><em>RecordReader&lt;LongWritable, Text&gt;</em></strong>对象（实现了具体读文件的逻辑）供外部使用。每次我们把Map-Reduce的作业提交之后，系统会根据设定的InputFormat（默认/自定义）建立一个RecordReader对象来读取Split，并按照一定格式对Split进行预处理。如图所示，默认的RecordReader为<strong><em>LineRecordReader</em></strong>，也就是按行读取Split中的数据内容，每读取一行都会生成一个<strong><em>&lt;LongWritable, Text&gt;</em></strong>（行起始偏移量, 文本内容)的K-V对。利用RecordReader不断地读取，就可以完成map端的输入。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/mergeProcess.png" alt="合并过程示意图"> 基于以上原理，实现小文件合并为大文件的逻辑其实很简单。我们完全可以自定义InputFormat，对每个小文件不再逐行读取，而是将整个小文件的内容全部读取以生成<strong><em>&lt;小文件名, 文件全部内容&gt;</em></strong>的K-V对，然后将N个小文件的N个K-V对通过<strong><em>1个Reducer</em></strong>最终合并成一个大文件(<strong>本例使用SequenceFile</strong>)。 <strong>所以，关键就在于实现自定义的InputFormat类与自定义的RecordReader类。</strong></p>
+<h2 id="具体实现"><a href="#具体实现" class="headerlink" title="具体实现"></a>具体实现</h2><h4 id="简要原理"><a href="#简要原理" class="headerlink" title="简要原理"></a>简要原理</h4><p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/relations.png" alt="合并过程示意图"> 网上的各种自定义InputFormat教程中总是先贴一大段代码，让人很难一下子搞清楚InputFormat、RecordReader和Map-Reduce任务的关系。简单来说，InputFormat和RecordReader的功能如下</p>
+<ul>
+<li><strong>自定义的InputFormat为本次Map-Reduce任务提供了一个自定义的RecordReader</strong></li>
+<li><strong>自定义的RecordReader实现具体的如何从Split中读取数据的逻辑</strong></li>
+</ul>
+<h4 id="Java代码"><a href="#Java代码" class="headerlink" title="Java代码"></a>Java代码</h4><p>首先实现自定义的RecordReader类。</p>
+<pre><code>/**
+ * 自定义的RecordReader, 用于将Split中的内容转换为自定义的K-V对形式
+ */
+public class MyRecordReader extends RecordReader&lt;Text, BytesWritable&gt; {
+
+    private FileSplit split;        // 读入的文件split
+    private boolean isFinished;     // 转换是否完成的标志位
+    private Text key;               // 输出Key
+    private BytesWritable value;    // 输出Value
+    private JobContext context;     // 作业内容
+
+    /**
+     * 初始化RecordReader方法
+     * @param inputSplit 读入的文件split
+     * @param taskAttemptContext 作业内容
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    @Override
+    public void initialize(InputSplit inputSplit, TaskAttemptContext taskAttemptContext) throws IOException, InterruptedException {
+        this.isFinished = false;
+        this.key = new Text();
+        this.value = new BytesWritable();
+        this.split = (FileSplit) inputSplit;
+        this.context = taskAttemptContext;
+    }
+
+    /**
+     * 告诉调用者是否还有未读的下一个K-V对
+     * @return true / false
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    @Override
+    public boolean nextKeyValue() throws IOException, InterruptedException {
+        if(!isFinished) {
+
+            String fileName = this.split.getPath().getName();
+            this.key.set(fileName);
+
+            int contentLength = (int)split.getLength();
+            byte[] content = new byte[contentLength];
+            FileSystem fs = FileSystem.get(context.getConfiguration());
+            FSDataInputStream inputStream = null;
+            try {
+                inputStream = fs.open(this.split.getPath());
+                IOUtils.readFully(inputStream, content, 0, contentLength);
+                value.set(content, 0, contentLength);
+            } catch (Exception e) {
+                System.out.println(e.toString());
+            } finally {
+                if(inputStream != null) {
+                    try {
+                        IOUtils.closeStream(inputStream);
+                    } catch (Exception e) {
+                        System.out.println(e.toString());
+                    }
+                }
+            }
+            isFinished = true;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 返回当前读到的Key
+     * @return key
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    @Override
+    public Text getCurrentKey() throws IOException, InterruptedException {
+        return this.key;
+    }
+
+    /**
+     * 返回当前读到的Value
+     * @return
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    @Override
+    public BytesWritable getCurrentValue() throws IOException, InterruptedException {
+        return this.value;
+    }
+
+    /**
+     * 返回转换过程的状态 (是否转换完成)
+     * @return true / false
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    @Override
+    public float getProgress() throws IOException, InterruptedException {
+        return this.isFinished ? 1.0f : 0.0f;
+    }
+
+    @Override
+    public void close() throws IOException {
+
+    }
+}
+</code></pre><p>然后实现自定义的InputFormat类。</p>
+<pre><code>/**
+ * 自定义InputFormat, 创建一个自定义的RecordReader(以实现自定义的读取输入文件逻辑)
+ */
+public class MyInputFormat extends FileInputFormat&lt;Text, BytesWritable&gt;{
+    @Override
+    public RecordReader&lt;Text, BytesWritable&gt; createRecordReader(InputSplit inputSplit,
+                                                                TaskAttemptContext taskAttemptContext) throws IOException, InterruptedException {
+        // 初始化一个自定义的RecordReader并返回
+        RecordReader&lt;Text, BytesWritable&gt; recordReader = new MyRecordReader();
+        recordReader.initialize(inputSplit, taskAttemptContext);
+        return recordReader;
+    }
+}
+</code></pre><p>实现了自定义的<strong><em>MyInputFormat</em></strong>类和<strong><em>MyRecordReader</em></strong>类后，Mapper和Reducer并没有什么可做的，map端只是简单地将数据输入直接输出，reduce端收集到K-V对后将其直接输出。</p>
+<pre><code>/**
+ * Mapper, 负责处理从Split中读取的K-V型数据
+ */
+public class MyMapper extends Mapper&lt;Text, BytesWritable, Text, BytesWritable&gt; {
+
+    @Override
+    protected void map(Text key, BytesWritable value, Context context) throws IOException, InterruptedException {
+        context.write(key, value);
+    }
+}
+
+
+/**
+ * Reducer, 负责接收K-V对后输出为结果文件
+ */
+public class MyReducer extends Reducer&lt;Text, BytesWritable, Text, BytesWritable&gt; {
+    @Override
+    protected void reduce(Text key, Iterable&lt;BytesWritable&gt; values, Context context) throws IOException, InterruptedException {
+        for(BytesWritable value : values) {
+            context.write(key, value);
+        }
+    }
+}
+</code></pre><p>最后把Job信息设置好后就可以提交到集群上运行。</p>
+<pre><code>/**
+ * 程序入口
+ */
+public class Driver {
+
+    private static final String HDFS_HOST = &quot;hdfs://localhost:9000&quot;;
+    private static final int NUM_REDUCE_TASKS = 1;
+    private static final String FILE_INPUT_PATH = &quot;/small_files/data&quot;;
+    private static final String RESULT_OUTPUT_PATH = &quot;/small_files/output&quot;;
+
+    public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
+
+        Configuration conf = new Configuration();
+        conf.set(&quot;fs.defaultFS&quot;, HDFS_HOST);
+        Job myJob = Job.getInstance(conf);
+
+        // 通过类名设置运行的jar包
+        myJob.setJarByClass(Driver.class);
+
+        // 设置Mapper Class与Reducer Class
+        myJob.setMapperClass(MyMapper.class);
+        myJob.setReducerClass(MyReducer.class);
+
+        // 设置Mapper与Reducer的输出数据类型
+        myJob.setMapOutputKeyClass(Text.class);
+        myJob.setMapOutputValueClass(BytesWritable.class);
+        myJob.setOutputKeyClass(Text.class);
+        myJob.setOutputValueClass(BytesWritable.class);
+
+        // 设置InputFormat与OutputFormat
+        // 使用自定义的InputFormat作为Input格式, Sequence文件作为Output格式
+        myJob.setInputFormatClass(MyInputFormat.class);
+        myJob.setOutputFormatClass(SequenceFileOutputFormat.class);
+
+        // 自定义Reduce Task数量, 决定最终输出多少个结果文件
+        myJob.setNumReduceTasks(NUM_REDUCE_TASKS);
+
+        // 设置数据所在目录, 结果输出目录
+        FileInputFormat.setInputPaths(myJob, new Path(FILE_INPUT_PATH));
+        FileOutputFormat.setOutputPath(myJob, new Path(RESULT_OUTPUT_PATH));
+
+        System.exit(myJob.waitForCompletion(true) ? 1 : 0);
+
+    }
+}
+</code></pre><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>当HDFS中存储了海量小文件时，利用自定义的InputFormat和RecordReader启动Map-Reduce任务可将小文件合并为大文件。这个合并的Job可以放在正式的Map-Reduce任务前，利用ControlledJob对合并Job与正式Job进行控制，合并结束后才启动正式Job；也可以定时地对HDFS上的文件进行合并，避免需要用时才进行合并。 <strong>当然，最优方案还是在系统前沿就把数据合并成尽量大的文件，再把大文件写入HDFS。</strong></p>
+<h2 id="完整代码"><a href="#完整代码" class="headerlink" title="完整代码"></a>完整代码</h2><p>完整代码请查看： <a href="https://github.com/AcepcsMa/hadoop_examples/tree/master/src/inputformat" target="_blank" rel="noopener">我的Github目录</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/02/17/customizeinputformat/" data-id="cjpg78r6x002pbxuy39ev4sn6" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/mapreduce/">mapreduce</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-osxmr" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/02/13/osxmr/" class="article-date">
+  <time datetime="2018-02-13T14:58:51.000Z" itemprop="datePublished">2018-02-13</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/BigData/">BigData</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/02/13/osxmr/">OS X下MapReduce程序运行的几种模式</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>全文为本人（Haoxiang Ma）原创内容，转载请标明出处。</p>
+</blockquote>
+<h1 id="1-MapReduce程序运行的模式简介"><a href="#1-MapReduce程序运行的模式简介" class="headerlink" title="1.MapReduce程序运行的模式简介"></a>1.MapReduce程序运行的模式简介</h1><ol>
+<li>程序运行模式<ul>
+<li>本地模式<ul>
+<li>利用本地的JVM运行，使用本地的IDE进行debug</li>
+</ul>
+</li>
+<li>远程模式<ul>
+<li>提交至远程的集群上运行，使用本地的IDE进行debug</li>
+<li>提交至远程的集群上运行，不使用本地IDE进行debug</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>数据存放路径<ul>
+<li>远程文件系统（hdfs)</li>
+<li>本地文件系统（local file system)</li>
+</ul>
+</li>
+</ol>
+<h1 id="2-开发环境简介"><a href="#2-开发环境简介" class="headerlink" title="2.开发环境简介"></a>2.开发环境简介</h1><ul>
+<li>操作系统：macOS Sierra 10.12.6</li>
+<li>Java版本：1.8.0_131-b11</li>
+<li>Hadoop版本：hadoop-2.7.4</li>
+<li>IDE：IntelliJ IDEA</li>
+</ul>
+<h1 id="3-MapReduce程序运行例子"><a href="#3-MapReduce程序运行例子" class="headerlink" title="3.MapReduce程序运行例子"></a>3.MapReduce程序运行例子</h1><h2 id="3-1-程序需求"><a href="#3-1-程序需求" class="headerlink" title="3.1 程序需求"></a>3.1 程序需求</h2><blockquote>
+<p>学校里开设了多门课程，有语文（chinese）、数学（math）、英语（english）等。经过了一次年级统考后，每个学生的成绩都被记录在多个文本文件中，文本文件格式如下。</p>
+</blockquote>
+<ul>
+<li><p>math.txt</p>
+<p>Ben 75<br>Jack 60<br>May 85<br>Tom 91</p>
+</li>
+</ul>
+<ul>
+<li><p>english.txt</p>
+<p>Jack 72<br>May 60<br>Tom 62<br>Ben 90</p>
+</li>
+</ul>
+<ul>
+<li><p>chinese.txt</p>
+<p>Ben 79<br>May 88<br>Tom 68<br>Jack 70</p>
+</li>
+</ul>
+<blockquote>
+<p>现需要根据以上的文本文件，算出每个学生在本次统考中的平均分，并将结果用一个总的文件averageScore.txt进行存储。averageScore.txt的格式如下。</p>
+</blockquote>
+<ul>
+<li><p>averageScore.txt</p>
+<p>#name #score<br>Ben 0.0<br>May 0.0<br>Tom 0.0<br>Jack 0.0</p>
+</li>
+</ul>
+<h2 id="3-2-程序设计思路"><a href="#3-2-程序设计思路" class="headerlink" title="3.2 程序设计思路"></a>3.2 程序设计思路</h2><h3 id="3-2-1-Mapper的处理逻辑"><a href="#3-2-1-Mapper的处理逻辑" class="headerlink" title="3.2.1 Mapper的处理逻辑"></a>3.2.1 Mapper的处理逻辑</h3><p>Mapper每次从文本文件中读取<strong>1行内容</strong>，即调用1次map方法。Mapper需要把原始数据中一行的内容拆分成学生姓名（student name）和该门课程的分数（score）。按照需求，本程序最终要算出每一个学生的平均分，所以学生姓名应作为一个key，对应的value即为该生的平均分<strong><em>（实际上是不严谨的，因为在实际环境中会出现多个学生重名的现象，若不作特殊处理，key是不允许重复的。最根本的解决方案是采用学号作为key，但为了演示直观，仅采用学生姓名作为key）</em></strong>。 Mapper读完一行的数据后，把<code>{student name，score}</code>这个<code>key-value</code>写入中间结果，准备传送给Reducer作下一步的运算。</p>
+<h3 id="3-2-2-Reducer的处理逻辑"><a href="#3-2-2-Reducer的处理逻辑" class="headerlink" title="3.2.2 Reducer的处理逻辑"></a>3.2.2 Reducer的处理逻辑</h3><p>Reducer接收到的数据，实际上是一个key与该key对应的value的一个<strong>集合</strong>（并不仅仅是一个value）。在本需求中，传入reduce方法的参数是学生姓名，以及该生多门课程分数的集合，类似于<code>Ben,[60,70,80,...]</code>。所以Reducer需要将集合中的分数求和，然后求出平均值，最终得到一个<code>{student name, average score}</code>的<code>key-value</code>对。</p>
+<h3 id="3-2-3-具体代码设计"><a href="#3-2-3-具体代码设计" class="headerlink" title="3.2.3 具体代码设计"></a>3.2.3 具体代码设计</h3><ul>
+<li><p>AVGMapper类<br>用于实现map方法</p>
+<p>package mr;</p>
+<p>import org.apache.hadoop.io.DoubleWritable;<br>import org.apache.hadoop.io.LongWritable;<br>import org.apache.hadoop.io.Text;<br>import org.apache.hadoop.mapreduce.Mapper;<br>import java.io.IOException;</p>
+<p>/**</p>
+<ul>
+<li>Created by marco on 2017/8/17.<br>*/<br>public class AVGMapper extends Mapper&lt;LongWritable, Text, Text, DoubleWritable&gt;<br>{<br> @Override<br> protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException<br> {<pre><code>String line = value.toString();
+if(line.length() == 0)  // 文件格式错误，出现空行
+    return;
+String[] split = line.split(&quot; &quot;);
+String stuName = split[0];
+String stuScore = split[1];
+double score = Double.parseDouble(stuScore);    // 转成double类型，方便后续求均值计算
+context.write(new Text(stuName), new DoubleWritable(score));
+</code></pre> }<br>}</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li><p>AVGReducer类<br>用于实现reduce方法</p>
+<p>package mr;</p>
+<p>import org.apache.hadoop.io.DoubleWritable;<br>import org.apache.hadoop.io.Text;<br>import org.apache.hadoop.mapreduce.Reducer;<br>import java.io.IOException;</p>
+<p>/**</p>
+<ul>
+<li><p>Created by marco on 2017/8/17.<br>*/<br>public class AVGReducer extends Reducer&lt;Text, DoubleWritable, Text, DoubleWritable&gt;<br>{<br> @Override<br> protected void reduce(Text key, Iterable<doublewritable> values, Context context) throws IOException, InterruptedException<br> {</doublewritable></p>
+<pre><code>double sum = 0;
+int length = 0;
+for(DoubleWritable value : values)
+{
+    sum += value.get();
+    length++;
+}
+
+double avgScore = sum / (double)length;
+context.write(key, new DoubleWritable(avgScore));
+</code></pre><p> }<br>}</p>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li><p>AVGRunner类<br>用于关联Mapper与Reducer，并创建MapReduce任务（Job）提交运行。基本代码如下所示。</p>
+<p>package mr;</p>
+<p>import org.apache.hadoop.conf.Configuration;<br>import org.apache.hadoop.fs.FileSystem;<br>import org.apache.hadoop.fs.Path;<br>import org.apache.hadoop.io.DoubleWritable;<br>import org.apache.hadoop.io.Text;<br>import org.apache.hadoop.mapreduce.Job;<br>import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;<br>import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;</p>
+<p>/**</p>
+<ul>
+<li><p>Created by marco on 2017/8/17.<br>*/<br>public class AVGRunner<br>{<br> static public void main(String[] args) throws Exception<br> {</p>
+<pre><code>// 设置hdfs的handler
+Configuration fsConf = new Configuration();
+fsConf.set(&quot;fs.default.name&quot;,&quot;hdfs://localhost:9000/&quot;);
+FileSystem fs = FileSystem.get(fsConf);
+
+// MapReduce的配置参数
+Configuration mrConf = new Configuration();
+
+// 新建一个求平均值的Job
+Job avgJob = Job.getInstance(mrConf);
+avgJob.setJarByClass(AVGRunner.class);
+
+// 设置Mapper类与Reducer类
+avgJob.setMapperClass(AVGMapper.class);
+avgJob.setReducerClass(AVGReducer.class);
+
+// 设置输入输出的数据结构
+avgJob.setMapOutputKeyClass(Text.class);
+avgJob.setMapOutputValueClass(DoubleWritable.class);
+avgJob.setOutputKeyClass(Text.class);
+avgJob.setOutputValueClass(DoubleWritable.class);
+
+// 检查结果输出目录，若已存在则删除输出目录
+if(fs.exists(new Path(&quot;/avg/output&quot;)))
+{
+    fs.delete(new Path(&quot;/avg/output&quot;), true);
+}
+
+// 设置数据目录以及结果输出目录
+FileInputFormat.setInputPaths(avgJob, new Path(&quot;&quot;));
+FileOutputFormat.setOutputPath(avgJob, new Path(&quot;&quot;));
+
+// 提交任务，等待完成
+System.exit(avgJob.waitForCompletion(true)?0:1);
+</code></pre><p> }<br>}</p>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="3-3-MapReduce程序运行"><a href="#3-3-MapReduce程序运行" class="headerlink" title="3.3 MapReduce程序运行"></a>3.3 MapReduce程序运行</h2><blockquote>
+<p>若使用本地文件系统的数据文件，且在本地模式运行，无需配置hdfs相关的参数，数据目录以及结果输出目录填写本地路径即可。<strong>（确保结果输出文件夹未被创建，否则会报异常）</strong></p>
+</blockquote>
+<pre><code>// 均填写本地文件路径即可
+FileInputFormat.setInputPaths(avgJob, new Path(&quot;&quot;));
+FileOutputFormat.setOutputPath(avgJob, new Path(&quot;&quot;));
+</code></pre><blockquote>
+<p>若使用hdfs上的数据文件，且在本地模式运行，应配置hdfs相关参数，数据目录以及结果输出目录均填写hdfs的路径。<strong>（确保结果输出文件夹未被创建，否则会报异常）</strong></p>
+</blockquote>
+<pre><code>// 设置hdfs参数，并用该配置创建一个新的Job
+Configuration fsConf = new Configuration();
+fsConf.set(&quot;fs.default.name&quot;,&quot;hdfs://localhost:9000/&quot;);
+Job avgJob = Job.getInstance(fsConf);
+
+
+// 均填写hdfs路径即可
+FileInputFormat.setInputPaths(avgJob, new Path(&quot;&quot;));
+FileOutputFormat.setOutputPath(avgJob, new Path(&quot;&quot;));
+</code></pre><h3 id="3-3-1-本地模式运行"><a href="#3-3-1-本地模式运行" class="headerlink" title="3.3.1 本地模式运行"></a>3.3.1 本地模式运行</h3><p>本地模式运行，直接编译执行AVGRunner的main方法即可，程序运行结束后会在自行设置的结果输出目录中生成运行结果。</p>
+<h3 id="3-3-2-远程集群运行"><a href="#3-3-2-远程集群运行" class="headerlink" title="3.3.2 远程集群运行"></a>3.3.2 远程集群运行</h3><p><strong>首先使用IDE将程序打成一个jar包，本例中命名为hadoop.jar</strong> 提交到远程集群上运行分两种情况</p>
+<ul>
+<li><p>使用本地IDE（IntelliJ IDEA）运行，任务被提交到集群运行，<strong>但可使用IDE进行跟踪debug</strong> 新建一个MapReduce的配置对象，将已经打包好的jar包传入配置中</p>
+<pre><code>// MapReduce的配置参数，远程运行，本地debug
+Configuration mrConf = new Configuration();
+mrConf.set(&quot;mapreduce.job.jar&quot;,&quot;hadoop.jar&quot;);
+mrConf.set(&quot;mapreduce.framework.name&quot;,&quot;yarn&quot;);
+
+//利用以上配置新建一个Job
+Job avgJob = Job.getInstance(mrConf);
+avgJob.setJarByClass(AVGRunner.class);
+</code></pre></li>
+</ul>
+<ul>
+<li><p>在终端直接使用hadoop命令将任务提交到集群运行，<strong>无法使用IDE进行跟踪debug</strong> 直接在终端中输入hadoop命令</p>
+<pre><code>hadoop jar $jar包名称 $待执行的类的名称
+</code></pre></li>
+</ul>
+<pre><code>在本例中应输入
+
+    hadoop jar avg.jar mr.AVGRunner
+</code></pre><blockquote>
+<p><strong>####################### 注意⚠️ #######################</strong> 在OS X中，使用IntelliJ IDEA打包jar包后，若在终端中直接使用<code>hadoop jar $jar包名称 $待执行的类的名称</code>提交MapReduce任务，会报出异常，因为OS X系统的文件系统对大小写不敏感<strong><em>（case-insensitive）</em></strong>。 经过对此异常的搜索，<strong>暂时的解决方案是通过删除jar包中的LICENSE文件</strong>，使任务顺利提交。</p>
+<pre><code># 在终端中执行以下命令
+  zip -d $jar包名称 META-INF/LICENSE
+  zip -d $jar包名称 LICENSE
+</code></pre><p><strong>#####################################################</strong></p>
+</blockquote>
+<p><img src="http://upload-images.jianshu.io/upload_images/7445555-d6ff47959f4616b6.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="">可以看到使用了hadoop命令提交任务后，系统调用了RPC框架和Yarn框架中的一些服务，用于远程运行，而非使用LocalJobSubmitter于本地运行。<br><img src="http://upload-images.jianshu.io/upload_images/7445555-4c5e6823f3ec9ade.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="">并且在MapReduce任务管理页面可看到任务已经完成的历史记录。</p>
+<h1 id="4-总结"><a href="#4-总结" class="headerlink" title="4.总结"></a>4.总结</h1><p>MapReduce任务可在本地运行，也可提交到集群上运行。 在开发初期，需要编写Demo程序时，可在本地进行开发与测试，将数据文件放置在本地文件系统，直接使用IDE运行主类的main方法，观察运行结果。 上线前调试，可采用远程模式运行，不直接使用hadoop命令提交，而是使用IDE进行提交与debug，这样既可以保证程序运行在远处集群上（生产环境or开发环境），也可以在本地方便跟踪调试。 可上线时，使用hadoop命令直接提交到远程集群，并通过localhost:50070<strong>（默认配置）</strong>的任务管理页面进行观察。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/02/13/osxmr/" data-id="cjpg78r790038bxuyyckl9irg" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/hadoop/">hadoop</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-ssort" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/02/13/ssort/" class="article-date">
+  <time datetime="2018-02-13T14:54:02.000Z" itemprop="datePublished">2018-02-13</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/BigData/">BigData</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/02/13/ssort/">如何在Map-Reduce中实现二次排序（对Value排序）</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>全文为本人（Haoxiang Ma）原创内容，转载请标明出处。</p>
+</blockquote>
+<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>众所周知，Map-Reduce任务完成后，输出的结果文件总是按照Key进行升序排列（shuffle阶段完成）。 例如Hadoop里经典的word count程序：</p>
+<pre><code>// File1原始数据
+hello
+world
+hello
+apple
+apple
+apple
+baby
+
+// 输出结果文件，已按Key进行升序排序
+apple 3
+baby 1
+hello 2
+world 1
+</code></pre><p>显然，这种默认的排序方式很多时候能帮开发者减轻负担，因为开发者不用去自行实现对Key进行排序的算法，所有的排序操作均由Hadoop帮开发者完成（详情参考Map-Reduce中的shuffle原理，<strong><em>具体参考map端的partition-&gt;spill-&gt;(spill.sort)-&gt;(combine)过程</em></strong>）。 <strong>一切似乎很美好，可是如果我们遇到了要对value排序的需求呢？</strong></p>
+<pre><code>// 假设有如下电影评分数据 movies.dat
+// 且我们希望对rating进行降序排序, 以便分析每部电影的评分趋势
+MovieID, rating
+  001,    75.5
+  001,    89
+  001,    60
+  002,    55
+  002,    79
+  003,    92.5
+  003,    92.8
+  003,    60
+ ......
+
+// 期望输出值（Key有序的同时，按rating降序排序）
+  001   89.0
+  001   75.5
+  001   60.0
+  002   79.0
+  002   55.0
+  003   92.8
+  003   92.5
+  003   60.0
+</code></pre><p>在“排序”的需求下，我们很自然地会想到：</p>
+<ul>
+<li>利用系统默认的排序。</li>
+<li>预处理数据，把rating当成Key，movieID当成Value。</li>
+</ul>
+<p>虽然按照以上的想法，确实是对作为Key的rating排序了，但我们需要的是<strong>降序</strong>输出而非默认的升序输出，且输出格式不符合要求（第一列应为movieID）。 此时，就需要引入一种<strong><em>二次排序（Secondary Sort）</em></strong>的概念了。所谓<strong><em>二次排序（Secondary Sort）</em></strong>其实就是人工地对所需字段进行排序，在系统的默认排序基础上做第二次的排序。</p>
+<h2 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h2><p><strong><em>二次排序（Secondary Sort）</em></strong>概念上不难理解，无非就是自行多做一次特定的排序。可是该如何实现呢？怎么在map-reduce的流程框框内对Value进行人工排序呢？ 其实关键技巧就是利用map-reduce会对Key排序的特点，让它“顺带”对Value进行排序。为了达到这种“顺带”的效果，<strong>我们可以将原始数据中的Key（MovieID）和Value（rating）合并到一起作为新的Key（MovieBean），同时仍然保持原Value（rating）作为Value。当系统对这个合并的Key（MovieBean）按照某种特性进行排序时，其对应的Value也会被相应地“排序”（因为map端输出时，Key和Value是一个整体数据结构）</strong>，为此我们应设计一个自定义的Bean类。</p>
+<pre><code>/**
+ * 自定义的MovieBean类, 将原始数据中的Key和Value合并到一个类中。
+ */
+public class MovieBean implements WritableComparable&lt;MovieBean&gt;{
+    public Text movieID;
+    public DoubleWritable score;
+
+    public MovieBean() {
+
+    }
+
+    public MovieBean(Text movieID, DoubleWritable score) {
+        this.movieID = movieID;
+        this.score = score;
+    }
+
+    public void set(Text movieID, DoubleWritable score) {
+        this.movieID = movieID;
+        this.score = score;
+    }
+
+    public Text getMovieID() {
+        return movieID;
+    }
+
+    public void setMovieID(Text movieID) {
+        this.movieID = movieID;
+    }
+
+    public DoubleWritable getScore() {
+        return score;
+    }
+
+    public void setScore(DoubleWritable score) {
+        this.score = score;
+    }
+
+    @Override
+    public String toString() {
+        return &quot;movieID=&quot; + movieID +
+                &quot;, score=&quot; + score;
+    }
+
+    /**
+     * 重点! 利用自定义的compareTo方法实现排序效果!
+     * @param o object of MovieBean
+     * @return result of comparison
+     */
+    @Override
+    public int compareTo(MovieBean o) {
+        if(o == null) {
+            throw new RuntimeException();
+        }
+
+        // movieID相同时, 按照score进行降序排序
+        if(this.movieID.compareTo(o.getMovieID()) == 0) {
+            return -score.compareTo(o.getScore());
+        }
+
+        // movieID不相同时, 直接按照MovieID排序
+        return this.movieID.compareTo(o.getMovieID());
+    }
+
+    /**
+     * @param dataOutput 序列化输出
+     */
+    @Override
+    public void write(DataOutput dataOutput) throws IOException {
+        dataOutput.writeUTF(movieID.toString());
+        dataOutput.writeDouble(score.get());
+    }
+
+    /**
+     * @param dataInput 序列化输入
+     */
+    @Override
+    public void readFields(DataInput dataInput) throws IOException {
+        movieID = new Text(dataInput.readUTF());
+        score = new DoubleWritable(dataInput.readDouble());
+    }
+}
+</code></pre><p>有了这个自定义的<strong><em>MovieBean</em></strong>类作为新的Key后，Mapper端的输出就从原来的 <strong><em>\&lt;MovieID, Rating&gt;</em></strong>键值对转换成了<strong><em>\&lt;MovieBean, Rating&gt;</em></strong>键值对。</p>
+<pre><code>&lt;MovieID, Rating&gt;  =&gt;  &lt;(MovieID, Rating), Rating&gt;
+</code></pre><p>那么Reducer端接收到的将是大量的<strong><em>\&lt;MovieBean, Rating&gt;</em></strong>数据。此时问题就来了，当我们的Key是<strong>简单类型</strong>时（如IntWritable，Text，DoubleWritable），很自然就能将多个K-V对中相同的Key提取出来，且将多个Value合并成一个集合，构成Reducer端的输入数据结构<strong><em>\&lt;Key, List></em></strong>。但是当我们的Key是复合类型，例如MovieBean是MovieID和Rating的复合结构时，<strong>即使两个MovieBean对象的MovieID相同，但这两个MovieBean却是不会被认为是同一个对象的。</strong></p>
+<pre><code>// 1号K-V对
+&lt;(&quot;0001&quot;, 85.0), 85.0&gt;
+
+// 2号K-V对
+&lt;(&quot;0001&quot;, 68.0), 68.0&gt;
+
+// Reducer接收到以上两个K-V对后，并不会把它们合并成&lt;MovieBean, List&lt;Value&gt;&gt;的数据结构
+// 因为两个K-V对的Key（MovieBean）并不相同
+</code></pre><p>为了解决这个问题，让Reducer把相同MovieID的MovieBean当成是一样的Key，继而把相同MovieID所对应的Ratings合并成<strong><em>\&lt;MovieBean, List></em></strong>结构，<strong>我们需要通过实现自定义的GroupingComparator来 _欺骗_ Reducer。</strong></p>
+<pre><code>/**
+ * 自定义的GroupingComparator
+ */
+public class MovieGroupingComparator extends WritableComparator {
+
+    /**
+     * 构造函数, 告知自定义Bean类
+     */
+    protected MovieGroupingComparator() {
+        super(MovieBean.class, true);
+    }
+
+    /**
+     * 重写WritableComparator接口的compare方法(类似于普通Comparator接口)
+     * @param a movieA
+     * @param b movieB
+     * @return result of comparison
+     */
+    @Override
+    public int compare(WritableComparable a, WritableComparable b) {
+        MovieBean movieA = (MovieBean) a;
+        MovieBean movieB = (MovieBean) b;
+
+        // 只比较两个MovieBean的MovieID, 忽略其他属性
+        return movieA.getMovieID().compareTo(movieB.getMovieID());
+    }
+}
+</code></pre><p>实现以上的自定义GroupingComparator时，我们在compare方法中只考虑<strong><em>MovieID</em></strong>这一个属性，等同于<strong>_欺骗_</strong>了Reducer。Reducer判断两个Key是否相同时<strong>只考虑MovieID是否相同</strong>，从而将不同的MovieBean对象抽取成一个统一的MovieBean作为Reducer的输入Key，即可顺利合并出<strong><em>\&lt;MovieBean, List></em></strong>这样的数据结构。</p>
+<pre><code>// example
+// 假设Reducer0接收到了以下K-V对
+&lt;(&quot;0001&quot;, 89.0), 89.0&gt;
+&lt;(&quot;0001&quot;, 76.8), 76.8&gt;
+&lt;(&quot;0001&quot;, 69.5), 69.5&gt;
+&lt;(&quot;0001&quot;, 69.3), 69.3&gt;
+
+
+// 由于compare方法只比较MovieBean中的MovieID属性, 完全忽略Rating, 所以
+// 以上4个K-V对中的MovieBean均会被视作一样的Key，最终合并成的数据结构如下
+// (为什么是有序的, 因为在map端的spill过程中已经依照rating降序排列了,参考MovieBean
+// 类中重写的compareTo方法)
+
+&lt; Key, List&lt;Value&gt;&gt;
+&lt;(&quot;0001&quot;, 89.0), [89.0, 76.8, 69.5, 69.3]&gt;
+</code></pre><h2 id="作业提交"><a href="#作业提交" class="headerlink" title="作业提交"></a>作业提交</h2><p>至此，二次排序中所有自定义的工作已经完成。<strong>但是千万不要忘记在提交Job之前，给Job设置以上自定义GroupingComparator</strong>，否则Job会使用内置默认的GroupingComparator，那我们的二次排序就无法生效了。</p>
+<pre><code>movieJob.setGroupingComparatorClass(MovieGroupingComparator.class);
+</code></pre><p>另外，<strong>如果需要自定义Reducer数量</strong>（例如有时希望输出N个结果文件，则需要N个Reducer），还要自定义Partitioner。Partitioner的作用简单来说就是给Mapper端产生的K-V对打上一个<strong><em>partition id</em></strong>烙印，让系统知道这个K-V对应该被哪个Reducer取走。在本例中，<strong>如有需要（不是必须）</strong>，我们可以按照MovieID进行划分，不同MovieID的K-V对划分到不同的Reducer上进行处理。</p>
+<pre><code>/**
+ * 自定义Partitioner, 用于划分K-V对被哪个Reducer取走
+ */
+public class MoviePartitioner extends Partitioner&lt;MovieBean, DoubleWritable&gt; {
+
+    @Override
+    public int getPartition(MovieBean movieBean, DoubleWritable doubleWritable, int numReducers) {
+        // 相同MovieID的必定会到同一个Reducer上
+        return movieBean.getMovieID().hashCode() % numReducers;
+    }
+}
+</code></pre><p>最后给Job设定自定义的Reducer数，即可启动N个Reducer进行数据处理。</p>
+<pre><code>final int NUM_REDUCE_TASK = 5;
+movieJob.setNumReduceTasks(NUM_REDUCE_TASK);
+</code></pre><p><img src="/Users/marco/Desktop/ss.png" alt=""></p>
+<p>单Reducer运行结果</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>使用SecondarySort可以使我们在Map-Reduce框架内完成自定义排序。依托Map-Reduce会对Key进行排序的特性，可以将需要排序的字段（Value）与原始Key合成为自定义的Bean作为新的Key，原Value保持不动。有了SecondarySort，我们就不必在框架外做额外的工作进行排序，干扰程序的可读性；也不必将原始Key和Value对换，影响输出格式。</p>
+<h2 id="代码地址"><a href="#代码地址" class="headerlink" title="代码地址"></a>代码地址</h2><p><a href="https://github.com/AcepcsMa/hadoop_examples/tree/master/src/sort" target="_blank" rel="noopener">Github-Secondary Sort</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/02/13/ssort/" data-id="cjpg78r7g003jbxuyz7f21l7t" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/mapreduce/">mapreduce</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-zkserver" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/02/13/zkserver/" class="article-date">
+  <time datetime="2018-02-13T13:32:52.000Z" itemprop="datePublished">2018-02-13</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/BigData/">BigData</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/02/13/zkserver/">利用ZooKeeper开发服务器上下线感知程序</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>全文为本人（Haoxiang Ma）原创内容，转载请标明出处。</p>
+</blockquote>
+<h2 id="What-is-ZooKeeper"><a href="#What-is-ZooKeeper" class="headerlink" title="What is ZooKeeper"></a>What is ZooKeeper</h2><p>ZooKeeper是一个分布式的分布式应用程序协调服务。简单地来说，就是用于协调管理多个分布式应用程序的一个工具，扮演着一个第三方管理者的角色。</p>
+<h2 id="问题背景分析"><a href="#问题背景分析" class="headerlink" title="问题背景分析"></a>问题背景分析</h2><p>假设现在有<strong>10</strong>个应用程序(App#0 - App#9)，运行在由<strong>10</strong>台服务器(Server#0 - Server#9)组成的集群上（假设平均分配，每台服务器上运行一个程序）。此时由于某个热门线上活动的开始（如抢票or低价秒杀等），突然间有数以百万计的用户访问服务器上的资源，等待服务器处理并应答（如下图所示）。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/server.png" alt=""> 很不幸<strong>10</strong>台服务器中有<strong>K</strong>台受不住负载压力，导致服务器崩溃。在这种情况下，如果客户端无法感知服务器的状态（在线／离线），部分向已经崩溃的服务器发送请求的客户端将会有长时间无法获得应答，它们只能一直重复地向已经崩溃的服务器地址重发请求，无法切换至另外<strong>（10-K）</strong>台完好的服务器进行交互。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/breakdown.png" alt=""> 其实在这种场景下，如果客户端能够及时地感知到集群中哪些节点已经崩溃，哪些节点仍然完好，是可以切换至完好的节点并向其发送请求的。理论上只要集群中仍有1个节点是完好的，它即能向客户端提供服务。 <strong><em>所以整个问题的症结就在于，如何让客户端感知到服务器上下线状态，以便切换请求发送的地址。</em></strong> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/zk.png" alt=""> 重新参考ZooKeeper的功能描述，ZooKeeper可以用来协调管理多个分布式应用程序，那其实可以用于管理我们的分布式机器集群。如上图所示，<strong>在用户和服务器集群中间可设置ZooKeeper层</strong>，让ZooKeeper实时感知每一个节点的状态，然后客户端并不直接向具体节点发起请求，而应先向ZooKeeper询问当前仍然存活的服务器节点，然后再从中挑选一个负载较低的服务器节点进行交互。由于ZooKeeper本身的高可用性（本身也可拓展为分布式架构），所以就能大大地提高整个系统的可用性。</p>
+<h2 id="ZooKeeper数据结构"><a href="#ZooKeeper数据结构" class="headerlink" title="ZooKeeper数据结构"></a>ZooKeeper数据结构</h2><p>ZooKeeper数据结构采用了树状结构（在文件系统中被广泛使用），且不是简单的二叉树，而是多叉树。在ZooKeeper的树结构中，每一个节点被称为znode，可通过控制台命令或者Java的SDK对内部数据进行管理。 znode的类型有<code>2*2=4</code>种，分别是：</p>
+<ul>
+<li>PERSISTENT</li>
+<li>PERSISTENT_SEQUENTIAL</li>
+<li>EPHEMERAL</li>
+<li>EPHEMERAL_SEQUENTIAL</li>
+</ul>
+<p>其中<strong><em>PERSISTENT</em></strong>和<strong><em>EPHEMERAL</em></strong>的区别正如其名，在无外力影响下<strong><em>PERSISTENT</em></strong>节点不会被改变和删除，而<strong><em>EPHEMERAL</em></strong>节点在创建节点的session结束后会自动从树中删除。至于<strong><em>SEQUENTIAL</em></strong>与<strong><em>非SEQUENTIAL</em></strong>则影响了节点id自增，<strong><em>SEQUENTIAL</em></strong>节点的id会自动遵循父节点下的自增规则进行命名。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/zkds.png" alt=""> 如图所示，在本问题中我们可以把一台服务器看作树中的一个节点，我们可以利用<strong><em>EPHEMERAL</em></strong>节点的这一特性进行服务器状态的监听。服务器上线时创建与zk之间的session并向zk注册节点，只要服务器不崩溃，session便不会结束，即<strong><em>EPHEMERAL</em></strong>节点会一直存在，可被客户端感知；当服务器崩溃时，其与zk之间保持的session自然也会结束，<strong><em>EPHEMERAL</em></strong>节点会自动被删除，客户端查询服务器列表时绝对无法获得已删除的节点信息。</p>
+<h2 id="Demo程序"><a href="#Demo程序" class="headerlink" title="Demo程序"></a>Demo程序</h2><ul>
+<li><p><strong><em>Server.java (服务器端代码)</em></strong></p>
+<p>package my.bigdata.zk;</p>
+<p>import org.apache.zookeeper.*;</p>
+<p>public class Server {</p>
+<pre><code>private static final String HOST_ADDRESS = &quot;localhost:2181&quot;;
+private static final int DEFAULT_TIMEOUT = 2000;
+private static final String DEFAULT_SERVER_PARENT = &quot;/servers&quot;;
+
+private ZooKeeper zkConnect = null;
+
+/**
+ * 连接至ZooKeeper
+ * @throws Exception
+ */
+public void connect() throws Exception{
+    zkConnect = new ZooKeeper(HOST_ADDRESS, DEFAULT_TIMEOUT, new Watcher() {
+        @Override
+        public void process(WatchedEvent watchedEvent) {
+            System.out.println(&quot;Type:&quot; + watchedEvent.getType()
+                    + &quot; Path:&quot; + watchedEvent.getPath());
+        }
+    });
+}
+
+/**
+ * 向ZooKeeper注册本服务器节点
+ * @param data 服务器信息
+ * @throws Exception
+ */
+public void register(String data) throws Exception{
+    String create = zkConnect.create(DEFAULT_SERVER_PARENT + &quot;/server&quot;,
+                                        data.getBytes(),
+                                        ZooDefs.Ids.OPEN_ACL_UNSAFE,
+                                        CreateMode.EPHEMERAL_SEQUENTIAL);   // 注册成ephemeral节点以便自动在zk上注销
+    System.out.println(create + &quot; is registered!&quot;);
+}
+
+/**
+ * 通过sleep模拟服务器在线
+ */
+public void sleep() {
+    try {
+        Thread.sleep(20000);
+    } catch (Exception e) {
+        System.out.println(e.toString());
+    }
+}
+</code></pre></li>
+</ul>
+<pre><code>    public static void main(String[] args) throws Exception {
+
+        //连接至zk
+        Server server = new Server();
+        server.connect();
+
+        //向zk注册服务器信息
+        String data = args[0];
+        server.register(data);
+
+        server.sleep();
+    }
+}
+</code></pre><p>服务器端的重点在于，程序启动时向ZooKeeper的指定节点下注册服务器信息，相当于通知ZooKeeper这个第三方：“服务器已上线”。其次，注册的节点类型必须是<strong>ephemeral</strong>节点，为了实现节点id自增(auto-increment)还可以使用<strong>ephemeral_sequential</strong>节点。</p>
+<ul>
+<li><p><strong><em>Client.java (客户端代码)</em></strong></p>
+<p>package my.bigdata.zk;</p>
+<p>import org.apache.zookeeper.WatchedEvent;<br>import org.apache.zookeeper.Watcher;<br>import org.apache.zookeeper.ZooKeeper;</p>
+<p>import java.util.ArrayList;<br>import java.util.Arrays;<br>import java.util.List;</p>
+<p>public class Client {</p>
+<pre><code>private static final String HOST_ADDRESS = &quot;localhost:2181&quot;;
+private static final int DEFAULT_TIMEOUT = 2000;
+private static final String DEFAULT_SERVER_PARENT = &quot;/servers&quot;;
+
+private ZooKeeper zkConnect = null;
+private List&lt;String&gt; availableServers;
+
+/**
+ * 连接至ZooKeeper
+ * @throws Exception
+ */
+public void connect() throws Exception {
+    zkConnect = new ZooKeeper(HOST_ADDRESS, DEFAULT_TIMEOUT, new Watcher() {
+        @Override
+        public void process(WatchedEvent watchedEvent) {
+            try {
+                updateServerCondition();    // 重复注册
+            } catch (Exception e) {
+                System.out.println(e.toString());
+            }
+        }
+    });
+}
+
+/**
+ * 向zk查询服务器情况, 并update本地服务器列表
+ * @throws Exception
+ */
+public void updateServerCondition() throws Exception {
+    List&lt;String&gt; children = zkConnect.getChildren(DEFAULT_SERVER_PARENT, true);
+    List&lt;String&gt; servers = new ArrayList&lt;&gt;();
+    for(String child : children) {
+        byte[] data = zkConnect.getData(DEFAULT_SERVER_PARENT + &quot;/&quot; + child,
+                                    false,
+                                    null);
+        servers.add(new String(data));
+    }
+    availableServers = servers;
+    System.out.println(Arrays.toString(servers.toArray(new String[0])));
+}
+
+/**
+ * 通过sleep让客户端持续运行，模拟&quot;监听&quot;
+ */
+public void sleep() throws Exception{
+    System.out.println(&quot;client is working&quot;);
+    Thread.sleep(Long.MAX_VALUE);
+}
+
+public static void main(String[] args) throws Exception {
+
+    // 连接zk
+    Client client = new Client();
+    client.connect();
+
+    // 获取servers节点信息（并监听），从中获取服务器信息列表
+    client.updateServerCondition();
+
+    client.sleep();
+}
+</code></pre><p>}</p>
+</li>
+</ul>
+<p>客户端的重点在于，它不断地向ZooKeeper某个特定节点（此处是servers节点）注册了一个<strong>Watcher</strong>，那么一旦该节点下的结构发生改变，ZooKeeper会向注册了<strong>Watcher</strong>的客户端发送“状态变化”的消息，那么客户端即可动态地从ZooKeeper中获取最新的服务器节点信息，甚至无需“主动”询问。 当然，ZooKeeper的应用场景还有很多，考虑到它本身也可拓展为一个分布式应用，在这种高可用性保证下它简直就是多个分布式应用的万能管家和协调者😊。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/02/13/zkserver/" data-id="cjpg78r7h003mbxuy21yadxtf" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/zookeeper/">zookeeper</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+
+
+  <nav id="page-nav">
+    
+    <a class="extend prev" rel="prev" href="/page/2/">&laquo; Prev</a><a class="page-number" href="/">1</a><a class="page-number" href="/page/2/">2</a><span class="page-number current">3</span>
+  </nav>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/BigData/">BigData</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Go/">Go</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/">Leetcode</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/">分布式</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/推荐系统/">推荐系统</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/未分类/">未分类</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/">Go</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/">Java</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/">zookeeper</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/分布式/">分布式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/推荐/">推荐</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/源码/">源码</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/笔记/">笔记</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Go/" style="font-size: 18.33px;">Go</a> <a href="/tags/Java/" style="font-size: 16.67px;">Java</a> <a href="/tags/Leetcode/" style="font-size: 11.67px;">Leetcode</a> <a href="/tags/bigdata/" style="font-size: 15px;">bigdata</a> <a href="/tags/hadoop/" style="font-size: 16.67px;">hadoop</a> <a href="/tags/mapreduce/" style="font-size: 15px;">mapreduce</a> <a href="/tags/zookeeper/" style="font-size: 10px;">zookeeper</a> <a href="/tags/分布式/" style="font-size: 13.33px;">分布式</a> <a href="/tags/推荐/" style="font-size: 15px;">推荐</a> <a href="/tags/数据结构/" style="font-size: 18.33px;">数据结构</a> <a href="/tags/源码/" style="font-size: 11.67px;">源码</a> <a href="/tags/笔记/" style="font-size: 20px;">笔记</a> <a href="/tags/算法/" style="font-size: 18.33px;">算法</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/09/">September 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/06/">June 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">March 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">February 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed/">__trashed</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed-2/">[Raft]</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/08/hello-world/">Hello World</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 John Doe<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

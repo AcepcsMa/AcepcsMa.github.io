@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>[Golang]更正“神贴”《如何优雅地关闭Go Channel》 | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction现在在网上搜索Go，Channel，关闭等关键词时，一定会搜到一篇好几年前的“神贴”《How To Gracefully Close Channels》（原文链接请点击），或者各种国人执笔的">
+<meta name="keywords" content="Go,笔记">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Golang]更正“神贴”《如何优雅地关闭Go Channel》">
+<meta property="og:url" content="http://yoursite.com/2018/11/20/close-channel/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction现在在网上搜索Go，Channel，关闭等关键词时，一定会搜到一篇好几年前的“神贴”《How To Gracefully Close Channels》（原文链接请点击），或者各种国人执笔的">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Golang]更正“神贴”《如何优雅地关闭Go Channel》">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction现在在网上搜索Go，Channel，关闭等关键词时，一定会搜到一篇好几年前的“神贴”《How To Gracefully Close Channels》（原文链接请点击），或者各种国人执笔的">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-close-channel" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/20/close-channel/" class="article-date">
+  <time datetime="2018-11-20T17:48:26.000Z" itemprop="datePublished">2018-11-20</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/Go/">Go</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      [Golang]更正“神贴”《如何优雅地关闭Go Channel》
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于<code>Go 1.11</code>。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
+</blockquote>
+<h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p>现在在网上搜索<code>Go</code>，<code>Channel</code>，<code>关闭</code>等关键词时，一定会搜到一篇好几年前的“神贴”<strong>《How To Gracefully Close Channels》</strong>（<a href="https://go101.org/article/channel-closing.html" target="_blank" rel="noopener">原文链接请点击</a>），或者各种国人执笔的中文直译版<strong>《如何优雅地关闭Go Channel》</strong>。 基于<code>Go</code>本身对并发的强支持，不断地有开发者需要学习<code>Channel</code>这个被设计为多个<code>goroutine</code>间<strong>安全</strong>传递数据的内置数据结构，自然也有很多人学习过以上这篇文章。<strong>然而不知道是受当时写作的时间背景限制，还是其他原因，实际上这篇文章里有一些比较严重的缺陷，必须得到纠正。</strong> 我这么一个<code>Go</code>的初学者，研究过后暂时<strong>没有</strong>发现网上对原贴进行优化或者更正的博客，所以我决定写下这篇更正“神贴”的博客，并提供一些我的关闭<code>Go Channel</code>的解决方案。</p>
+<h4 id="驳斥理由"><a href="#驳斥理由" class="headerlink" title="驳斥理由"></a>驳斥理由</h4><ul>
+<li>原文标题的核心是<code>Close Channels</code>，然而除了第一个最简单的例子（M receivers，one sender）里有关闭数据channel的逻辑外，其他几个复杂例子中<strong>压根没有close channel，仅仅只是退出sender</strong></li>
+<li>即使我们把“退出sender”等价于“close channel”。但是同样除了第一个最简单的例子（M receivers，one sender）里是sender主动关闭外，其他几个例子中退出sender都是由receiver触发的，类似receiver读到一个什么特殊值就提示sender停止生产。<strong>我不否认在某些场景里确实需要receiver提示sender何时结束</strong>（例如receiver发生了异常，无法继续处理，可通知sender赶紧结束）。<strong>但是在很多场景里是需要sender自己触发停止生产的，而不是让receiver告知才停止</strong>（例如100个sender分别读100台机器上的文件，然后把文件数据怼到一个channel里，此时肯定不可能让receiver来主导sender的数据读取何时停止，对吧）。</li>
+<li>最后一个问题，原贴例子里receiver读到一个特殊值导致退出后，并没有安排别的<code>goroutine</code>去读完channel中可能剩下的数据，直接导致数据丢失。（当然作者也意识到这一点了，所以在最后提了一下，说读完剩下的数据很简单blabla，我就不写了你们自己去实现就好了）</li>
+</ul>
+<h4 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h4><p>其实很明显，关闭channel最主要的麻烦在于sender端如何控制，既不能不去关闭，也不能重复关闭（<code>panic</code>）。所以接下来就讨论两种在sender端关闭channel的解决方案：单个sender和多个sender的应用场景。</p>
+<ul>
+<li><p>单个sender</p>
+<pre><code>package main
+
+import (
+    &quot;fmt&quot;
+    &quot;sync&quot;
+)
+
+// 一个sender，一个receiver
+func main() {
+    dataChannel := make(chan int, 100)
+    done := make(chan interface{})
+    go sender(dataChannel)
+    go receiver(dataChannel, done)
+
+    // 阻塞直到receiver完成，避免主线程马上退出
+    &lt;-done
+    fmt.Println(&quot;Done.&quot;)
+}
+
+func sender(dataChannel chan int) {
+    defer close(dataChannel)
+    for i := 0;i &lt; 1000;i++ {
+        dataChannel &lt;- i
+    }
+}
+
+func receiver(dataChannel chan int, done chan interface{}) {
+    for data := range dataChannel {
+        fmt.Printf(&quot;Receive data %d\n&quot;, data)
+    }
+    done &lt;- nil
+}
+</code></pre></li>
+</ul>
+<pre><code>在单个sender的场景下，没有什么好说的。其实就是当sender把所有数据都塞到channel之后主动关闭该channel。**显式close channel的好处是，当receiver端使用`for range`从channel中读数据，读到close标识后会自动结束循环。（或者是普通循环里的ok标识为false，用来结束循环）**
+</code></pre><ul>
+<li><p>多个sender</p>
+<pre><code>package main
+</code></pre></li>
+</ul>
+<pre><code>    // 多个sender，一个receiver
+    const (
+        SENDER_COUNT = 5
+    )
+
+    func sender(id int, dataChannel chan string, wg *sync.WaitGroup) {
+        defer wg.Done()
+        for i := 0;i &lt; 100;i++ {
+            dataChannel &lt;- fmt.Sprintf(&quot;Sender %d is sending %d&quot;, id, i)
+        }
+    }
+
+    func receiver(dataChannel chan string, done chan interface{}) {
+        for data := range dataChannel {
+            fmt.Printf(&quot;Receive data: %s\n&quot;, data)
+        }
+        done &lt;- nil
+    }
+
+    func monitor(dataChannel chan string, wg *sync.WaitGroup) {
+        wg.Wait()
+        close(dataChannel)
+    }
+
+    func main() {
+        dataChannel := make(chan string, 100)
+        done := make(chan interface{})
+        wg := &amp;sync.WaitGroup{}
+        wg.Add(SENDER_COUNT)
+
+        go monitor(dataChannel, wg)
+        for i := 0;i &lt; SENDER_COUNT;i++ {
+            go sender(i, dataChannel, wg)
+        }
+        go receiver(dataChannel, done)
+
+        &lt;-done
+        fmt.Println(&quot;Done.&quot;)
+    }
+
+
+参照以上代码，核心的思想是利用`sync`包自带的`WaitGroup`（类似于`Java`里`J.U.C`包的`CountdownLatch`），用来统计已完成工作的sender数。除了sender和receiver外，我们还定义了一个monitor协程，用来关闭channel。 可以看到我们定义了1个monitor，1个receiver，5个sender，并且在启动sender之前先启动了monitor，传入`waitGroup`，让其等待所有sender协程完成工作。在sender里，通过`defer`来保证sender在完成作业（或者发生异常）之后能够通知`waitGroup`。当所有sender都完成工作后，`waitGroup`计数自然减为0，monitor协程主动关闭了数据channel，所以receiver端的`for range`循环在读完所有数据后就能正常退出。
+</code></pre><h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p>本文是对《How To Gracefully Close Channels》的核心内容表示质疑，并且提出了我自己的解决方案。<strong>其实原文里作者提供的解决方案并不是错误的，里面的方案对部分场景肯定是适用的。只是对sender端主动关闭的场景而言有一定的纰漏。</strong> 希望读者能理解不同场景下应该有不同的解决方案，具体还是要结合实际项目来分析。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/20/close-channel/" data-id="cjpg78r5h0000bxuygv420dhx" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Go/">Go</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/11/25/go-concurrency-pattern/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          [Golang]浅析几种并发模式
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/11/15/polymorphism/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">[Golang]奇怪的“类”和多态（Polymorphism）</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/BigData/">BigData</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Go/">Go</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/">Leetcode</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/">分布式</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/推荐系统/">推荐系统</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/未分类/">未分类</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/">Go</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/">Java</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/">zookeeper</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/分布式/">分布式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/推荐/">推荐</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/源码/">源码</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/笔记/">笔记</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Go/" style="font-size: 18.33px;">Go</a> <a href="/tags/Java/" style="font-size: 16.67px;">Java</a> <a href="/tags/Leetcode/" style="font-size: 11.67px;">Leetcode</a> <a href="/tags/bigdata/" style="font-size: 15px;">bigdata</a> <a href="/tags/hadoop/" style="font-size: 16.67px;">hadoop</a> <a href="/tags/mapreduce/" style="font-size: 15px;">mapreduce</a> <a href="/tags/zookeeper/" style="font-size: 10px;">zookeeper</a> <a href="/tags/分布式/" style="font-size: 13.33px;">分布式</a> <a href="/tags/推荐/" style="font-size: 15px;">推荐</a> <a href="/tags/数据结构/" style="font-size: 18.33px;">数据结构</a> <a href="/tags/源码/" style="font-size: 11.67px;">源码</a> <a href="/tags/笔记/" style="font-size: 20px;">笔记</a> <a href="/tags/算法/" style="font-size: 18.33px;">算法</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/09/">September 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/06/">June 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">March 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">February 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed/">__trashed</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed-2/">[Raft]</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/08/hello-world/">Hello World</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 John Doe<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

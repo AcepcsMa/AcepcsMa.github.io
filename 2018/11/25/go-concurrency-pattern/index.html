@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>[Golang]浅析几种并发模式 | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/24，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近读完了整本《Go in Action》，给我印象最深的几章是讲  多态 高级并发模式 常用工具包（http, json, log……）  本文基于《Go in Action》里介绍的3种">
+<meta name="keywords" content="Go,笔记">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Golang]浅析几种并发模式">
+<meta property="og:url" content="http://yoursite.com/2018/11/25/go-concurrency-pattern/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/24，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近读完了整本《Go in Action》，给我印象最深的几章是讲  多态 高级并发模式 常用工具包（http, json, log……）  本文基于《Go in Action》里介绍的3种">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Golang]浅析几种并发模式">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/24，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近读完了整本《Go in Action》，给我印象最深的几章是讲  多态 高级并发模式 常用工具包（http, json, log……）  本文基于《Go in Action》里介绍的3种">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-go-concurrency-pattern" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/25/go-concurrency-pattern/" class="article-date">
+  <time datetime="2018-11-25T14:47:28.000Z" itemprop="datePublished">2018-11-25</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/Go/">Go</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      [Golang]浅析几种并发模式
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/24，基于<code>Go 1.11</code>。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
+</blockquote>
+<h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p>最近读完了整本《Go in Action》，给我印象最深的几章是讲</p>
+<ul>
+<li>多态</li>
+<li>高级并发模式</li>
+<li>常用工具包（<code>http</code>, <code>json</code>, <code>log</code>……）</li>
+</ul>
+<p>本文基于《Go in Action》里介绍的3种高级并发模式进行浅析，主要起到解释和笔记的作用，也会简单地讲讲我个人对这几种模式的理解。</p>
+<h4 id="并发模式"><a href="#并发模式" class="headerlink" title="并发模式"></a>并发模式</h4><ol>
+<li><p>任务计时器 何谓“任务计时器”？<strong>其实就是一个包装了多个要执行的<code>Task</code>和一个<code>Timer</code>的容器</strong>。该容器启动后，只有3种情况能够让其退出：</p>
+<ul>
+<li>所有<code>Task</code>执行完毕，正常退出</li>
+<li>收到外部中断信号（interrupt），退出</li>
+<li><code>Timer</code>超过设定的时长，退出</li>
+</ul>
+<p>先来直接看看《Go in Action》中给出的实现代码。</p>
+<pre><code>package runner
+
+import (
+    &quot;errors&quot;
+    &quot;os&quot;
+    &quot;os/signal&quot;
+    &quot;time&quot;
+)
+
+// 任务计时器
+type Runner struct {
+    interrupt chan os.Signal    // 接收中断信号的channel
+    complete chan error         // 接收任务完成信号的channel
+    timeout &lt;-chan time.Time    // 接收超时信号的channel
+    tasks []func(int)           // 存放要执行的多个任务的切片
+                                // 其中每个任务是一个以int为形参的方法
+}
+
+// 定义了两种异常退出的错误
+var ErrTimeout = errors.New(&quot;received timeout&quot;)
+var ErrInterrupt = errors.New(&quot;received interrupt&quot;)
+
+// 容器工厂，通过new直接得到一个容器实例
+func New(d time.Duration) *Runner {
+    return &amp;Runner{
+        interrupt: make(chan os.Signal, 1),
+        complete:  make(chan error),
+        timeout:   time.After(d),
+    }
+}
+
+// 往容器里添加任务的方法
+func (r *Runner) Add(tasks ...func(int)) {
+    r.tasks = append(r.tasks, tasks...)
+}
+
+// 容器启动的方法
+func (r *Runner) Start() error {
+    // We want to receive all interrupt based signals.
+    signal.Notify(r.interrupt, os.Interrupt)
+
+    // Run the different tasks on a different goroutine.
+    go func() {
+        r.complete &lt;- r.run()
+    }()
+
+    select {
+    // Signaled when processing is done.
+    case err := &lt;-r.complete:
+        return err
+
+    // Signaled when we run out of time.
+    case &lt;-r.timeout:
+        return ErrTimeout
+    }
+}
+
+// 容器内部执行任务的方法
+func (r *Runner) run() error {
+    for id, task := range r.tasks {
+        // Check for an interrupt signal from the OS.
+        if r.gotInterrupt() {
+            return ErrInterrupt
+        }
+
+        // Execute the registered task.
+        task(id)
+    }
+
+    return nil
+}
+
+// 检查是否发生中断信号
+func (r *Runner) gotInterrupt() bool {
+    select {
+    case &lt;-r.interrupt:
+        // Stop receiving any further signals.
+        signal.Stop(r.interrupt)
+        return true
+
+    default:
+        return false
+    }
+}
+</code></pre></li>
+</ol>
+<pre><code>上述代码的逻辑很清晰，但仍有几个细节需要特别强调一下。
+*   在容器`Runner`里，`timeout`是一个接收超时信号（`time.Time`）的channel，一旦该channel接收到**一个**超时信号，将通知`Runner`退出。而在new一个新的`Runner`时，我们用的是`time.After(duration)`来生成一个`timeout`管道，为什么不直接`make(chan time.Time)`呢？因为用`time.After(duration)`生成管道时，会潜在自动触发一个机制：经过`duration`后该管道会收到一个`time.Time`信号，不需要自己额外去做发送超时信号这一套逻辑。
+*   使用`select`语句。可以看到在`Start()`中，开了一个goroutine去执行任务后，我们写了一个`select`语句，其中两个分支分别是所有任务正常完成且收到complete信号，还有任务超时收到超时信号。**其实`select`语句可以简单地看成是一个定制版的`epoll`机制**，它可以同时监听多个`case`。如果所有的`case`分支都不能执行，将阻塞在此；如果有一个`case`可以执行，一定会执行该`case`；和`epoll`唯一不同的是，如果同时有多个`case`可以执行，`select`会**随机**执行其中一个`case`。同理，在`gotInterrupt()`里，我们也用了`select`语句监听有没有中断信号，如果在执行`gotInterrupt()`的那个时刻没有收到中断信号，那绝对会直接执行`default`分支（永远都能执行的分支），返回`false`告知调用者没有收到中断信号。
+*   在容器`Runner`里，`tasks`是一个装了多个待执行任务的切片，定义里说明了每个任务都是一个`func(int)`。**但是这并不具有普适性，这不是必须的，设计者可以根据自己的需求来定义每个任务是什么样的方法。**可以是`func(interfact{}) interface{}`，可以是任意的方法。
+*   `run()`方法用于在容器内部执行多个任务。最奇怪的是，在`run()`里面其实是**遍历了`tasks`，逐个逐个串行地执行任务，只有上一个任务完成了下一个任务才会开始。**个人认为，也许这种设计迎合了一定的场景需求（上下游任务间存在依赖），但是有些时候我们确实是需要并发地执行多个任务。**建议改成多个`goroutine`并发执行`tasks`中的任务，然后用`WaitGroup`来阻塞，等待所有任务完成。**
+
+        func (r *Runner) run() error {
+            wg := sync.WaitGroup{}
+            wg.Add(len(r.tasks))
+            for id, task := range r.tasks {
+                if r.gotInterrupt() {
+                    return ErrInterrupt
+                }
+
+                // 开多个goroutine并发执行多个任务，用WaitGroup来统一
+                go func() {
+                    defer wg.Done()
+                    task(id)
+                }()
+            }
+            wg.Wait()
+            return nil
+        }
+</code></pre><ol start="2">
+<li><p>资源池 什么是<strong>资源池</strong>，顾名思义，就是一个放满了各种资源的池子。讲得“专业”一点，就是一个管理着多个可用资源的容器，外部的线程/协程可向资源池申请资源，使用完后可以把资源放回资源池，重复利用。 直接来看看《Go in Action》中的代码。</p>
+<pre><code>package pool
+
+import (
+    &quot;errors&quot;
+    &quot;io&quot;
+    &quot;log&quot;
+    &quot;sync&quot;
+)
+
+// 资源池
+type Pool struct {
+    m         sync.Mutex        // mutex用于控制同步
+    resources chan io.Closer    // 存放资源的管道
+    factory   func() (io.Closer, error) // 新建资源的工厂
+    closed    bool              // 资源池是否关闭的标志
+}
+
+// 错误信号
+var ErrPoolClosed = errors.New(&quot;Pool has been closed.&quot;)
+
+// 资源池工厂，用于新建资源池
+func New(fn func() (io.Closer, error), size uint) (*Pool, error) {
+    if size &lt;= 0 {
+        return nil, errors.New(&quot;Size value too small.&quot;)
+    }
+
+    return &amp;Pool{
+        factory:   fn,
+        resources: make(chan io.Closer, size),
+    }, nil
+}
+
+// 从资源池中拿资源
+func (p *Pool) Acquire() (io.Closer, error) {
+    select {
+    case r, ok := &lt;-p.resources:
+        log.Println(&quot;Acquire:&quot;, &quot;Shared Resource&quot;)
+        if !ok {
+            return nil, ErrPoolClosed
+        }
+        return r, nil
+
+    default:
+        log.Println(&quot;Acquire:&quot;, &quot;New Resource&quot;)
+        return p.factory()
+    }
+}
+
+// 把资源放回资源池
+func (p *Pool) Release(r io.Closer) {
+    p.m.Lock()
+    defer p.m.Unlock()
+
+    if p.closed {
+        r.Close()
+        return
+    }
+
+    select {
+    case p.resources &lt;- r:
+        log.Println(&quot;Release:&quot;, &quot;In Queue&quot;)
+
+    default:
+        log.Println(&quot;Release:&quot;, &quot;Closing&quot;)
+        r.Close()
+    }
+}
+
+// 关闭资源池
+func (p *Pool) Close() {
+    p.m.Lock()
+    defer p.m.Unlock()
+
+    if p.closed {
+        return
+    }
+
+    p.closed = true
+
+    close(p.resources)
+
+    for r := range p.resources {
+        r.Close()
+    }
+}
+</code></pre></li>
+</ol>
+<pre><code>以下讲讲几个资源池设计中的细节。
+*   关于`factory`。`factory`是一个用来新建资源的工厂，当资源池内没有资源时，上述代码的逻辑是通过事先定义好的`factory`来新建资源。**当然，也可以不这么干。根据不同的场景和需求，当资源池内没有资源时可以选择阻塞，而非新建资源。**
+*   用`mutex`来同步`Release()`和`Close()`。在同一时刻，不能同时有多个协程进入`Release()`和进入`Close()`。也就是说有协程在关闭资源池时，不允许别的协程放回资源；有协程在放回资源时，不允许别的协程关闭资源池。如果不用`mutex`进行同步，假设同时有协程A进入了`Release()`，协程B进入了`Close()`。特殊情况下，当协程A运行到select语句前失去了cpu资源，协程B正常运行关闭了`resources`管道，协程A再想往一个已关闭了的`resources`管道里插数据，会直接引起错误。
+*   `resources`管道是一个`缓冲管道`。通过工厂new一个资源池时，`resources`被定义成了一个大小为`size`的`缓冲管道`。用`缓冲管道`的好处是，只有当管道**全空**或者**全满**时才会对生产者/消费者进行阻塞，其他情况下正常生产/消费资源。
+</code></pre><ol start="3">
+<li><p>并发池 所谓<strong>并发池</strong>，就是一个放了N个待执行任务的池子，或者可以看成是一个<strong>可并发执行任务，却不带有定时功能的任务计时器。</strong></p>
+<pre><code>package work
+
+import &quot;sync&quot;
+
+// 任务接口
+type Worker interface {
+    Task()
+}
+
+// 并发池
+type Pool struct {
+    work chan Worker
+    wg   sync.WaitGroup
+}
+
+// 并发池工厂，用于新建并发池
+func New(maxGoroutines int) *Pool {
+    p := Pool{
+        work: make(chan Worker),
+    }
+
+    p.wg.Add(maxGoroutines)
+    for i := 0; i &lt; maxGoroutines; i++ {
+        go func() {
+            for w := range p.work {
+                w.Task()
+            }
+            p.wg.Done()
+        }()
+    }
+
+    return &amp;p
+}
+
+// 提交任务
+func (p *Pool) Run(w Worker) {
+    p.work &lt;- w
+}
+
+// 关闭并发池
+func (p *Pool) Shutdown() {
+    close(p.work)
+    p.wg.Wait()
+}
+</code></pre></li>
+</ol>
+<pre><code>基本上实现的功能跟**优化后**的任务计时器一样（除了不支持定时），支持多`goroutine`并发执行。
+</code></pre><h4 id="应用场景"><a href="#应用场景" class="headerlink" title="应用场景"></a>应用场景</h4><ol>
+<li>任务计时器适用于各种监控任务，或者对执行时间有限制的任务。</li>
+<li>资源池多用于管理各种连接，例如数据库连接，提高连接的复用性。</li>
+<li>并发池多用于计算密集型任务，需要多个<code>goroutine</code>并发执行多个小任务。</li>
+</ol>
+<h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p>《Go in Action》中介绍的3种并发模式都非常实用，也有很强的普适性。但是在实际项目中还是需要搞清楚具体的需求，要清楚它们的assumption和它们的缺点，并不是100%地适用于所有场景，要基于这几种基本的模式作更深层次的自定义开发。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/25/go-concurrency-pattern/" data-id="cjpg78r6y002rbxuy7xei9bgv" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Go/">Go</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/11/30/groupcache-part1/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          [Golang]groupcache项目解析——Part1
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/11/20/close-channel/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">[Golang]更正“神贴”《如何优雅地关闭Go Channel》</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/BigData/">BigData</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Go/">Go</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/">Leetcode</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/">分布式</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/推荐系统/">推荐系统</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/未分类/">未分类</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/">Go</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/">Java</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/">zookeeper</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/分布式/">分布式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/推荐/">推荐</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/源码/">源码</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/笔记/">笔记</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Go/" style="font-size: 18.33px;">Go</a> <a href="/tags/Java/" style="font-size: 16.67px;">Java</a> <a href="/tags/Leetcode/" style="font-size: 11.67px;">Leetcode</a> <a href="/tags/bigdata/" style="font-size: 15px;">bigdata</a> <a href="/tags/hadoop/" style="font-size: 16.67px;">hadoop</a> <a href="/tags/mapreduce/" style="font-size: 15px;">mapreduce</a> <a href="/tags/zookeeper/" style="font-size: 10px;">zookeeper</a> <a href="/tags/分布式/" style="font-size: 13.33px;">分布式</a> <a href="/tags/推荐/" style="font-size: 15px;">推荐</a> <a href="/tags/数据结构/" style="font-size: 18.33px;">数据结构</a> <a href="/tags/源码/" style="font-size: 11.67px;">源码</a> <a href="/tags/笔记/" style="font-size: 20px;">笔记</a> <a href="/tags/算法/" style="font-size: 18.33px;">算法</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/09/">September 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/06/">June 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">March 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">February 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed/">__trashed</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed-2/">[Raft]</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/08/hello-world/">Hello World</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 John Doe<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>OS X下MapReduce程序运行的几种模式 | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  1.MapReduce程序运行的模式简介 程序运行模式 本地模式 利用本地的JVM运行，使用本地的IDE进行debug   远程模式 提交至远程的集群上运行，使用本地的IDE进行debug 提交至远程的集群上运行，不使用本地IDE进行debug     数据存放路径 远程文件系统（hdfs) 本地文件系统（local file s">
+<meta name="keywords" content="hadoop">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OS X下MapReduce程序运行的几种模式">
+<meta property="og:url" content="http://yoursite.com/2018/02/13/osxmr/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  1.MapReduce程序运行的模式简介 程序运行模式 本地模式 利用本地的JVM运行，使用本地的IDE进行debug   远程模式 提交至远程的集群上运行，使用本地的IDE进行debug 提交至远程的集群上运行，不使用本地IDE进行debug     数据存放路径 远程文件系统（hdfs) 本地文件系统（local file s">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="http://upload-images.jianshu.io/upload_images/7445555-d6ff47959f4616b6.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+<meta property="og:image" content="http://upload-images.jianshu.io/upload_images/7445555-4c5e6823f3ec9ade.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="OS X下MapReduce程序运行的几种模式">
+<meta name="twitter:description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  1.MapReduce程序运行的模式简介 程序运行模式 本地模式 利用本地的JVM运行，使用本地的IDE进行debug   远程模式 提交至远程的集群上运行，使用本地的IDE进行debug 提交至远程的集群上运行，不使用本地IDE进行debug     数据存放路径 远程文件系统（hdfs) 本地文件系统（local file s">
+<meta name="twitter:image" content="http://upload-images.jianshu.io/upload_images/7445555-d6ff47959f4616b6.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-osxmr" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/02/13/osxmr/" class="article-date">
+  <time datetime="2018-02-13T14:58:51.000Z" itemprop="datePublished">2018-02-13</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/BigData/">BigData</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      OS X下MapReduce程序运行的几种模式
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>全文为本人（Haoxiang Ma）原创内容，转载请标明出处。</p>
+</blockquote>
+<h1 id="1-MapReduce程序运行的模式简介"><a href="#1-MapReduce程序运行的模式简介" class="headerlink" title="1.MapReduce程序运行的模式简介"></a>1.MapReduce程序运行的模式简介</h1><ol>
+<li>程序运行模式<ul>
+<li>本地模式<ul>
+<li>利用本地的JVM运行，使用本地的IDE进行debug</li>
+</ul>
+</li>
+<li>远程模式<ul>
+<li>提交至远程的集群上运行，使用本地的IDE进行debug</li>
+<li>提交至远程的集群上运行，不使用本地IDE进行debug</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>数据存放路径<ul>
+<li>远程文件系统（hdfs)</li>
+<li>本地文件系统（local file system)</li>
+</ul>
+</li>
+</ol>
+<h1 id="2-开发环境简介"><a href="#2-开发环境简介" class="headerlink" title="2.开发环境简介"></a>2.开发环境简介</h1><ul>
+<li>操作系统：macOS Sierra 10.12.6</li>
+<li>Java版本：1.8.0_131-b11</li>
+<li>Hadoop版本：hadoop-2.7.4</li>
+<li>IDE：IntelliJ IDEA</li>
+</ul>
+<h1 id="3-MapReduce程序运行例子"><a href="#3-MapReduce程序运行例子" class="headerlink" title="3.MapReduce程序运行例子"></a>3.MapReduce程序运行例子</h1><h2 id="3-1-程序需求"><a href="#3-1-程序需求" class="headerlink" title="3.1 程序需求"></a>3.1 程序需求</h2><blockquote>
+<p>学校里开设了多门课程，有语文（chinese）、数学（math）、英语（english）等。经过了一次年级统考后，每个学生的成绩都被记录在多个文本文件中，文本文件格式如下。</p>
+</blockquote>
+<ul>
+<li><p>math.txt</p>
+<p>Ben 75<br>Jack 60<br>May 85<br>Tom 91</p>
+</li>
+</ul>
+<ul>
+<li><p>english.txt</p>
+<p>Jack 72<br>May 60<br>Tom 62<br>Ben 90</p>
+</li>
+</ul>
+<ul>
+<li><p>chinese.txt</p>
+<p>Ben 79<br>May 88<br>Tom 68<br>Jack 70</p>
+</li>
+</ul>
+<blockquote>
+<p>现需要根据以上的文本文件，算出每个学生在本次统考中的平均分，并将结果用一个总的文件averageScore.txt进行存储。averageScore.txt的格式如下。</p>
+</blockquote>
+<ul>
+<li><p>averageScore.txt</p>
+<p>#name #score<br>Ben 0.0<br>May 0.0<br>Tom 0.0<br>Jack 0.0</p>
+</li>
+</ul>
+<h2 id="3-2-程序设计思路"><a href="#3-2-程序设计思路" class="headerlink" title="3.2 程序设计思路"></a>3.2 程序设计思路</h2><h3 id="3-2-1-Mapper的处理逻辑"><a href="#3-2-1-Mapper的处理逻辑" class="headerlink" title="3.2.1 Mapper的处理逻辑"></a>3.2.1 Mapper的处理逻辑</h3><p>Mapper每次从文本文件中读取<strong>1行内容</strong>，即调用1次map方法。Mapper需要把原始数据中一行的内容拆分成学生姓名（student name）和该门课程的分数（score）。按照需求，本程序最终要算出每一个学生的平均分，所以学生姓名应作为一个key，对应的value即为该生的平均分<strong><em>（实际上是不严谨的，因为在实际环境中会出现多个学生重名的现象，若不作特殊处理，key是不允许重复的。最根本的解决方案是采用学号作为key，但为了演示直观，仅采用学生姓名作为key）</em></strong>。 Mapper读完一行的数据后，把<code>{student name，score}</code>这个<code>key-value</code>写入中间结果，准备传送给Reducer作下一步的运算。</p>
+<h3 id="3-2-2-Reducer的处理逻辑"><a href="#3-2-2-Reducer的处理逻辑" class="headerlink" title="3.2.2 Reducer的处理逻辑"></a>3.2.2 Reducer的处理逻辑</h3><p>Reducer接收到的数据，实际上是一个key与该key对应的value的一个<strong>集合</strong>（并不仅仅是一个value）。在本需求中，传入reduce方法的参数是学生姓名，以及该生多门课程分数的集合，类似于<code>Ben,[60,70,80,...]</code>。所以Reducer需要将集合中的分数求和，然后求出平均值，最终得到一个<code>{student name, average score}</code>的<code>key-value</code>对。</p>
+<h3 id="3-2-3-具体代码设计"><a href="#3-2-3-具体代码设计" class="headerlink" title="3.2.3 具体代码设计"></a>3.2.3 具体代码设计</h3><ul>
+<li><p>AVGMapper类<br>用于实现map方法</p>
+<p>package mr;</p>
+<p>import org.apache.hadoop.io.DoubleWritable;<br>import org.apache.hadoop.io.LongWritable;<br>import org.apache.hadoop.io.Text;<br>import org.apache.hadoop.mapreduce.Mapper;<br>import java.io.IOException;</p>
+<p>/**</p>
+<ul>
+<li>Created by marco on 2017/8/17.<br>*/<br>public class AVGMapper extends Mapper&lt;LongWritable, Text, Text, DoubleWritable&gt;<br>{<br> @Override<br> protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException<br> {<pre><code>String line = value.toString();
+if(line.length() == 0)  // 文件格式错误，出现空行
+    return;
+String[] split = line.split(&quot; &quot;);
+String stuName = split[0];
+String stuScore = split[1];
+double score = Double.parseDouble(stuScore);    // 转成double类型，方便后续求均值计算
+context.write(new Text(stuName), new DoubleWritable(score));
+</code></pre> }<br>}</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li><p>AVGReducer类<br>用于实现reduce方法</p>
+<p>package mr;</p>
+<p>import org.apache.hadoop.io.DoubleWritable;<br>import org.apache.hadoop.io.Text;<br>import org.apache.hadoop.mapreduce.Reducer;<br>import java.io.IOException;</p>
+<p>/**</p>
+<ul>
+<li><p>Created by marco on 2017/8/17.<br>*/<br>public class AVGReducer extends Reducer&lt;Text, DoubleWritable, Text, DoubleWritable&gt;<br>{<br> @Override<br> protected void reduce(Text key, Iterable<doublewritable> values, Context context) throws IOException, InterruptedException<br> {</doublewritable></p>
+<pre><code>double sum = 0;
+int length = 0;
+for(DoubleWritable value : values)
+{
+    sum += value.get();
+    length++;
+}
+
+double avgScore = sum / (double)length;
+context.write(key, new DoubleWritable(avgScore));
+</code></pre><p> }<br>}</p>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li><p>AVGRunner类<br>用于关联Mapper与Reducer，并创建MapReduce任务（Job）提交运行。基本代码如下所示。</p>
+<p>package mr;</p>
+<p>import org.apache.hadoop.conf.Configuration;<br>import org.apache.hadoop.fs.FileSystem;<br>import org.apache.hadoop.fs.Path;<br>import org.apache.hadoop.io.DoubleWritable;<br>import org.apache.hadoop.io.Text;<br>import org.apache.hadoop.mapreduce.Job;<br>import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;<br>import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;</p>
+<p>/**</p>
+<ul>
+<li><p>Created by marco on 2017/8/17.<br>*/<br>public class AVGRunner<br>{<br> static public void main(String[] args) throws Exception<br> {</p>
+<pre><code>// 设置hdfs的handler
+Configuration fsConf = new Configuration();
+fsConf.set(&quot;fs.default.name&quot;,&quot;hdfs://localhost:9000/&quot;);
+FileSystem fs = FileSystem.get(fsConf);
+
+// MapReduce的配置参数
+Configuration mrConf = new Configuration();
+
+// 新建一个求平均值的Job
+Job avgJob = Job.getInstance(mrConf);
+avgJob.setJarByClass(AVGRunner.class);
+
+// 设置Mapper类与Reducer类
+avgJob.setMapperClass(AVGMapper.class);
+avgJob.setReducerClass(AVGReducer.class);
+
+// 设置输入输出的数据结构
+avgJob.setMapOutputKeyClass(Text.class);
+avgJob.setMapOutputValueClass(DoubleWritable.class);
+avgJob.setOutputKeyClass(Text.class);
+avgJob.setOutputValueClass(DoubleWritable.class);
+
+// 检查结果输出目录，若已存在则删除输出目录
+if(fs.exists(new Path(&quot;/avg/output&quot;)))
+{
+    fs.delete(new Path(&quot;/avg/output&quot;), true);
+}
+
+// 设置数据目录以及结果输出目录
+FileInputFormat.setInputPaths(avgJob, new Path(&quot;&quot;));
+FileOutputFormat.setOutputPath(avgJob, new Path(&quot;&quot;));
+
+// 提交任务，等待完成
+System.exit(avgJob.waitForCompletion(true)?0:1);
+</code></pre><p> }<br>}</p>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="3-3-MapReduce程序运行"><a href="#3-3-MapReduce程序运行" class="headerlink" title="3.3 MapReduce程序运行"></a>3.3 MapReduce程序运行</h2><blockquote>
+<p>若使用本地文件系统的数据文件，且在本地模式运行，无需配置hdfs相关的参数，数据目录以及结果输出目录填写本地路径即可。<strong>（确保结果输出文件夹未被创建，否则会报异常）</strong></p>
+</blockquote>
+<pre><code>// 均填写本地文件路径即可
+FileInputFormat.setInputPaths(avgJob, new Path(&quot;&quot;));
+FileOutputFormat.setOutputPath(avgJob, new Path(&quot;&quot;));
+</code></pre><blockquote>
+<p>若使用hdfs上的数据文件，且在本地模式运行，应配置hdfs相关参数，数据目录以及结果输出目录均填写hdfs的路径。<strong>（确保结果输出文件夹未被创建，否则会报异常）</strong></p>
+</blockquote>
+<pre><code>// 设置hdfs参数，并用该配置创建一个新的Job
+Configuration fsConf = new Configuration();
+fsConf.set(&quot;fs.default.name&quot;,&quot;hdfs://localhost:9000/&quot;);
+Job avgJob = Job.getInstance(fsConf);
+
+
+// 均填写hdfs路径即可
+FileInputFormat.setInputPaths(avgJob, new Path(&quot;&quot;));
+FileOutputFormat.setOutputPath(avgJob, new Path(&quot;&quot;));
+</code></pre><h3 id="3-3-1-本地模式运行"><a href="#3-3-1-本地模式运行" class="headerlink" title="3.3.1 本地模式运行"></a>3.3.1 本地模式运行</h3><p>本地模式运行，直接编译执行AVGRunner的main方法即可，程序运行结束后会在自行设置的结果输出目录中生成运行结果。</p>
+<h3 id="3-3-2-远程集群运行"><a href="#3-3-2-远程集群运行" class="headerlink" title="3.3.2 远程集群运行"></a>3.3.2 远程集群运行</h3><p><strong>首先使用IDE将程序打成一个jar包，本例中命名为hadoop.jar</strong> 提交到远程集群上运行分两种情况</p>
+<ul>
+<li><p>使用本地IDE（IntelliJ IDEA）运行，任务被提交到集群运行，<strong>但可使用IDE进行跟踪debug</strong> 新建一个MapReduce的配置对象，将已经打包好的jar包传入配置中</p>
+<pre><code>// MapReduce的配置参数，远程运行，本地debug
+Configuration mrConf = new Configuration();
+mrConf.set(&quot;mapreduce.job.jar&quot;,&quot;hadoop.jar&quot;);
+mrConf.set(&quot;mapreduce.framework.name&quot;,&quot;yarn&quot;);
+
+//利用以上配置新建一个Job
+Job avgJob = Job.getInstance(mrConf);
+avgJob.setJarByClass(AVGRunner.class);
+</code></pre></li>
+</ul>
+<ul>
+<li><p>在终端直接使用hadoop命令将任务提交到集群运行，<strong>无法使用IDE进行跟踪debug</strong> 直接在终端中输入hadoop命令</p>
+<pre><code>hadoop jar $jar包名称 $待执行的类的名称
+</code></pre></li>
+</ul>
+<pre><code>在本例中应输入
+
+    hadoop jar avg.jar mr.AVGRunner
+</code></pre><blockquote>
+<p><strong>####################### 注意⚠️ #######################</strong> 在OS X中，使用IntelliJ IDEA打包jar包后，若在终端中直接使用<code>hadoop jar $jar包名称 $待执行的类的名称</code>提交MapReduce任务，会报出异常，因为OS X系统的文件系统对大小写不敏感<strong><em>（case-insensitive）</em></strong>。 经过对此异常的搜索，<strong>暂时的解决方案是通过删除jar包中的LICENSE文件</strong>，使任务顺利提交。</p>
+<pre><code># 在终端中执行以下命令
+  zip -d $jar包名称 META-INF/LICENSE
+  zip -d $jar包名称 LICENSE
+</code></pre><p><strong>#####################################################</strong></p>
+</blockquote>
+<p><img src="http://upload-images.jianshu.io/upload_images/7445555-d6ff47959f4616b6.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="">可以看到使用了hadoop命令提交任务后，系统调用了RPC框架和Yarn框架中的一些服务，用于远程运行，而非使用LocalJobSubmitter于本地运行。<br><img src="http://upload-images.jianshu.io/upload_images/7445555-4c5e6823f3ec9ade.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="">并且在MapReduce任务管理页面可看到任务已经完成的历史记录。</p>
+<h1 id="4-总结"><a href="#4-总结" class="headerlink" title="4.总结"></a>4.总结</h1><p>MapReduce任务可在本地运行，也可提交到集群上运行。 在开发初期，需要编写Demo程序时，可在本地进行开发与测试，将数据文件放置在本地文件系统，直接使用IDE运行主类的main方法，观察运行结果。 上线前调试，可采用远程模式运行，不直接使用hadoop命令提交，而是使用IDE进行提交与debug，这样既可以保证程序运行在远处集群上（生产环境or开发环境），也可以在本地方便跟踪调试。 可上线时，使用hadoop命令直接提交到远程集群，并通过localhost:50070<strong>（默认配置）</strong>的任务管理页面进行观察。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/02/13/osxmr/" data-id="cjpg78r790038bxuyyckl9irg" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/hadoop/">hadoop</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/02/17/customizeinputformat/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          海量小文件优化之自定义InputFormat
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/02/13/ssort/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">如何在Map-Reduce中实现二次排序（对Value排序）</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/BigData/">BigData</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Go/">Go</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/">Leetcode</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/">分布式</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/推荐系统/">推荐系统</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/未分类/">未分类</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/">Go</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/">Java</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/">zookeeper</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/分布式/">分布式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/推荐/">推荐</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/源码/">源码</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/笔记/">笔记</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/算法/">算法</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Go/" style="font-size: 18.33px;">Go</a> <a href="/tags/Java/" style="font-size: 16.67px;">Java</a> <a href="/tags/Leetcode/" style="font-size: 11.67px;">Leetcode</a> <a href="/tags/bigdata/" style="font-size: 15px;">bigdata</a> <a href="/tags/hadoop/" style="font-size: 16.67px;">hadoop</a> <a href="/tags/mapreduce/" style="font-size: 15px;">mapreduce</a> <a href="/tags/zookeeper/" style="font-size: 10px;">zookeeper</a> <a href="/tags/分布式/" style="font-size: 13.33px;">分布式</a> <a href="/tags/推荐/" style="font-size: 15px;">推荐</a> <a href="/tags/数据结构/" style="font-size: 18.33px;">数据结构</a> <a href="/tags/源码/" style="font-size: 11.67px;">源码</a> <a href="/tags/笔记/" style="font-size: 20px;">笔记</a> <a href="/tags/算法/" style="font-size: 18.33px;">算法</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/09/">September 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/06/">June 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">March 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">February 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed/">__trashed</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/trashed-2/">[Raft]</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2018/12/08/hello-world/">Hello World</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 John Doe<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>
