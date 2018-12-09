@@ -6,21 +6,18 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="HandheldFriendly" content="True">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <meta name="description" content="[Golang]奇葩数据结构之Slice（切片） 本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近新接触Golang，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学Java时，就抠了不">
+    <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于1.11```。123456789&amp;gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。#### Introduction最近新接触```Golang```，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学```Java```时，">
 <meta name="keywords" content="Go,笔记,数据结构">
 <meta property="og:type" content="article">
 <meta property="og:title" content="[Golang]奇葩数据结构之Slice（切片）">
 <meta property="og:url" content="http://yoursite.com/2018/11/10/go-slice/index.html">
 <meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
-<meta property="og:description" content="[Golang]奇葩数据结构之Slice（切片） 本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近新接触Golang，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学Java时，就抠了不">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于1.11```。123456789&amp;gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。#### Introduction最近新接触```Golang```，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学```Java```时，">
 <meta property="og:locale" content="default">
-<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic.png">
-<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic3.png">
-<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta property="og:updated_time" content="2018-12-09T08:01:50.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="[Golang]奇葩数据结构之Slice（切片）">
-<meta name="twitter:description" content="[Golang]奇葩数据结构之Slice（切片） 本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近新接触Golang，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学Java时，就抠了不">
-<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic.png">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于1.11```。123456789&amp;gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。#### Introduction最近新接触```Golang```，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学```Java```时，">
     
     
         
@@ -104,7 +101,7 @@
 
     </div>
     <div id="toc">
-      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Golang-奇葩数据结构之Slice（切片）"><span class="toc-number">1.</span> <span class="toc-text">[Golang]奇葩数据结构之Slice（切片）</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Introduction"><span class="toc-number">1.0.1.</span> <span class="toc-text">Introduction</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#底层实现"><span class="toc-number">1.0.2.</span> <span class="toc-text">底层实现</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#对slice的操作，以及其中的坑"><span class="toc-number">1.0.3.</span> <span class="toc-text">对slice的操作，以及其中的坑</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">1.0.4.</span> <span class="toc-text">总结</span></a></li></ol></li></ol>
+      <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">1.</span> <span class="toc-text">总结</span></a></li></ol>
     </div>
   </span>
 </div>
@@ -143,97 +140,52 @@
   
 
   <div class="content" itemprop="articleBody">
-    <h2 id="Golang-奇葩数据结构之Slice（切片）"><a href="#Golang-奇葩数据结构之Slice（切片）" class="headerlink" title="[Golang]奇葩数据结构之Slice（切片）"></a>[Golang]奇葩数据结构之Slice（切片）</h2><blockquote>
-<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于<code>Go 1.11</code>。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
+    <blockquote>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
+<p>本文写于2018/11/09，基于<figure class="highlight go"><figcaption><span>1.11```。</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">&gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</span><br><span class="line"></span><br><span class="line">#### Introduction</span><br><span class="line"></span><br><span class="line">最近新接触<span class="string">``</span><span class="string">`Golang`</span><span class="string">``</span>，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学<span class="string">``</span><span class="string">`Java`</span><span class="string">``</span>时，就抠了不少<span class="string">``</span><span class="string">`JDK7`</span><span class="string">``</span>和<span class="string">``</span><span class="string">`JDK8`</span><span class="string">``</span>里面的集合类源码（**特别是Map相关和List相关的实现**）。</span><br><span class="line"></span><br><span class="line">类似的，在<span class="string">``</span><span class="string">`Golang`</span><span class="string">``</span>里面，built-in类型的几种经典数据结构（或者说是容器／集合）有</span><br><span class="line"></span><br><span class="line">+ <span class="string">``</span><span class="string">`channel</span></span><br></pre></td></tr></table></figure></p>
 </blockquote>
-<h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p>最近新接触<code>Golang</code>，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学<code>Java</code>时，就抠了不少<code>JDK7</code>和<code>JDK8</code>里面的集合类源码（<strong>特别是Map相关和List相关的实现</strong>）。 类似的，在<code>Golang</code>里面，built-in类型的几种经典数据结构（或者说是容器／集合）有</p>
 <ul>
-<li><code>channel</code></li>
-<li><code>map</code></li>
-<li><code>slice</code></li>
-<li><code>array</code></li>
-</ul>
-<p>对于<code>array</code>，没什么好说的，各语言中都一样，就是一片</p>
-<ul>
-<li>连续的</li>
-<li>可通过index快速定位的</li>
-<li>存储相同数据类型</li>
-</ul>
-<p>的内存区域。 <strong><code>array</code>相当的方便简单好用，但是最大的问题就是严重缺乏动态性，在<code>array</code>的领域里你很难看到随意扩容或者随意缩减</strong>。 于是，在其他部分语言里（如<code>Java</code>），就提供了很多基于<code>LinkedList</code>构建的容器，根据需求随意动态扩容缩减、头插入尾插入、随意删除中间元素，这种<strong>动态性</strong>用起来非常爽。<strong>但是却又失去了数组那种连续空间所支持的最爽的一点 —— 用index直接定位到具体的元素（API上支持，但实际上还是一路遍历过去）。</strong> 所以，基于这些问题和背景，在<code>Golang</code>中我们就见到了一个“奇葩”的数据结构 —— <code>slice</code>（切片）。</p>
-<h4 id="底层实现"><a href="#底层实现" class="headerlink" title="底层实现"></a>底层实现</h4><ul>
-<li><p>代码层面 根据官方的说法，或者很多Go开发者的说法，<code>slice</code>最直接的定义就是<code>dynamic array</code>。<strong>所以其实它的底层真的是基于<code>array</code>实现的。</strong>同时它还能支持<strong>一定程度上比较良好的</strong>动态性。 先来看看<code>Go 1.11</code>中的<code>slice</code>源码。</p>
-<pre><code>type slice struct {
-    array unsafe.Pointer
-    len   int
-    cap   int
-}
-</code></pre></li>
-</ul>
-<pre><code>**看到了这个数据结构的定义，瞬间让我想起了`Redis`里面的`Simple Dynamic String(SDS)`的实现。**同样是封装了一个底层数组（此处`array`指针指向的是一片连续内存区域），同样是维护了一个`len`属性，同样有一个`cap`（`free`）属性来指明容器的使用情况。（**感兴趣的可以去查阅一下`Redis`里的字符串（`SDS`）实现**） 解释一下结构体里各成员的含义：
-*   `array unsafe.Pointer`：一个指向连续内存区域（数组）的指针
-*   `len int`：此`slice`中已存了多少个元素
-*   `cap int`：此`slice`中最多能存多少个元素（最大容量）
-</code></pre><ul>
-<li><p>逻辑层面 假设我们新建了一个<code>slice</code></p>
-<ul>
-<li><code>slice := make([]string, 4, 4)</code>，然后赋值</li>
-<li>或者<code>slice := []string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;}</code></li>
-</ul>
-<p>将会得到如下图所示的逻辑结构，<code>len = 4</code>，<code>cap = 4</code>。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic.png" alt=""> 若我们不是从头新建，而是从某个已有的<code>array</code>中建出一个<code>slice</code></p>
-<pre><code>strs := [4]string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;}
-slice := strs[0:2] // 取strs下标为[0,2)的元素构造一个slice
-</code></pre></li>
-</ul>
-<pre><code>将会得到如下图所示的逻辑结构，`len = 2`，`cap = 4`（因为原数组的最大空间为4，所以这个`slice`从`index0`开始，最大可用区域也可以到达`index3`，只不过现在还没用到`index3`罢了）。 ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic2.png)
-</code></pre><p><strong>所以，基于底层的数组，本质上<code>slice</code>不过是一个数组的<code>wrapper</code>（包装类），并提供一些动态性的操作（<code>append()</code>），让使用者感受不到它是一个数组罢了。</strong></p>
-<h4 id="对slice的操作，以及其中的坑"><a href="#对slice的操作，以及其中的坑" class="headerlink" title="对slice的操作，以及其中的坑"></a>对slice的操作，以及其中的坑</h4><p>对<code>slice</code>操作，无非就5种：</p>
-<ul>
-<li>新建（无需多讲）<ul>
-<li>直接新建</li>
-<li>从已有的数组中截取</li>
-</ul>
+<li><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">+ ```slice</span><br></pre></td></tr></table></figure>
 </li>
-<li>插入</li>
-<li>截断（所谓的删除）-> 用index截取</li>
-<li>更新（无需多讲）</li>
-<li>读取（无须多讲）</li>
+<li><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">对于```array```，没什么好说的，各语言中都一样，就是一片</span><br><span class="line"></span><br><span class="line">+ 连续的</span><br><span class="line">+ 可通过index快速定位的</span><br><span class="line">+ 存储相同数据类型</span><br><span class="line"></span><br><span class="line">的内存区域。</span><br><span class="line"></span><br><span class="line">**```array```相当的方便简单好用，但是最大的问题就是严重缺乏动态性，在```array```的领域里你很难看到随意扩容或者随意缩减**。</span><br><span class="line"></span><br><span class="line">于是，在其他部分语言里（如```Java```），就提供了很多基于```LinkedList```构建的容器，根据需求随意动态扩容缩减、头插入尾插入、随意删除中间元素，这种**动态性**用起来非常爽。**但是却又失去了数组那种连续空间所支持的最爽的一点 —— 用index直接定位到具体的元素（API上支持，但实际上还是一路遍历过去）。**</span><br><span class="line"></span><br><span class="line">所以，基于这些问题和背景，在```Golang```中我们就见到了一个“奇葩”的数据结构 —— ```slice```（切片）。</span><br><span class="line"></span><br><span class="line">#### 底层实现</span><br><span class="line"></span><br><span class="line">+ 代码层面</span><br><span class="line"></span><br><span class="line">	根据官方的说法，或者很多Go开发者的说法，```slice```最直接的定义就是```dynamic array```。**所以其实它的底层真的是基于```array```实现的。**同时它还能支持**一定程度上比较良好的**动态性。</span><br><span class="line">	</span><br><span class="line">	先来看看```Go 1.11```中的```slice```源码。</span><br><span class="line">	</span><br><span class="line">	```go</span><br><span class="line">	type slice struct &#123;</span><br><span class="line">		array unsafe.Pointer</span><br><span class="line">		len   int</span><br><span class="line">		cap   int</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+</li>
 </ul>
-<p><strong>首先明确第一个坑，在同一个数组上构造出来的多个<code>slice</code>都是共享同一个底层数组的。所以你对某一个<code>slice</code>进行写或者更新操作后，很有可能就会影响到基于同一个底层数组的其他<code>slice</code>。</strong>详见下述代码与示意图。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic3.png" alt=""></p>
-<pre><code>strs := [4]string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;}
-slice1 := strs[0:2] // 取strs下标为[0,2)的元素构造一个slice1
-slice2 := strs[0:3] // 取strs下标为[0,3)的元素构造一个slice2
+<pre><code>**看到了这个数据结构的定义，瞬间让我想起了<figure class="highlight plain"><figcaption><span>Dynamic String(SDS)```的实现。**同样是封装了一个底层数组（此处```array```指针指向的是一片连续内存区域），同样是维护了一个```len```属性，同样有一个```cap```（```free```）属性来指明容器的使用情况。（**感兴趣的可以去查阅一下```Redis```里的字符串（```SDS```）实现**）</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">	</span><br><span class="line">	解释一下结构体里各成员的含义：</span><br><span class="line">	</span><br><span class="line">	+ ```array unsafe.Pointer```：一个指向连续内存区域（数组）的指针</span><br><span class="line">	+ ```len   int```：此```slice```中已存了多少个元素</span><br><span class="line">	+ ```cap   int```：此```slice```中最多能存多少个元素（最大容量）</span><br><span class="line"></span><br><span class="line">+ 逻辑层面</span><br><span class="line"></span><br><span class="line">	假设我们新建了一个```slice</span><br></pre></td></tr></table></figure>
 
-slice2[0] = &quot;hhhhh&quot;
-fmt.Println(slice1) // [hhhhh, b] slice1被改变了
-</code></pre><p><strong>由此可见，当你的代码里有多个<code>slice</code>都是基于同一个数组构建出来时，务必小心操作，很容易互相影响造成脏数据！</strong> 接下来着重讲讲<strong>插入（append()）</strong>操作，以及其中奇葩的几个点。 一般执行<code>append(slice, value)</code>时会有以下两种情况</p>
-<ul>
-<li><code>slice</code>的<code>len</code>小于<code>cap</code>，顺理成章可以直接插入（<strong>注意会直接改变底层数组!</strong>）</li>
-<li><code>slice</code>的<code>len</code>等于<code>cap</code>，当前可用空间不足</li>
-</ul>
-<ol>
-<li><p><code>len</code>小于<code>cap</code></p>
-<pre><code>strs := [4]string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;}
-slice1 := strs[0:2] // 取strs下标为[0,2)的元素构造一个slice1, len=2, cap=4
-slice1 = append(slice1, &quot;hh&quot;) // append后len=3, cap=4
-</code></pre></li>
-</ol>
-<pre><code>![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic4.png) 如上图所示，在append了`&quot;hh&quot;`之后，**底层数组**中`index2`处直接被更新为了`&quot;hh&quot;`。
-</code></pre><ol start="2">
-<li><p><code>len</code>等于<code>cap</code></p>
-<pre><code>strs := [4]string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;}
-slice1 := strs[0:1:1] // 取strs下标为[0,1)的元素构造一个slice1, len=1, cap=1
 
-// 为了说明问题, 此处用特殊的写法
-slice2 := append(slice1, &quot;hh&quot;)
-fmt.Println(len(slice2), cap(slice2)) // len=2, cap=2
-fmt.Println(len(slice1), cap(slice1)) // len=1, cap=1
++ <figure class="highlight plain"><figcaption><span>:</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">+ 或者```slice := []string&#123;&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;&#125;</span><br></pre></td></tr></table></figure>
 
-// 关键点在此
-slice2[0] = &quot;hello&quot;
-fmt.Println(slice1) // [a]
-</code></pre></li>
-</ol>
-<pre><code>当执行了`slice2[0] = &quot;hello&quot;`后，`slice1`居然还是`[a]`而不是`[hello]`，说好的**基于同一个底层数组的多个slice会共享该数组呢？？？**在这里怎么出问题了？？？ **其实关键就在于我们append时，`slice1`的`len` == `cap`**，在原`slice1`中没有空间可以允许插入新元素了。**此时就会触发slice扩容，然而此扩容并不是对原底层数组进行操作，而是新开辟一段更长的数组空间，把原数组的值copy过来，再让slice中的指针指向新开辟的长数组！**详细流程请参考下图。 ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic5.png) 由图可见，原本`slice1`里的指针指向的数组是位于`0x34`处的。当尝试`append()`并触发扩容时，**底层直接在另外的地址(`0x88`）处开辟了（或者称之为`deep clone`吧）一段全新的数组。**并把值都copy过去，然后才真正把需要append的`&quot;hh&quot;`塞进去。 很自然，**之后我们执行的`slice2[0] = &quot;hello&quot;`，只是对`0x88`起始的那个数组进行了修改，完全没有影响到`slice1`指向的那个从`0x34`起始的数组。**把`slice1`打印出来，自然也就还是`[a]`了。 所以在很多Go项目的代码里，或者官方教程里，**最常见的append用法都是`slice = append(slice, value)`，而不是`newSlice := append(slice, value)`。**当把append完成后的结果再一次赋给原slice，无论发生了什么(无论`len`和`cap`是什么关系都无所谓），总不会造成runtime时的歧义。 如果在一些特定的场景下，必须要使用`newSlice := append(slice, value)`的写法，那就要格外小心！**如果在append过程中触发了扩容，`newSlice`和原`slice`将不再指向同一段数组空间，在这种情况下对`newSlice`的修改也丝毫不会影响`slice`**（也有可能这恰好就是你的逻辑需要的）。
+将会得到如下图所示的逻辑结构，<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic.png)</span><br><span class="line"></span><br><span class="line">若我们不是从头新建，而是从某个已有的```array```中建出一个```slice</span><br></pre></td></tr></table></figure>
+
+
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">strs := [<span class="number">4</span>]<span class="keyword">string</span>&#123;<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>, <span class="string">"d"</span>&#125;</span><br><span class="line">slice := strs[<span class="number">0</span>:<span class="number">2</span>] <span class="comment">// 取strs下标为[0,2)的元素构造一个slice</span></span><br></pre></td></tr></table></figure>
+
+
+将会得到如下图所示的逻辑结构，<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">	</span><br><span class="line">	![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic2.png)</span><br><span class="line"></span><br><span class="line">**所以，基于底层的数组，本质上```slice```不过是一个数组的```wrapper```（包装类），并提供一些动态性的操作（```append()```），让使用者感受不到它是一个数组罢了。**</span><br><span class="line"></span><br><span class="line">#### 对slice的操作，以及其中的坑</span><br><span class="line"></span><br><span class="line">对```slice```操作，无非就5种：</span><br><span class="line"></span><br><span class="line">+ 新建（无需多讲）</span><br><span class="line">	+ 直接新建</span><br><span class="line">	+ 从已有的数组中截取</span><br><span class="line">+ 插入</span><br><span class="line">+ 截断（所谓的删除）-&gt; 用index截取</span><br><span class="line">+ 更新（无需多讲）</span><br><span class="line">+ 读取（无须多讲）</span><br><span class="line"></span><br><span class="line">**首先明确第一个坑，在同一个数组上构造出来的多个```slice```都是共享同一个底层数组的。所以你对某一个```slice```进行写或者更新操作后，很有可能就会影响到基于同一个底层数组的其他```slice```。**详见下述代码与示意图。</span><br><span class="line"></span><br><span class="line">![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic3.png)</span><br><span class="line"></span><br><span class="line">```go</span><br><span class="line">strs := [4]string&#123;&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;&#125;</span><br><span class="line">slice1 := strs[0:2] // 取strs下标为[0,2)的元素构造一个slice1</span><br><span class="line">slice2 := strs[0:3] // 取strs下标为[0,3)的元素构造一个slice2</span><br><span class="line"></span><br><span class="line">slice2[0] = &quot;hhhhh&quot;</span><br><span class="line">fmt.Println(slice1) // [hhhhh, b] slice1被改变了</span><br></pre></td></tr></table></figure>
+</code></pre><p>**由此可见，当你的代码里有多个<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">接下来着重讲讲**插入（append()）**操作，以及其中奇葩的几个点。</span><br><span class="line"></span><br><span class="line">一般执行```append(slice, value)```时会有以下两种情况</span><br><span class="line"></span><br><span class="line">+ ```slice```的```len```小于```cap```，顺理成章可以直接插入（**注意会直接改变底层数组!**）</span><br><span class="line">+ ```slice```的```len```等于```cap```，当前可用空间不足</span><br><span class="line"></span><br><span class="line">1. ```len```小于```cap</span><br></pre></td></tr></table></figure></p>
+<pre><code><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">strs := [<span class="number">4</span>]<span class="keyword">string</span>&#123;<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>, <span class="string">"d"</span>&#125;</span><br><span class="line">slice1 := strs[<span class="number">0</span>:<span class="number">2</span>] <span class="comment">// 取strs下标为[0,2)的元素构造一个slice1, len=2, cap=4</span></span><br><span class="line">slice1 = <span class="built_in">append</span>(slice1, <span class="string">"hh"</span>) <span class="comment">// append后len=3, cap=4</span></span><br></pre></td></tr></table></figure>
+
+
+![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic4.png)
+
+如上图所示，在append了<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">2. ```len```等于```cap</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">strs := [<span class="number">4</span>]<span class="keyword">string</span>&#123;<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>, <span class="string">"d"</span>&#125;</span><br><span class="line">slice1 := strs[<span class="number">0</span>:<span class="number">1</span>:<span class="number">1</span>] <span class="comment">// 取strs下标为[0,1)的元素构造一个slice1, len=1, cap=1</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 为了说明问题, 此处用特殊的写法</span></span><br><span class="line">slice2 := <span class="built_in">append</span>(slice1, <span class="string">"hh"</span>)</span><br><span class="line">fmt.Println(<span class="built_in">len</span>(slice2), <span class="built_in">cap</span>(slice2)) <span class="comment">// len=2, cap=2</span></span><br><span class="line">fmt.Println(<span class="built_in">len</span>(slice1), <span class="built_in">cap</span>(slice1)) <span class="comment">// len=1, cap=1</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 关键点在此</span></span><br><span class="line">slice2[<span class="number">0</span>] = <span class="string">"hello"</span></span><br><span class="line">fmt.Println(slice1) <span class="comment">// [a]</span></span><br></pre></td></tr></table></figure>
+
+
+当执行了```slice2[0] = &quot;hello&quot;```后，```slice1```居然还是```[a]```而不是```[hello]```，说好的**基于同一个底层数组的多个slice会共享该数组呢？？？**在这里怎么出问题了？？？
+
+**其实关键就在于我们append时，```slice1```的```len``` == ```cap```**，在原```slice1```中没有空间可以允许插入新元素了。**此时就会触发slice扩容，然而此扩容并不是对原底层数组进行操作，而是新开辟一段更长的数组空间，把原数组的值copy过来，再让slice中的指针指向新开辟的长数组！**详细流程请参考下图。
+
+![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic5.png)
+
+由图可见，原本```slice1```里的指针指向的数组是位于```0x34```处的。当尝试```append()```并触发扩容时，**底层直接在另外的地址(```0x88```）处开辟了（或者称之为```deep clone```吧）一段全新的数组。**并把值都copy过去，然后才真正把需要append的```&quot;hh&quot;```塞进去。
+
+很自然，**之后我们执行的```slice2[0] = &quot;hello&quot;```，只是对```0x88```起始的那个数组进行了修改，完全没有影响到```slice1```指向的那个从```0x34```起始的数组。**把```slice1```打印出来，自然也就还是```[a]```了。
+
+所以在很多Go项目的代码里，或者官方教程里，**最常见的append用法都是```slice = append(slice, value)```，而不是```newSlice := append(slice, value)```。**当把append完成后的结果再一次赋给原slice，无论发生了什么(无论```len```和```cap```是什么关系都无所谓），总不会造成runtime时的歧义。
+
+如果在一些特定的场景下，必须要使用```newSlice := append(slice, value)```的写法，那就要格外小心！**如果在append过程中触发了扩容，```newSlice```和原```slice```将不再指向同一段数组空间，在这种情况下对```newSlice```的修改也丝毫不会影响```slice```**（也有可能这恰好就是你的逻辑需要的）。
 </code></pre><h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p><code>Golang</code>中的<code>slice</code>兼顾了传统数组的优点（连续内存空间），也支持动态扩容／截断，确实是在实际开发中非常有用的容器。<strong>但建议每个Go开发者都详细了解其底层实现，因为为了支持其动态性，append和append相关的操作会带来很多奇奇怪怪的坑</strong></p>
 
   </div>
@@ -263,7 +215,7 @@ fmt.Println(slice1) // [a]
     </div>
 
     <div id="toc-footer" style="display: none">
-      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Golang-奇葩数据结构之Slice（切片）"><span class="toc-number">1.</span> <span class="toc-text">[Golang]奇葩数据结构之Slice（切片）</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Introduction"><span class="toc-number">1.0.1.</span> <span class="toc-text">Introduction</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#底层实现"><span class="toc-number">1.0.2.</span> <span class="toc-text">底层实现</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#对slice的操作，以及其中的坑"><span class="toc-number">1.0.3.</span> <span class="toc-text">对slice的操作，以及其中的坑</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">1.0.4.</span> <span class="toc-text">总结</span></a></li></ol></li></ol>
+      <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">1.</span> <span class="toc-text">总结</span></a></li></ol>
     </div>
 
     <div id="share-footer" style="display: none">
