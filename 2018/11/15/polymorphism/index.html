@@ -6,18 +6,18 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="HandheldFriendly" content="True">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/14，基于1.11```。123456789101112&amp;gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。#### Introduction```多态```这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可">
+    <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/14，基于1.11```。&amp;gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。#### Introduction```多态```这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可以指向子类的对象，在Java里">
 <meta name="keywords" content="Go,笔记">
 <meta property="og:type" content="article">
 <meta property="og:title" content="[Golang]奇怪的“类”和多态（Polymorphism）">
 <meta property="og:url" content="http://yoursite.com/2018/11/15/polymorphism/index.html">
 <meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
-<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/14，基于1.11```。123456789101112&amp;gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。#### Introduction```多态```这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/14，基于1.11```。&amp;gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。#### Introduction```多态```这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可以指向子类的对象，在Java里">
 <meta property="og:locale" content="default">
 <meta property="og:updated_time" content="2018-12-09T07:58:39.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="[Golang]奇怪的“类”和多态（Polymorphism）">
-<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/14，基于1.11```。123456789101112&amp;gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。#### Introduction```多态```这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/14，基于1.11```。&amp;gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。#### Introduction```多态```这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可以指向子类的对象，在Java里">
     
     
         
@@ -142,7 +142,7 @@
   <div class="content" itemprop="articleBody">
     <blockquote>
 <p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
-<p>本文写于2018/11/14，基于<figure class="highlight go"><figcaption><span>1.11```。</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">&gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</span><br><span class="line"></span><br><span class="line">#### Introduction</span><br><span class="line"><span class="string">``</span><span class="string">`多态`</span><span class="string">``</span>这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可以指向子类的对象，在Java里面虽然没有指针这样的概念，但是我们一般会说，如果某个子类实现了一个接口，那么这个接口的引用就可以引用这个子类的一个实例对象。</span><br><span class="line"></span><br><span class="line">但是类似于C++和Java里面的实现基本上都是基于接口和类的相互合作去构建的。而在Go里面，是有接口的定义，但是并不存在严格意义上的类（Class），只是单纯的结构体（Struct），而且实现方法时还有略显奇葩的<span class="string">``</span><span class="string">`Receiver`</span><span class="string">``</span>机制。所以本文的目标就是来探索一下在Go语言里面多态是如何实现的，以及在Go语言时实现多态的过程中有哪些奇奇怪怪的坑。</span><br><span class="line"></span><br><span class="line">#### 类、方法、多态</span><br><span class="line"></span><br><span class="line"><span class="number">1.</span> 基本接口实现</span><br><span class="line"></span><br><span class="line">	首先看看一下在Go语言里面如何去实现一个接口，其实就是让一个结构体去实现接口里定义的所有方法。但是在Go里面结构体（Struct）并不是我们在Java中认知的类（Class），所以我们所谓的实现一个方法是要写在结构体的外部，并且为每个方法定义一个接收者（Receiver）。</span><br></pre></td></tr></table></figure></p>
+<p>本文写于2018/11/14，基于<figure class="highlight go"><figcaption><span>1.11```。</span></figcaption><table><tr><td class="code"><pre><span class="line">&gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</span><br><span class="line"></span><br><span class="line">#### Introduction</span><br><span class="line"><span class="string">``</span><span class="string">`多态`</span><span class="string">``</span>这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可以指向子类的对象，在Java里面虽然没有指针这样的概念，但是我们一般会说，如果某个子类实现了一个接口，那么这个接口的引用就可以引用这个子类的一个实例对象。</span><br><span class="line"></span><br><span class="line">但是类似于C++和Java里面的实现基本上都是基于接口和类的相互合作去构建的。而在Go里面，是有接口的定义，但是并不存在严格意义上的类（Class），只是单纯的结构体（Struct），而且实现方法时还有略显奇葩的<span class="string">``</span><span class="string">`Receiver`</span><span class="string">``</span>机制。所以本文的目标就是来探索一下在Go语言里面多态是如何实现的，以及在Go语言时实现多态的过程中有哪些奇奇怪怪的坑。</span><br><span class="line"></span><br><span class="line">#### 类、方法、多态</span><br><span class="line"></span><br><span class="line"><span class="number">1.</span> 基本接口实现</span><br><span class="line"></span><br><span class="line">	首先看看一下在Go语言里面如何去实现一个接口，其实就是让一个结构体去实现接口里定义的所有方法。但是在Go里面结构体（Struct）并不是我们在Java中认知的类（Class），所以我们所谓的实现一个方法是要写在结构体的外部，并且为每个方法定义一个接收者（Receiver）。</span><br></pre></td></tr></table></figure></p>
 </blockquote>
 <pre><code>// Human接口，内含breathe()方法，因为所有人类都能呼吸
 type Human interface {
@@ -159,7 +159,7 @@ type Student struct {
 func (s Student) breathe() {
     fmt.Println(&quot;I can breathe.&quot;)
 }
-<figure class="highlight markdown"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="bullet">2. </span>Receiver的选择</span><br><span class="line"></span><br><span class="line"><span class="code">	在为每个方法定义Receiver的时候，不仅可以把Receiver定义为一个结构体的对象（值），还可以定义为该结构体的一个指针。当你需要对某个对象（值）里面的属性做修改的时候，例如更新或者删除原值，一般情况下会把Receiver定义为结构体的**指针**。</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line">2. Receiver的选择</span><br><span class="line"></span><br><span class="line">	在为每个方法定义Receiver的时候，不仅可以把Receiver定义为一个结构体的对象（值），还可以定义为该结构体的一个指针。当你需要对某个对象（值）里面的属性做修改的时候，例如更新或者删除原值，一般情况下会把Receiver定义为结构体的**指针**。</span><br></pre></td></tr></table></figure>
 
 // Driver接口，内含updateLicense()方法，因为司机有时需要更新驾照信息
 type Driver interface {
@@ -178,7 +178,7 @@ func (m *Man) updateLicense() {
     m.license = &quot;new license&quot;
     fmt.Println(&quot;License is updated.&quot;)
 }
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">	</span><br><span class="line"><span class="number">3.</span> 方法调用</span><br><span class="line"></span><br><span class="line">	无论你是用指针还是用某个结构体具体的值，都可以直接对该结构体所实现的方法进行直接的调用。当你使用指针调用某个接收者是值的方法时，Go语言的内部会帮你把指针指向的对象（值）找出来，然后再进行调用。如果某个方法的接收者是一个指针，同样也可以用对象（值）来进行调用。这是因为<span class="keyword">go</span>语言内部会自动把对象（值）的地址找到，然后构建出指向该对象（值）的指针，就可以顺利进行调用。</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">	</span><br><span class="line">3. 方法调用</span><br><span class="line"></span><br><span class="line">	无论你是用指针还是用某个结构体具体的值，都可以直接对该结构体所实现的方法进行直接的调用。当你使用指针调用某个接收者是值的方法时，Go语言的内部会帮你把指针指向的对象（值）找出来，然后再进行调用。如果某个方法的接收者是一个指针，同样也可以用对象（值）来进行调用。这是因为go语言内部会自动把对象（值）的地址找到，然后构建出指向该对象（值）的指针，就可以顺利进行调用。</span><br></pre></td></tr></table></figure>
 
 // 学生结构体，内含姓名和年龄
 type Student struct {
@@ -209,7 +209,7 @@ func main() {
     pointer.grow() //通过指针调用也正常，也打印出Grow older
 
 }
-<figure class="highlight clean"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">	**从上述代码可以看出，无论某个方法的Receiver是对象（值）还是指针，都可以通过对象（值）或者指针来进行方法调用。**再仔细想一想也是非常合理的，因为Go内部可以轻松地找到一个对象（值）的地址，自然就能构建出指向它的指针（```&amp;obj```），调用Receiver为指针的方法；另外也很容易通过指针找到其指向的对象（值）（```*p```），自然也能轻松调用Receiver为对象（值）的方法。</span><br><span class="line">	</span><br><span class="line"><span class="number">4.</span> 最简单的多态示例</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line">	**从上述代码可以看出，无论某个方法的Receiver是对象（值）还是指针，都可以通过对象（值）或者指针来进行方法调用。**再仔细想一想也是非常合理的，因为Go内部可以轻松地找到一个对象（值）的地址，自然就能构建出指向它的指针（```&amp;obj```），调用Receiver为指针的方法；另外也很容易通过指针找到其指向的对象（值）（```*p```），自然也能轻松调用Receiver为对象（值）的方法。</span><br><span class="line">	</span><br><span class="line">4. 最简单的多态示例</span><br></pre></td></tr></table></figure>
 
 // Human接口，内含breathe()方法，因为所有人类都能呼吸
 type Human interface {
@@ -238,7 +238,7 @@ func main() {
     Test(student) //打印出I can breathe.
 
 }
-<figure class="highlight clean"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">	</span><br><span class="line">	上述是最简单直接描述```多态```的代码例子，```Test```方法的入参是一个接口类型（```Human```），**只要实现了```Human```接口的任一类型的对象都可以传进去，可以是这里的```Student```，也可以是```Driver```，也可以是```Teacher```。无所谓，只要实现了```Human```接口就没问题。**</span><br><span class="line">	</span><br><span class="line"><span class="number">5.</span> 实现多态时诡异的报错</span><br><span class="line"></span><br><span class="line">	在上面最简单的多态例子里，```Student```实现了```Human```接口，实现了一个以值为Receiver的```breathe()```方法，便可成功传入```Test```方法里。**那假如接口中声明了不止一个方法，且实现时Receiver不一定是值，还可能是指针呢？那样可以吗？**</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">	</span><br><span class="line">	上述是最简单直接描述```多态```的代码例子，```Test```方法的入参是一个接口类型（```Human```），**只要实现了```Human```接口的任一类型的对象都可以传进去，可以是这里的```Student```，也可以是```Driver```，也可以是```Teacher```。无所谓，只要实现了```Human```接口就没问题。**</span><br><span class="line">	</span><br><span class="line">5. 实现多态时诡异的报错</span><br><span class="line"></span><br><span class="line">	在上面最简单的多态例子里，```Student```实现了```Human```接口，实现了一个以值为Receiver的```breathe()```方法，便可成功传入```Test```方法里。**那假如接口中声明了不止一个方法，且实现时Receiver不一定是值，还可能是指针呢？那样可以吗？**</span><br></pre></td></tr></table></figure>
 
 // Human接口，内含breathe()和grow()
 type Human interface {
@@ -279,7 +279,7 @@ func main() {
     // Student does not implement Human (grow method has pointer receiver)
 
 }
-<figure class="highlight clean"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">从上述代码的报错中看到，```Student```没有实现```Human```接口，因为```grow```方法的Receiver是指针？？？**可是我明明实现了```grow```方法啊，只是它的Receiver是指针而已！难道```*Student```和```Student```居然被认为是两种不同的类型？？？**</span><br><span class="line"></span><br><span class="line">**没错！在Go的设计理念中，```type pointer```和```type value```确实就是两种不同的类型！**</span><br><span class="line"></span><br><span class="line">**所以如果想让某个结构体实现一个接口，必须要分离开来思考，你到底是想让```type pointer```实现还是想让```type value```实现？**</span><br><span class="line"></span><br><span class="line">这个时候，正常人都会想：我要实现一些需要改变对象属性值的方法（像上面的```grow()```），当然需要让这些方法的Receiver为指针，不然怎么改变对象内部的属性值啊？而对于那些不需要改变对象属性值的方法，Receiver为指针也不会出错，顶多就是看着不规范而已。**好，那就把所有实现的方法的Receiver都改成指针，肯定能正常实现那个接口~** 于是便有了下面的代码👇</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line">从上述代码的报错中看到，```Student```没有实现```Human```接口，因为```grow```方法的Receiver是指针？？？**可是我明明实现了```grow```方法啊，只是它的Receiver是指针而已！难道```*Student```和```Student```居然被认为是两种不同的类型？？？**</span><br><span class="line"></span><br><span class="line">**没错！在Go的设计理念中，```type pointer```和```type value```确实就是两种不同的类型！**</span><br><span class="line"></span><br><span class="line">**所以如果想让某个结构体实现一个接口，必须要分离开来思考，你到底是想让```type pointer```实现还是想让```type value```实现？**</span><br><span class="line"></span><br><span class="line">这个时候，正常人都会想：我要实现一些需要改变对象属性值的方法（像上面的```grow()```），当然需要让这些方法的Receiver为指针，不然怎么改变对象内部的属性值啊？而对于那些不需要改变对象属性值的方法，Receiver为指针也不会出错，顶多就是看着不规范而已。**好，那就把所有实现的方法的Receiver都改成指针，肯定能正常实现那个接口~** 于是便有了下面的代码👇</span><br></pre></td></tr></table></figure>
 
 // Human接口，内含breathe()和grow()
 type Human interface {
@@ -321,7 +321,7 @@ func main() {
     //Inspection info: Reports incompatible types.
 
 }
-<figure class="highlight clean"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">**又出错了？！甚至都不用run，IDE直接报错？！** **之前说好的指针和对象在调用方法时可以随便互换使用呢？？？为什么这里不行了？？？**</span><br><span class="line"></span><br><span class="line">此时就要搬出```Go specification```里的经典表格来解释这个表层现象了👇👇👇。</span><br><span class="line"></span><br><span class="line">![](https:<span class="comment">//blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gospec.png)</span></span><br><span class="line"></span><br><span class="line">注意看第二个表格。第一行：当```Methods Receivers```为对象（值）（```t T```）的时候，可用对象（值）或者指针作为多态方法的接口参数；第二行：当```Methods Receivers```为指针时，只能用指针作为多态方法的接口参数。我们实现的方法的Receiver全都是指针，所以我们传一个对象（值）进去，像```Test(student)```就会报错。**如果我们把main中的代码改成```Test(&amp;student)```，用指针作为方法的多态接口参数，自然就不会报错了。**</span><br><span class="line"></span><br><span class="line">**但这些只是表层现象，再研究得深入一点，为什么会这样呢？原来我们一直认为“有了对象（值）就一定能找到它的地址，从而构建出指向它自己的指针”，其实这种想法在一定程度上是有问题的。**在```Go In Action```一书中给出了一段示意代码，展示了为什么有的时候是找不到对象（值）的地址的👇👇👇。</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line">**又出错了？！甚至都不用run，IDE直接报错？！** **之前说好的指针和对象在调用方法时可以随便互换使用呢？？？为什么这里不行了？？？**</span><br><span class="line"></span><br><span class="line">此时就要搬出```Go specification```里的经典表格来解释这个表层现象了👇👇👇。</span><br><span class="line"></span><br><span class="line">![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gospec.png)</span><br><span class="line"></span><br><span class="line">注意看第二个表格。第一行：当```Methods Receivers```为对象（值）（```t T```）的时候，可用对象（值）或者指针作为多态方法的接口参数；第二行：当```Methods Receivers```为指针时，只能用指针作为多态方法的接口参数。我们实现的方法的Receiver全都是指针，所以我们传一个对象（值）进去，像```Test(student)```就会报错。**如果我们把main中的代码改成```Test(&amp;student)```，用指针作为方法的多态接口参数，自然就不会报错了。**</span><br><span class="line"></span><br><span class="line">**但这些只是表层现象，再研究得深入一点，为什么会这样呢？原来我们一直认为“有了对象（值）就一定能找到它的地址，从而构建出指向它自己的指针”，其实这种想法在一定程度上是有问题的。**在```Go In Action```一书中给出了一段示意代码，展示了为什么有的时候是找不到对象（值）的地址的👇👇👇。</span><br></pre></td></tr></table></figure>
 
 01 // Sample program to show how you can&apos;t always get the
 02 // address of a value.

@@ -6,18 +6,18 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="HandheldFriendly" content="True">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/24，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近读完了整本《Go in Action》，给我印象最深的几章是讲  多态 高级并发模式 常用工具包（```json```, ```log```......）123456789101112本文">
+    <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/24，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近读完了整本《Go in Action》，给我印象最深的几章是讲  多态 高级并发模式 常用工具包（http, json, log……）  本文基于《Go in Action》里介绍的3种高">
 <meta name="keywords" content="Go,笔记">
 <meta property="og:type" content="article">
 <meta property="og:title" content="[Golang]浅析几种并发模式">
 <meta property="og:url" content="http://yoursite.com/2018/11/25/go-concurrency-pattern/index.html">
 <meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
-<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/24，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近读完了整本《Go in Action》，给我印象最深的几章是讲  多态 高级并发模式 常用工具包（```json```, ```log```......）123456789101112本文">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/24，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近读完了整本《Go in Action》，给我印象最深的几章是讲  多态 高级并发模式 常用工具包（http, json, log……）  本文基于《Go in Action》里介绍的3种高">
 <meta property="og:locale" content="default">
-<meta property="og:updated_time" content="2018-12-09T08:10:36.000Z">
+<meta property="og:updated_time" content="2018-12-09T08:13:22.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="[Golang]浅析几种并发模式">
-<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/24，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近读完了整本《Go in Action》，给我印象最深的几章是讲  多态 高级并发模式 常用工具包（```json```, ```log```......）123456789101112本文">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/24，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近读完了整本《Go in Action》，给我印象最深的几章是讲  多态 高级并发模式 常用工具包（http, json, log……）  本文基于《Go in Action》里介绍的3种高">
     
     
         
@@ -101,7 +101,7 @@
 
     </div>
     <div id="toc">
-      <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#Introduction"><span class="toc-number">1.</span> <span class="toc-text">Introduction</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#应用场景"><span class="toc-number">2.</span> <span class="toc-text">应用场景</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">3.</span> <span class="toc-text">总结</span></a></li></ol>
+      <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#Introduction"><span class="toc-number">1.</span> <span class="toc-text">Introduction</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#并发模式"><span class="toc-number">2.</span> <span class="toc-text">并发模式</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#应用场景"><span class="toc-number">3.</span> <span class="toc-text">应用场景</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li></ol>
     </div>
   </span>
 </div>
@@ -148,33 +148,38 @@
 <ul>
 <li>多态</li>
 <li>高级并发模式</li>
-<li><p>常用工具包（<figure class="highlight plain"><figcaption><span>```json```, ```log```......）</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">本文基于《Go in Action》里介绍的3种高级并发模式进行浅析，主要起到解释和笔记的作用，也会简单地讲讲我个人对这几种模式的理解。</span><br><span class="line"></span><br><span class="line">#### 并发模式</span><br><span class="line">1. 任务计时器</span><br><span class="line">	</span><br><span class="line">	何谓“任务计时器”？**其实就是一个包装了多个要执行的```Task```和一个```Timer```的容器**。该容器启动后，只有3种情况能够让其退出：</span><br><span class="line">	+ 所有```Task```执行完毕，正常退出</span><br><span class="line">	+ 收到外部中断信号（interrupt），退出</span><br><span class="line">	+ ```Timer```超过设定的时长，退出</span><br><span class="line"></span><br><span class="line">	先来直接看看《Go in Action》中给出的实现代码。</span><br></pre></td></tr></table></figure></p>
-<p>  package runner</p>
-<p>  import (</p>
+<li>常用工具包（<code>http</code>, <code>json</code>, <code>log</code>……）</li>
+</ul>
+<p>本文基于《Go in Action》里介绍的3种高级并发模式进行浅析，主要起到解释和笔记的作用，也会简单地讲讲我个人对这几种模式的理解。</p>
+<h4 id="并发模式"><a href="#并发模式" class="headerlink" title="并发模式"></a>并发模式</h4><ol>
+<li><p>任务计时器</p>
+<p> 何谓“任务计时器”？**其实就是一个包装了多个要执行的<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">+ 所有```Task```执行完毕，正常退出</span><br><span class="line">+ 收到外部中断信号（interrupt），退出</span><br><span class="line">+ ```Timer```超过设定的时长，退出</span><br><span class="line"></span><br><span class="line">先来直接看看《Go in Action》中给出的实现代码。</span><br></pre></td></tr></table></figure></p>
+<p> package runner</p>
+<p> import (</p>
 <pre><code>&quot;errors&quot;
 &quot;os&quot;
 &quot;os/signal&quot;
 &quot;time&quot;
-</code></pre><p>  )</p>
-<p>  // 任务计时器<br>  type Runner struct {</p>
+</code></pre><p> )</p>
+<p> // 任务计时器<br> type Runner struct {</p>
 <pre><code>interrupt chan os.Signal    // 接收中断信号的channel
 complete chan error            // 接收任务完成信号的channel
 timeout &lt;-chan time.Time    // 接收超时信号的channel
 tasks []func(int)            // 存放要执行的多个任务的切片
                             // 其中每个任务是一个以int为形参的方法
-</code></pre><p>  }</p>
-<p>  // 定义了两种异常退出的错误<br>  var ErrTimeout = errors.New(“received timeout”)<br>  var ErrInterrupt = errors.New(“received interrupt”)</p>
-<p>  // 容器工厂，通过new直接得到一个容器实例<br>  func New(d time.Duration) *Runner {</p>
+</code></pre><p> }</p>
+<p> // 定义了两种异常退出的错误<br> var ErrTimeout = errors.New(“received timeout”)<br> var ErrInterrupt = errors.New(“received interrupt”)</p>
+<p> // 容器工厂，通过new直接得到一个容器实例<br> func New(d time.Duration) *Runner {</p>
 <pre><code>return &amp;Runner{
     interrupt: make(chan os.Signal, 1),
     complete:  make(chan error),
     timeout:   time.After(d),
 }
-</code></pre><p>  }</p>
-<p>  // 往容器里添加任务的方法<br>  func (r *Runner) Add(tasks …func(int)) {</p>
+</code></pre><p> }</p>
+<p> // 往容器里添加任务的方法<br> func (r *Runner) Add(tasks …func(int)) {</p>
 <pre><code>r.tasks = append(r.tasks, tasks...)
-</code></pre><p>  }</p>
-<p>  // 容器启动的方法<br>  func (r *Runner) Start() error {</p>
+</code></pre><p> }</p>
+<p> // 容器启动的方法<br> func (r *Runner) Start() error {</p>
 <pre><code>// We want to receive all interrupt based signals.
 signal.Notify(r.interrupt, os.Interrupt)
 
@@ -192,8 +197,8 @@ case err := &lt;-r.complete:
 case &lt;-r.timeout:
     return ErrTimeout
 }
-</code></pre><p>  }</p>
-<p>  // 容器内部执行任务的方法<br>  func (r *Runner) run() error {</p>
+</code></pre><p> }</p>
+<p> // 容器内部执行任务的方法<br> func (r *Runner) run() error {</p>
 <pre><code>for id, task := range r.tasks {
     // Check for an interrupt signal from the OS.
     if r.gotInterrupt() {
@@ -205,8 +210,8 @@ case &lt;-r.timeout:
 }
 
 return nil
-</code></pre><p>  }</p>
-<p>  // 检查是否发生中断信号<br>  func (r *Runner) gotInterrupt() bool {</p>
+</code></pre><p> }</p>
+<p> // 检查是否发生中断信号<br> func (r *Runner) gotInterrupt() bool {</p>
 <pre><code>select {
 case &lt;-r.interrupt:
     // Stop receiving any further signals.
@@ -216,8 +221,8 @@ case &lt;-r.interrupt:
 default:
     return false
 }
-</code></pre><p>  }</p>
-  <figure class="highlight clean"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">上述代码的逻辑很清晰，但仍有几个细节需要特别强调一下。</span><br><span class="line"></span><br><span class="line">+ 在容器```Runner```里，```timeout```是一个接收超时信号（```time.Time```）的channel，一旦该channel接收到**一个**超时信号，将通知```Runner```退出。而在new一个新的```Runner```时，我们用的是```time.After(duration)```来生成一个```timeout```管道，为什么不直接```make(chan time.Time)```呢？因为用```time.After(duration)```生成管道时，会潜在自动触发一个机制：经过```duration```后该管道会收到一个```time.Time```信号，不需要自己额外去做发送超时信号这一套逻辑。</span><br><span class="line">+ 使用```select```语句。可以看到在```Start()```中，开了一个goroutine去执行任务后，我们写了一个```select```语句，其中两个分支分别是所有任务正常完成且收到complete信号，还有任务超时收到超时信号。**其实```select```语句可以简单地看成是一个定制版的```epoll```机制**，它可以同时监听多个```<span class="keyword">case</span>```。如果所有的```<span class="keyword">case</span>```分支都不能执行，将阻塞在此；如果有一个```<span class="keyword">case</span>```可以执行，一定会执行该```<span class="keyword">case</span>```；和```epoll```唯一不同的是，如果同时有多个```<span class="keyword">case</span>```可以执行，```select```会**随机**执行其中一个```<span class="keyword">case</span>```。同理，在```gotInterrupt()```里，我们也用了```select```语句监听有没有中断信号，如果在执行```gotInterrupt()```的那个时刻没有收到中断信号，那绝对会直接执行```default```分支（永远都能执行的分支），返回```false```告知调用者没有收到中断信号。</span><br><span class="line">+ 在容器```Runner```里，```tasks```是一个装了多个待执行任务的切片，定义里说明了每个任务都是一个```func(int)```。**但是这并不具有普适性，这不是必须的，设计者可以根据自己的需求来定义每个任务是什么样的方法。**可以是```func(interfact&#123;&#125;) interface&#123;&#125;```，可以是任意的方法。</span><br><span class="line">+ ```run()```方法用于在容器内部执行多个任务。最奇怪的是，在```run()```里面其实是**遍历了```tasks```，逐个逐个串行地执行任务，只有上一个任务完成了下一个任务才会开始。**个人认为，也许这种设计迎合了一定的场景需求（上下游任务间存在依赖），但是有些时候我们确实是需要并发地执行多个任务。**建议改成多个```goroutine```并发执行```tasks```中的任务，然后用```WaitGroup```来阻塞，等待所有任务完成。**</span><br></pre></td></tr></table></figure>
+</code></pre><p> }</p>
+ <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line">上述代码的逻辑很清晰，但仍有几个细节需要特别强调一下。</span><br><span class="line"></span><br><span class="line">+ 在容器```Runner```里，```timeout```是一个接收超时信号（```time.Time```）的channel，一旦该channel接收到**一个**超时信号，将通知```Runner```退出。而在new一个新的```Runner```时，我们用的是```time.After(duration)```来生成一个```timeout```管道，为什么不直接```make(chan time.Time)```呢？因为用```time.After(duration)```生成管道时，会潜在自动触发一个机制：经过```duration```后该管道会收到一个```time.Time```信号，不需要自己额外去做发送超时信号这一套逻辑。</span><br><span class="line">+ 使用```select```语句。可以看到在```Start()```中，开了一个goroutine去执行任务后，我们写了一个```select```语句，其中两个分支分别是所有任务正常完成且收到complete信号，还有任务超时收到超时信号。**其实```select```语句可以简单地看成是一个定制版的```epoll```机制**，它可以同时监听多个```case```。如果所有的```case```分支都不能执行，将阻塞在此；如果有一个```case```可以执行，一定会执行该```case```；和```epoll```唯一不同的是，如果同时有多个```case```可以执行，```select```会**随机**执行其中一个```case```。同理，在```gotInterrupt()```里，我们也用了```select```语句监听有没有中断信号，如果在执行```gotInterrupt()```的那个时刻没有收到中断信号，那绝对会直接执行```default```分支（永远都能执行的分支），返回```false```告知调用者没有收到中断信号。</span><br><span class="line">+ 在容器```Runner```里，```tasks```是一个装了多个待执行任务的切片，定义里说明了每个任务都是一个```func(int)```。**但是这并不具有普适性，这不是必须的，设计者可以根据自己的需求来定义每个任务是什么样的方法。**可以是```func(interfact&#123;&#125;) interface&#123;&#125;```，可以是任意的方法。</span><br><span class="line">+ ```run()```方法用于在容器内部执行多个任务。最奇怪的是，在```run()```里面其实是**遍历了```tasks```，逐个逐个串行地执行任务，只有上一个任务完成了下一个任务才会开始。**个人认为，也许这种设计迎合了一定的场景需求（上下游任务间存在依赖），但是有些时候我们确实是需要并发地执行多个任务。**建议改成多个```goroutine```并发执行```tasks```中的任务，然后用```WaitGroup```来阻塞，等待所有任务完成。**</span><br></pre></td></tr></table></figure>
 <pre><code>func (r *Runner) run() error {
     wg := sync.WaitGroup{}
     wg.Add(len(r.tasks))
@@ -235,22 +240,22 @@ default:
     wg.Wait()
     return nil
 }
-<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line">2. 资源池</span><br><span class="line"></span><br><span class="line">	什么是**资源池**，顾名思义，就是一个放满了各种资源的池子。讲得“专业”一点，就是一个管理着多个可用资源的容器，外部的线程/协程可向资源池申请资源，使用完后可以把资源放回资源池，重复利用。</span><br><span class="line">	</span><br><span class="line">	直接来看看《Go in Action》中的代码。</span><br></pre></td></tr></table></figure>
-</code></pre><p>  package pool</p>
-<p>  import (</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line">2. 资源池</span><br><span class="line"></span><br><span class="line">	什么是**资源池**，顾名思义，就是一个放满了各种资源的池子。讲得“专业”一点，就是一个管理着多个可用资源的容器，外部的线程/协程可向资源池申请资源，使用完后可以把资源放回资源池，重复利用。</span><br><span class="line">	</span><br><span class="line">	直接来看看《Go in Action》中的代码。</span><br></pre></td></tr></table></figure>
+</code></pre><p> package pool</p>
+<p> import (</p>
 <pre><code>&quot;errors&quot;
 &quot;io&quot;
 &quot;log&quot;
 &quot;sync&quot;
-</code></pre><p>  )</p>
-<p>  // 资源池<br>  type Pool struct {</p>
+</code></pre><p> )</p>
+<p> // 资源池<br> type Pool struct {</p>
 <pre><code>m         sync.Mutex        // mutex用于控制同步
 resources chan io.Closer    // 存放资源的管道
 factory   func() (io.Closer, error) // 新建资源的工厂
 closed    bool                // 资源池是否关闭的标志
-</code></pre><p>  }</p>
-<p>  // 错误信号<br>  var ErrPoolClosed = errors.New(“Pool has been closed.”)</p>
-<p>  // 资源池工厂，用于新建资源池<br>  func New(fn func() (io.Closer, error), size uint) (*Pool, error) {</p>
+</code></pre><p> }</p>
+<p> // 错误信号<br> var ErrPoolClosed = errors.New(“Pool has been closed.”)</p>
+<p> // 资源池工厂，用于新建资源池<br> func New(fn func() (io.Closer, error), size uint) (*Pool, error) {</p>
 <pre><code>if size &lt;= 0 {
     return nil, errors.New(&quot;Size value too small.&quot;)
 }
@@ -259,8 +264,8 @@ return &amp;Pool{
     factory:   fn,
     resources: make(chan io.Closer, size),
 }, nil
-</code></pre><p>  }</p>
-<p>  // 从资源池中拿资源<br>  func (p *Pool) Acquire() (io.Closer, error) {</p>
+</code></pre><p> }</p>
+<p> // 从资源池中拿资源<br> func (p *Pool) Acquire() (io.Closer, error) {</p>
 <pre><code>select {
 case r, ok := &lt;-p.resources:
     log.Println(&quot;Acquire:&quot;, &quot;Shared Resource&quot;)
@@ -273,8 +278,8 @@ default:
     log.Println(&quot;Acquire:&quot;, &quot;New Resource&quot;)
     return p.factory()
 }
-</code></pre><p>  }</p>
-<p>  // 把资源放回资源池<br>  func (p *Pool) Release(r io.Closer) {</p>
+</code></pre><p> }</p>
+<p> // 把资源放回资源池<br> func (p *Pool) Release(r io.Closer) {</p>
 <pre><code>p.m.Lock()
 defer p.m.Unlock()
 
@@ -291,8 +296,8 @@ default:
     log.Println(&quot;Release:&quot;, &quot;Closing&quot;)
     r.Close()
 }
-</code></pre><p>  }</p>
-<p>  // 关闭资源池<br>  func (p *Pool) Close() {</p>
+</code></pre><p> }</p>
+<p> // 关闭资源池<br> func (p *Pool) Close() {</p>
 <pre><code>p.m.Lock()
 defer p.m.Unlock()
 
@@ -307,18 +312,18 @@ close(p.resources)
 for r := range p.resources {
     r.Close()
 }
-</code></pre><p>  }</p>
-  <figure class="highlight clean"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">	</span><br><span class="line">	以下讲讲几个资源池设计中的细节。</span><br><span class="line">	+ 关于```factory```。```factory```是一个用来新建资源的工厂，当资源池内没有资源时，上述代码的逻辑是通过事先定义好的```factory```来新建资源。**当然，也可以不这么干。根据不同的场景和需求，当资源池内没有资源时可以选择阻塞，而非新建资源。**</span><br><span class="line">	+ 用```mutex```来同步```Release()```和```Close()```。在同一时刻，不能同时有多个协程进入```Release()```和进入```Close()```。也就是说有协程在关闭资源池时，不允许别的协程放回资源；有协程在放回资源时，不允许别的协程关闭资源池。如果不用```mutex```进行同步，假设同时有协程A进入了```Release()```，协程B进入了```Close()```。特殊情况下，当协程A运行到select语句前失去了cpu资源，协程B正常运行关闭了```resources```管道，协程A再想往一个已关闭了的```resources```管道里插数据，会直接引起错误。</span><br><span class="line">	+ ```resources```管道是一个```缓冲管道```。通过工厂new一个资源池时，```resources```被定义成了一个大小为```size```的```缓冲管道```。用```缓冲管道```的好处是，只有当管道**全空**或者**全满**时才会对生产者/消费者进行阻塞，其他情况下正常生产/消费资源。</span><br><span class="line"></span><br><span class="line"><span class="number">3.</span> 并发池</span><br><span class="line"></span><br><span class="line">	所谓**并发池**，就是一个放了N个待执行任务的池子，或者可以看成是一个**可并发执行任务，却不带有定时功能的任务计时器。**</span><br></pre></td></tr></table></figure>
-<p>  package work</p>
-<p>  import “sync”</p>
-<p>  // 任务接口<br>  type Worker interface {</p>
+</code></pre><p> }</p>
+ <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">	</span><br><span class="line">	以下讲讲几个资源池设计中的细节。</span><br><span class="line">	+ 关于```factory```。```factory```是一个用来新建资源的工厂，当资源池内没有资源时，上述代码的逻辑是通过事先定义好的```factory```来新建资源。**当然，也可以不这么干。根据不同的场景和需求，当资源池内没有资源时可以选择阻塞，而非新建资源。**</span><br><span class="line">	+ 用```mutex```来同步```Release()```和```Close()```。在同一时刻，不能同时有多个协程进入```Release()```和进入```Close()```。也就是说有协程在关闭资源池时，不允许别的协程放回资源；有协程在放回资源时，不允许别的协程关闭资源池。如果不用```mutex```进行同步，假设同时有协程A进入了```Release()```，协程B进入了```Close()```。特殊情况下，当协程A运行到select语句前失去了cpu资源，协程B正常运行关闭了```resources```管道，协程A再想往一个已关闭了的```resources```管道里插数据，会直接引起错误。</span><br><span class="line">	+ ```resources```管道是一个```缓冲管道```。通过工厂new一个资源池时，```resources```被定义成了一个大小为```size```的```缓冲管道```。用```缓冲管道```的好处是，只有当管道**全空**或者**全满**时才会对生产者/消费者进行阻塞，其他情况下正常生产/消费资源。</span><br><span class="line"></span><br><span class="line">3. 并发池</span><br><span class="line"></span><br><span class="line">	所谓**并发池**，就是一个放了N个待执行任务的池子，或者可以看成是一个**可并发执行任务，却不带有定时功能的任务计时器。**</span><br></pre></td></tr></table></figure>
+<p> package work</p>
+<p> import “sync”</p>
+<p> // 任务接口<br> type Worker interface {</p>
 <pre><code>Task()
-</code></pre><p>  }</p>
-<p>  // 并发池<br>  type Pool struct {</p>
+</code></pre><p> }</p>
+<p> // 并发池<br> type Pool struct {</p>
 <pre><code>work chan Worker
 wg   sync.WaitGroup
-</code></pre><p>  }</p>
-<p>  // 并发池工厂，用于新建并发池<br>  func New(maxGoroutines int) *Pool {</p>
+</code></pre><p> }</p>
+<p> // 并发池工厂，用于新建并发池<br> func New(maxGoroutines int) *Pool {</p>
 <pre><code>p := Pool{
     work: make(chan Worker),
 }
@@ -334,17 +339,17 @@ for i := 0; i &lt; maxGoroutines; i++ {
 }
 
 return &amp;p
-</code></pre><p>  }</p>
-<p>  // 提交任务<br>  func (p *Pool) Run(w Worker) {</p>
+</code></pre><p> }</p>
+<p> // 提交任务<br> func (p *Pool) Run(w Worker) {</p>
 <pre><code>p.work &lt;- w
-</code></pre><p>  }</p>
-<p>  // 关闭并发池<br>  func (p *Pool) Shutdown() {</p>
+</code></pre><p> }</p>
+<p> // 关闭并发池<br> func (p *Pool) Shutdown() {</p>
 <pre><code>close(p.work)
 p.wg.Wait()
-</code></pre><p>  }<br>  <code>`</code></p>
-<p>  基本上实现的功能跟<strong>优化后</strong>的任务计时器一样（除了不支持定时），支持多<code>goroutine</code>并发执行。</p>
+</code></pre><p> }<br> <code>`</code></p>
+<p> 基本上实现的功能跟<strong>优化后</strong>的任务计时器一样（除了不支持定时），支持多<code>goroutine</code>并发执行。</p>
 </li>
-</ul>
+</ol>
 <h4 id="应用场景"><a href="#应用场景" class="headerlink" title="应用场景"></a>应用场景</h4><ol>
 <li>任务计时器适用于各种监控任务，或者对执行时间有限制的任务。</li>
 <li>资源池多用于管理各种连接，例如数据库连接，提高连接的复用性。</li>
@@ -379,7 +384,7 @@ p.wg.Wait()
     </div>
 
     <div id="toc-footer" style="display: none">
-      <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#Introduction"><span class="toc-number">1.</span> <span class="toc-text">Introduction</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#应用场景"><span class="toc-number">2.</span> <span class="toc-text">应用场景</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">3.</span> <span class="toc-text">总结</span></a></li></ol>
+      <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#Introduction"><span class="toc-number">1.</span> <span class="toc-text">Introduction</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#并发模式"><span class="toc-number">2.</span> <span class="toc-text">并发模式</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#应用场景"><span class="toc-number">3.</span> <span class="toc-text">应用场景</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li></ol>
     </div>
 
     <div id="share-footer" style="display: none">
