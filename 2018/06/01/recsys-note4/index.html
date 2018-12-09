@@ -6,22 +6,31 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="HandheldFriendly" content="True">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。  利用上下文信息进行推荐在推荐时，应该考虑1. 时间上下文信息	+ 时间效应		+ 用户兴趣持续变化		+ 物品本身有生命周期		+ 季节／节日效应（圣诞节，奥斯卡......）	+ 时间上下文推荐算法		+ 最近最热门算法			![](https://blog-image-1253224514.cos.ap-guangzh">
+    <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。  利用上下文信息进行推荐在推荐时，应该考虑时间，地点，心情……  时间上下文信息  时间效应  用户兴趣持续变化 物品本身有生命周期 季节／节日效应（圣诞节，奥斯卡……）   时间上下文推荐算法  最近最热门算法     结合时间上下文的Item-based CF   用户在相隔时间很短内喜欢的物品具有更高相似度，近期行为相">
 <meta name="keywords" content="笔记,推荐">
 <meta property="og:type" content="article">
 <meta property="og:title" content="《推荐系统实践》笔记 #4">
 <meta property="og:url" content="http://yoursite.com/2018/06/01/recsys-note4/index.html">
 <meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
-<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。  利用上下文信息进行推荐在推荐时，应该考虑1. 时间上下文信息	+ 时间效应		+ 用户兴趣持续变化		+ 物品本身有生命周期		+ 季节／节日效应（圣诞节，奥斯卡......）	+ 时间上下文推荐算法		+ 最近最热门算法			![](https://blog-image-1253224514.cos.ap-guangzh">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。  利用上下文信息进行推荐在推荐时，应该考虑时间，地点，心情……  时间上下文信息  时间效应  用户兴趣持续变化 物品本身有生命周期 季节／节日效应（圣诞节，奥斯卡……）   时间上下文推荐算法  最近最热门算法     结合时间上下文的Item-based CF   用户在相隔时间很短内喜欢的物品具有更高相似度，近期行为相">
 <meta property="og:locale" content="default">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/recentlyhot.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time1.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time2.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time3.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time_ubcf1.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time_ubcf2.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/country.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/penalty.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/familiarity.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/w_out.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/w_in.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/w_out_in.png">
-<meta property="og:updated_time" content="2018-12-09T08:06:18.000Z">
+<meta property="og:updated_time" content="2018-12-09T09:13:18.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="《推荐系统实践》笔记 #4">
-<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。  利用上下文信息进行推荐在推荐时，应该考虑1. 时间上下文信息	+ 时间效应		+ 用户兴趣持续变化		+ 物品本身有生命周期		+ 季节／节日效应（圣诞节，奥斯卡......）	+ 时间上下文推荐算法		+ 最近最热门算法			![](https://blog-image-1253224514.cos.ap-guangzh">
-<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/w_out.png">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。  利用上下文信息进行推荐在推荐时，应该考虑时间，地点，心情……  时间上下文信息  时间效应  用户兴趣持续变化 物品本身有生命周期 季节／节日效应（圣诞节，奥斯卡……）   时间上下文推荐算法  最近最热门算法     结合时间上下文的Item-based CF   用户在相隔时间很短内喜欢的物品具有更高相似度，近期行为相">
+<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/recentlyhot.png">
     
     
         
@@ -105,7 +114,7 @@
 
     </div>
     <div id="toc">
-      <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#利用上下文信息进行推荐"><span class="toc-number">1.</span> <span class="toc-text">利用上下文信息进行推荐</span></a></li></ol>
+      <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#利用上下文信息进行推荐"><span class="toc-number">1.</span> <span class="toc-text">利用上下文信息进行推荐</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#利用社交网络数据"><span class="toc-number">2.</span> <span class="toc-text">利用社交网络数据</span></a></li></ol>
     </div>
   </span>
 </div>
@@ -147,30 +156,100 @@
     <blockquote>
 <p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
 </blockquote>
-<h3 id="利用上下文信息进行推荐"><a href="#利用上下文信息进行推荐" class="headerlink" title="利用上下文信息进行推荐"></a>利用上下文信息进行推荐</h3><p>在推荐时，应该考虑<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line">1. 时间上下文信息</span><br><span class="line">	+ 时间效应</span><br><span class="line">		+ 用户兴趣持续变化</span><br><span class="line">		+ 物品本身有生命周期</span><br><span class="line">		+ 季节／节日效应（圣诞节，奥斯卡......）</span><br><span class="line"></span><br><span class="line">	+ 时间上下文推荐算法</span><br><span class="line">		+ 最近最热门算法</span><br><span class="line"></span><br><span class="line">			![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/recentlyhot.png)</span><br><span class="line">		</span><br><span class="line">		+ 结合时间上下文的```Item-based CF</span><br></pre></td></tr></table></figure></p>
-<pre><code>        **用户在相隔时间很短内喜欢的物品具有更高相似度**，**近期行为相比很久之前的行为更能体现用户现在的兴趣，应加强用户近期行为的权重。**
-
-        ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time1.png)
-
-        ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time2.png)
-
-        ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time3.png)
-
-    + 结合时间上下文的<figure class="highlight plain"><figcaption><span>CF```</span></figcaption><table><tr><td class="code"><pre><span class="line"></span><br><span class="line">			![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time_ubcf1.png)</span><br><span class="line">			</span><br><span class="line">			![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time_ubcf2.png)</span><br><span class="line">			</span><br><span class="line">		+ 时间段图模型</span><br><span class="line"></span><br><span class="line">2. 地点上下文信息</span><br><span class="line"></span><br><span class="line">	**不同地区的用户兴趣有所不同（距离很重要）**</span><br><span class="line">	</span><br><span class="line">	+ 基于位置的推荐算法</span><br><span class="line">		+ 物品／用户均可分为有空间属性的和无空间属性的，例如餐馆／商店带有空间属性，图书／电影则没有。</span><br><span class="line">		+ 数据结构：```(user, user_location, item, item_location, rating)</span><br></pre></td></tr></table></figure>
-
-    + 可将位置信息数据集划分成树状结构
-
-        ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/country.png)
-
-    + 只有<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">		+ 只有```item_location```时，先忽略物品位置信息，直接用```Item-based CF```计算出```p(u, i)```，最后再引入距离代价作惩罚。</span><br><span class="line"></span><br><span class="line">			![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/penalty.png)</span><br><span class="line">			</span><br><span class="line">			</span><br><span class="line">### 利用社交网络数据</span><br><span class="line"></span><br><span class="line">1. 获取社交网络数据的途径</span><br><span class="line">	+ e-mail</span><br><span class="line">	+ 用户注册信息</span><br><span class="line">	+ 用户的位置数据</span><br><span class="line">	+ 论坛 &amp; 讨论组</span><br><span class="line">	+ 即时聊天工具</span><br><span class="line">	+ 社交网站</span><br><span class="line"></span><br><span class="line">2. 社交网络数据简介</span><br><span class="line">	+ 图结构```G = (V, E, W)```, 其中```V```是用户节点，```E```是用户关系边，```W```是边权重</span><br><span class="line">	+ 单向关注 =&gt; 有向图（如Twitter）；互相关注 =&gt; 无向图（如Facebook）；基于社区关系，无明确方向</span><br><span class="line"></span><br><span class="line">3. 基于社交网络的推荐</span><br><span class="line">	+ 基于邻域的社会化推荐算法</span><br><span class="line"></span><br><span class="line">		![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/familiarity.png)</span><br><span class="line">		</span><br><span class="line">		熟悉程度 = 双方共同好友的比例</span><br><span class="line">		</span><br><span class="line">		相似度 = ```User-based CF```中余弦相似度</span><br><span class="line">		</span><br><span class="line">		优化：</span><br><span class="line">			</span><br><span class="line">		+ 不需要取所有的好友进行计算，只取相似度高的前```K```个</span><br><span class="line">		+ 只取最近短时间内发生的操作记录进行计算</span><br><span class="line"></span><br><span class="line">	+ 基于图的社会化推荐</span><br><span class="line"></span><br><span class="line">		+ 结合社交网络图 &amp; 用户物品二分图（也可加入社区的顶点）</span><br><span class="line">		+ 用户与用户之间的权重 = ```a * (相似度 + 熟悉度)</span><br></pre></td></tr></table></figure>
-
-    + 用户与物品之间的权重 = ```b * (用户对物品的喜爱程度)```
-    + 通过调节```a```和```b```参数确定哪部分对系统影响较大
-
-+ 信息流（Feed）推荐
-
-    帮助用户从信息墙上挑选有用的信息，综合考虑信息流中每个会话的长度、时间、用户兴趣间的相似度等。
-</code></pre><ol start="4">
+<h3 id="利用上下文信息进行推荐"><a href="#利用上下文信息进行推荐" class="headerlink" title="利用上下文信息进行推荐"></a>利用上下文信息进行推荐</h3><p>在推荐时，应该考虑<code>时间</code>，<code>地点</code>，<code>心情</code>……</p>
+<ol>
+<li><p>时间上下文信息</p>
+<ul>
+<li><p>时间效应</p>
+<ul>
+<li>用户兴趣持续变化</li>
+<li>物品本身有生命周期</li>
+<li>季节／节日效应（圣诞节，奥斯卡……）</li>
+</ul>
+</li>
+<li><p>时间上下文推荐算法</p>
+<ul>
+<li><p>最近最热门算法</p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/recentlyhot.png" alt=""></p>
+</li>
+<li><p>结合时间上下文的<code>Item-based CF</code></p>
+<p>  <strong>用户在相隔时间很短内喜欢的物品具有更高相似度</strong>，<strong>近期行为相比很久之前的行为更能体现用户现在的兴趣，应加强用户近期行为的权重。</strong></p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time1.png" alt=""></p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time2.png" alt=""></p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time3.png" alt=""></p>
+</li>
+<li><p>结合时间上下文的<code>User-based CF</code></p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time_ubcf1.png" alt=""></p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/time_ubcf2.png" alt=""></p>
+</li>
+<li><p>时间段图模型</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>地点上下文信息</p>
+<p> <strong>不同地区的用户兴趣有所不同（距离很重要）</strong></p>
+<ul>
+<li><p>基于位置的推荐算法</p>
+<ul>
+<li>物品／用户均可分为有空间属性的和无空间属性的，例如餐馆／商店带有空间属性，图书／电影则没有。</li>
+<li>数据结构：<code>(user, user_location, item, item_location, rating)</code></li>
+<li><p>可将位置信息数据集划分成树状结构</p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/country.png" alt=""></p>
+</li>
+<li><p>只有<code>user_location</code>时，对于给定的一个<code>user_location</code>，将其分配到某个叶子节点中，利用该叶子节点上的用户行为给用户作推荐。缺点是叶子节点上的用户数量&amp;用户行为数据较少，推荐只是基于局部。所以可以从<code>root</code>出发，到叶子的路径中利用每个中间节点训练出一个推荐模型，最终的推荐模型是一系列的中间推荐列表加权而成。</p>
+</li>
+<li><p>只有<code>item_location</code>时，先忽略物品位置信息，直接用<code>Item-based CF</code>计算出<code>p(u, i)</code>，最后再引入距离代价作惩罚。</p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/penalty.png" alt=""></p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+<h3 id="利用社交网络数据"><a href="#利用社交网络数据" class="headerlink" title="利用社交网络数据"></a>利用社交网络数据</h3><ol>
+<li><p>获取社交网络数据的途径</p>
+<ul>
+<li>e-mail</li>
+<li>用户注册信息</li>
+<li>用户的位置数据</li>
+<li>论坛 &amp; 讨论组</li>
+<li>即时聊天工具</li>
+<li>社交网站</li>
+</ul>
+</li>
+<li><p>社交网络数据简介</p>
+<ul>
+<li>图结构<code>G = (V, E, W)</code>, 其中<code>V</code>是用户节点，<code>E</code>是用户关系边，<code>W</code>是边权重</li>
+<li>单向关注 =&gt; 有向图（如Twitter）；互相关注 =&gt; 无向图（如Facebook）；基于社区关系，无明确方向</li>
+</ul>
+</li>
+<li><p>基于社交网络的推荐</p>
+<ul>
+<li><p>基于邻域的社会化推荐算法</p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/familiarity.png" alt=""></p>
+<p>  熟悉程度 = 双方共同好友的比例</p>
+<p>  相似度 = <code>User-based CF</code>中余弦相似度</p>
+<p>  优化：</p>
+<ul>
+<li>不需要取所有的好友进行计算，只取相似度高的前<code>K</code>个</li>
+<li>只取最近短时间内发生的操作记录进行计算</li>
+</ul>
+</li>
+<li><p>基于图的社会化推荐</p>
+<ul>
+<li>结合社交网络图 &amp; 用户物品二分图（也可加入社区的顶点）</li>
+<li>用户与用户之间的权重 = <code>a * (相似度 + 熟悉度)</code></li>
+<li>用户与物品之间的权重 = <code>b * (用户对物品的喜爱程度)</code></li>
+<li>通过调节<code>a</code>和<code>b</code>参数确定哪部分对系统影响较大</li>
+</ul>
+</li>
+<li><p>信息流（Feed）推荐</p>
+<p>  帮助用户从信息墙上挑选有用的信息，综合考虑信息流中每个会话的长度、时间、用户兴趣间的相似度等。</p>
+</li>
+</ul>
+</li>
 <li><p>好友推荐系统</p>
 <ul>
 <li><p>基于内容的匹配</p>
@@ -217,7 +296,7 @@
     </div>
 
     <div id="toc-footer" style="display: none">
-      <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#利用上下文信息进行推荐"><span class="toc-number">1.</span> <span class="toc-text">利用上下文信息进行推荐</span></a></li></ol>
+      <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#利用上下文信息进行推荐"><span class="toc-number">1.</span> <span class="toc-text">利用上下文信息进行推荐</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#利用社交网络数据"><span class="toc-number">2.</span> <span class="toc-text">利用社交网络数据</span></a></li></ol>
     </div>
 
     <div id="share-footer" style="display: none">

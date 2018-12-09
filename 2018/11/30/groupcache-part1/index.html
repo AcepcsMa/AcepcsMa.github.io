@@ -6,22 +6,22 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="HandheldFriendly" content="True">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/29，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction本文是《groupcache项目解析》系列文章的第一篇，在本文中主要是对groupcache这个项目作简单的介绍，包括其  架构 代码文件结构 简单用例  groupcache简介group">
+    <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/29，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction本文是《groupcache项目解析》系列文章的第一篇，在本文中主要是对groupcache这个项目作简单的介绍，包括其  架构 代码文件结构 简单用例  groupcache简介groupc">
 <meta name="keywords" content="Go,源码">
 <meta property="og:type" content="article">
 <meta property="og:title" content="[Golang]groupcache项目解析——Part1">
 <meta property="og:url" content="http://yoursite.com/2018/11/30/groupcache-part1/index.html">
 <meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
-<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/29，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction本文是《groupcache项目解析》系列文章的第一篇，在本文中主要是对groupcache这个项目作简单的介绍，包括其  架构 代码文件结构 简单用例  groupcache简介group">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/29，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction本文是《groupcache项目解析》系列文章的第一篇，在本文中主要是对groupcache这个项目作简单的介绍，包括其  架构 代码文件结构 简单用例  groupcache简介groupc">
 <meta property="og:locale" content="default">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/hash.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/group.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/groupcache_test.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/postman_cache.png">
-<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta property="og:updated_time" content="2018-12-09T09:00:18.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="[Golang]groupcache项目解析——Part1">
-<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/29，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction本文是《groupcache项目解析》系列文章的第一篇，在本文中主要是对groupcache这个项目作简单的介绍，包括其  架构 代码文件结构 简单用例  groupcache简介group">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/29，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction本文是《groupcache项目解析》系列文章的第一篇，在本文中主要是对groupcache这个项目作简单的介绍，包括其  架构 代码文件结构 简单用例  groupcache简介groupc">
 <meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/hash.png">
     
     
@@ -146,7 +146,8 @@
 
   <div class="content" itemprop="articleBody">
     <blockquote>
-<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/29，基于<code>Go 1.11</code>。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
+<p>本文写于2018/11/29，基于<code>Go 1.11</code>。<br>至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
 </blockquote>
 <h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p>本文是《groupcache项目解析》系列文章的第一篇，在本文中主要是对<code>groupcache</code>这个项目作简单的介绍，包括其</p>
 <ul>
@@ -154,100 +155,75 @@
 <li>代码文件结构</li>
 <li>简单用例</li>
 </ul>
-<h4 id="groupcache简介"><a href="#groupcache简介" class="headerlink" title="groupcache简介"></a>groupcache简介</h4><p><code>groupcache</code>(<a href="https://github.com/golang/groupcache" target="_blank" rel="noopener">on Github</a>)是一个用<code>Go</code>实现的K-V cache的库，可以起到<code>memcached</code>的<strong>部分功能</strong>。它支持单节点部署，也支持多节点部署。 其中最值得一提的两个特性是：</p>
+<h4 id="groupcache简介"><a href="#groupcache简介" class="headerlink" title="groupcache简介"></a>groupcache简介</h4><p><code>groupcache</code>(<a href="https://github.com/golang/groupcache" target="_blank" rel="noopener">on Github</a>)是一个用<code>Go</code>实现的K-V cache的库，可以起到<code>memcached</code>的<strong>部分功能</strong>。它支持单节点部署，也支持多节点部署。</p>
+<p>其中最值得一提的两个特性是：</p>
 <ul>
 <li>不支持update和delete（基本只能用于静态资源缓存）</li>
 <li>热门缓存自动镜像（auto mirroring）</li>
 </ul>
 <p><strong>⚠️注意，<code>groupcache</code>并不是一个可直接运行的存储组件，不像MySQL或者Redis之类那样提供编译后的可运行程序。<code>groupcache</code>只是一个K-V cache的第三方库，基于它的代码可以自己写代码实现一个cache层。</strong></p>
 <h4 id="groupcache架构"><a href="#groupcache架构" class="headerlink" title="groupcache架构"></a>groupcache架构</h4><ol>
-<li><p>节点管理 以上提到，<code>groupcache</code>是一个支持多节点部署的K-V cache。当有多个存储节点时，内部会以<code>consistent hash</code>（一致性哈希）的方式管理多个节点。关于一致性哈希的解析，详情可参考我之前的文章<a href="http://www.marcoma.xyz/index.php/2018/03/17/consistent_hash/" target="_blank" rel="noopener">《一致性Hash算法——分析与模拟》</a>。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/hash.png" alt=""> 通过一致性哈希，可以统一管理多个节点。如果哈希算法设计得比较好，可以把大量K-V数据均匀打散，存储到不同的节点上。</p>
+<li><p>节点管理</p>
+<p> 以上提到，<code>groupcache</code>是一个支持多节点部署的K-V cache。当有多个存储节点时，内部会以<code>consistent hash</code>（一致性哈希）的方式管理多个节点。关于一致性哈希的解析，详情可参考我之前的文章<a href="http://www.marcoma.xyz/index.php/2018/03/17/consistent_hash/" target="_blank" rel="noopener">《一致性Hash算法——分析与模拟》</a>。</p>
+<p> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/hash.png" alt=""></p>
+<p> 通过一致性哈希，可以统一管理多个节点。如果哈希算法设计得比较好，可以把大量K-V数据均匀打散，存储到不同的节点上。</p>
 </li>
-<li><p>group（存储组） 在<code>groupcache</code>里，<code>group</code>是一个相对独立的存储容器，每个<code>group</code>都有自己的名字，多个<code>group</code>之间不共享数据。然而<code>group</code>只是一个<strong>逻辑概念</strong>，一个<code>group</code>里存的K-V数据是可以存在多个分散的物理节点上的（<strong>分散的策略依赖于一致性哈希算法</strong>）。也就是说每个物理节点上实际上存了多个<code>group</code>的K-V数据，组与组之间的访问隔离全靠<code>groupcache</code>的代码逻辑来实现。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/group.png" alt=""></p>
+<li><p>group（存储组）</p>
+<p> 在<code>groupcache</code>里，<code>group</code>是一个相对独立的存储容器，每个<code>group</code>都有自己的名字，多个<code>group</code>之间不共享数据。然而<code>group</code>只是一个<strong>逻辑概念</strong>，一个<code>group</code>里存的K-V数据是可以存在多个分散的物理节点上的（<strong>分散的策略依赖于一致性哈希算法</strong>）。也就是说每个物理节点上实际上存了多个<code>group</code>的K-V数据，组与组之间的访问隔离全靠<code>groupcache</code>的代码逻辑来实现。</p>
+<p> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/group.png" alt=""></p>
 </li>
 <li><p>缓存系统</p>
 <ul>
-<li><p>LRU 在缓存系统的底层，每个K-V Entry都是通过一条LRU链表来管理的。经常被访问的数据会被放置在LRU链表的前端，久而久之冷数据会下沉到链表尾端，甚至直接被移出链表。</p>
+<li><p>LRU</p>
+<p>  在缓存系统的底层，每个K-V Entry都是通过一条LRU链表来管理的。经常被访问的数据会被放置在LRU链表的前端，久而久之冷数据会下沉到链表尾端，甚至直接被移出链表。</p>
 </li>
-<li><p>并发查询优化 在<code>groupcache</code>中，如果某节点同时收到N个对于同一个key的查询请求，但是请求的key不在当前节点上，<code>groupcache</code>会自动<strong>阻塞</strong>N-1个请求，只执行其中一个请求，去其他节点或者数据库中fetch数据。最后才恢复N个请求，把数据放到N个请求中返回。因为无论多少个对同一个key的查询请求并发到达，只执行一次查询，所以并发查询效率很高。</p>
+<li><p>并发查询优化</p>
+<p>  在<code>groupcache</code>中，如果某节点同时收到N个对于同一个key的查询请求，但是请求的key不在当前节点上，<code>groupcache</code>会自动<strong>阻塞</strong>N-1个请求，只执行其中一个请求，去其他节点或者数据库中fetch数据。最后才恢复N个请求，把数据放到N个请求中返回。因为无论多少个对同一个key的查询请求并发到达，只执行一次查询，所以并发查询效率很高。</p>
 </li>
-<li><p>热门缓存自动镜像 每个节点都包含了两类缓存：<code>main cache</code>（属于本节点的数据）和<code>hot cache</code>（不属于本节点但是全局热门的数据）。当节点收到了对某个key的查询请求，它首先会检查本地<code>hot cache</code>中有没有，如果没有就再看看该key是不是属于本节点的数据，如果不是就向兄弟节点请求。所谓的<strong>自动镜像</strong>，指的是从兄弟节点处返回的数据可以缓存在本节点的<code>hot cache</code>里，虽然自身<strong>没有那个数据的存储权限</strong>，但是可以存储成一份热门数据的镜像，以后再收到对该key的请求，无需再向兄弟节点请求，浪费网络资源。</p>
+<li><p>热门缓存自动镜像</p>
+<p>  每个节点都包含了两类缓存：<code>main cache</code>（属于本节点的数据）和<code>hot cache</code>（不属于本节点但是全局热门的数据）。当节点收到了对某个key的查询请求，它首先会检查本地<code>hot cache</code>中有没有，如果没有就再看看该key是不是属于本节点的数据，如果不是就向兄弟节点请求。所谓的<strong>自动镜像</strong>，指的是从兄弟节点处返回的数据可以缓存在本节点的<code>hot cache</code>里，虽然自身<strong>没有那个数据的存储权限</strong>，但是可以存储成一份热门数据的镜像，以后再收到对该key的请求，无需再向兄弟节点请求，浪费网络资源。</p>
 </li>
 </ul>
 </li>
 </ol>
 <h4 id="groupcache代码模块"><a href="#groupcache代码模块" class="headerlink" title="groupcache代码模块"></a>groupcache代码模块</h4><ul>
-<li><p><code>consistenthash</code> <code>consistenthash</code>模块实现了简单的一致性哈希算法。数据（一般是节点地址）进入一致性哈希后，会被自动冗余得到多个备份（取决于<code>replica</code>的设定值），然后插到一致性哈希环上。</p>
+<li><p><code>consistenthash</code></p>
+<p>  <code>consistenthash</code>模块实现了简单的一致性哈希算法。数据（一般是节点地址）进入一致性哈希后，会被自动冗余得到多个备份（取决于<code>replica</code>的设定值），然后插到一致性哈希环上。</p>
 </li>
-<li><p><code>groupcachepb</code> <code>groupcachepb</code>模块里，用了第三方库<code>protobuf</code>生成了统一的<code>Request</code>和<code>Response</code>结构，供节点间网络通信使用。</p>
+<li><p><code>groupcachepb</code></p>
+<p>  <code>groupcachepb</code>模块里，用了第三方库<code>protobuf</code>生成了统一的<code>Request</code>和<code>Response</code>结构，供节点间网络通信使用。</p>
 </li>
-<li><p><code>lru</code> <code>lru</code>模块实现了经典的LRU算法，用<code>container/list</code>里的链表实现。</p>
+<li><p><code>lru</code></p>
+<p>  <code>lru</code>模块实现了经典的LRU算法，用<code>container/list</code>里的链表实现。</p>
 </li>
-<li><p><code>singleflight</code> <code>singleflight</code>模块非常重要。正如它名字里的<code>single</code>，它是用来保证多个对同一个key的请求不被多次执行的。也就是上面简介所说的<strong>并发查询优化</strong>。</p>
+<li><p><code>singleflight</code></p>
+<p>  <code>singleflight</code>模块非常重要。正如它名字里的<code>single</code>，它是用来保证多个对同一个key的请求不被多次执行的。也就是上面简介所说的<strong>并发查询优化</strong>。</p>
 </li>
-<li><p><code>testpb</code> <code>testpb</code>，测试<code>protobuf</code>结构。</p>
+<li><p><code>testpb</code></p>
+<p>  <code>testpb</code>，测试<code>protobuf</code>结构。</p>
 </li>
-<li><p><code>byteview</code> <code>byteview</code>是一个对byte数组或者字符串的封装，在外部看来，<code>groupcache</code>里的所有K-V数据最终都是落盘到byte上，都是对<code>byteview</code>的读写操作。</p>
+<li><p><code>byteview</code></p>
+<p>  <code>byteview</code>是一个对byte数组或者字符串的封装，在外部看来，<code>groupcache</code>里的所有K-V数据最终都是落盘到byte上，都是对<code>byteview</code>的读写操作。</p>
 </li>
-<li><p><code>groupcache</code> 核心代码文件，其中定义了<code>Group</code>、<code>GetterFunc</code>、<code>Stats</code>等多个关键数据结构，以及对应的方法。</p>
+<li><p><code>groupcache</code></p>
+<p>  核心代码文件，其中定义了<code>Group</code>、<code>GetterFunc</code>、<code>Stats</code>等多个关键数据结构，以及对应的方法。</p>
 </li>
-<li><p><code>http</code> 核心代码文件，定义了<code>HTTPPool</code>以及对应的方法，包含了各种网络通信的逻辑。</p>
+<li><p><code>http</code></p>
+<p>  核心代码文件，定义了<code>HTTPPool</code>以及对应的方法，包含了各种网络通信的逻辑。</p>
 </li>
-<li><p><code>peers</code> 定义了节点的相关操作。</p>
+<li><p><code>peers</code></p>
+<p>  定义了节点的相关操作。</p>
 </li>
-<li><p><code>sinks</code> <code>sinks</code>里定义了<code>Sink</code>接口以及多种不同的sink。其实sink可以理解为一种特殊容器，当节点收到对某个key的查询请求，但是本地没有数据，需要到远程数据库里读取时，会把读取回来的数据下沉到sink容器里面，最后再把数据转成byteview塞到本地缓存里。</p>
+<li><p><code>sinks</code></p>
+<p>  <code>sinks</code>里定义了<code>Sink</code>接口以及多种不同的sink。其实sink可以理解为一种特殊容器，当节点收到对某个key的查询请求，但是本地没有数据，需要到远程数据库里读取时，会把读取回来的数据下沉到sink容器里面，最后再把数据转成byteview塞到本地缓存里。</p>
 </li>
 </ul>
 <h4 id="Quick-Start-Example"><a href="#Quick-Start-Example" class="headerlink" title="Quick Start Example"></a>Quick Start Example</h4><p>以下提供一个简单的<code>groupcache</code>使用例子。</p>
-<pre><code>package main
-
-import (
-    &quot;github.com/golang/groupcache&quot;
-    &quot;io/ioutil&quot;
-    &quot;log&quot;
-    &quot;net/http&quot;
-    &quot;os&quot;
-)
-
-var (
-    // 简单起见，hardcode一段兄弟节点的地址
-    peers = []string{&quot;http://127.0.0.1:8001&quot;, &quot;http://127.0.0.1:8002&quot;, &quot;http://127.0.0.1:8003&quot;}
-)
-
-func main() {
-
-    // 先建好http连接池，表明当前节点的兄弟节点有哪些
-    host := os.Args[1]
-    localAddr:= &quot;http://&quot; + host
-    localHttpPool := groupcache.NewHTTPPool(localAddr)
-    localHttpPool.Set(peers...)
-
-    // 定义一个逻辑上的分组，叫fileCacheGroup，用来缓存文件内容，缓存大小为64MB
-    // 当本地缓存miss时，直接读取磁盘上的文件
-    var fileCacheGroup = groupcache.NewGroup(&quot;file&quot;, 64&lt;&lt;20, groupcache.GetterFunc(
-        func(ctx groupcache.Context, key string, dest groupcache.Sink) error {
-            result, err := ioutil.ReadFile(key)
-            if err != nil {
-                log.Println(&quot;Get file error.&quot;)
-                return err
-            }
-            log.Printf(&quot;Trying to get %s\n&quot;, key)
-            dest.SetBytes([]byte(result))
-            return nil
-        }))
-
-    // 为了测试，建立一个对外的http服务，路由是host:port/file_cache?fname={}
-    http.HandleFunc(&quot;/file_cache&quot;, func(rw http.ResponseWriter, r *http.Request) {
-        var value []byte
-        key := r.URL.Query().Get(&quot;fname&quot;)
-        fileCacheGroup.Get(nil, key, groupcache.AllocatingByteSliceSink(&amp;value))
-        rw.Write([]byte(value))
-    })
-
-    // 启动http服务
-    log.Fatal(http.ListenAndServe(host, nil))
-}
-</code></pre><p>如需测试上述代码，可编译后直接命令行执行（记得带上host参数如<code>127.0.0.1:8001</code>）。由于cache miss的逻辑是在本地磁盘上读取文件，所以可以先在目录下新建几个垃圾文本文件，里面随便填充一些内容，进行测试。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/groupcache_test.png" alt=""> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/postman_cache.png" alt=""> 测试结果如上图所示。</p>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"github.com/golang/groupcache"</span></span><br><span class="line">	<span class="string">"io/ioutil"</span></span><br><span class="line">	<span class="string">"log"</span></span><br><span class="line">	<span class="string">"net/http"</span></span><br><span class="line">	<span class="string">"os"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> (</span><br><span class="line">	<span class="comment">// 简单起见，hardcode一段兄弟节点的地址</span></span><br><span class="line">	peers = []<span class="keyword">string</span>&#123;<span class="string">"http://127.0.0.1:8001"</span>, <span class="string">"http://127.0.0.1:8002"</span>, <span class="string">"http://127.0.0.1:8003"</span>&#125;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 先建好http连接池，表明当前节点的兄弟节点有哪些</span></span><br><span class="line">	host := os.Args[<span class="number">1</span>]</span><br><span class="line">	localAddr:= <span class="string">"http://"</span> + host</span><br><span class="line">	localHttpPool := groupcache.NewHTTPPool(localAddr)</span><br><span class="line">	localHttpPool.Set(peers...)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 定义一个逻辑上的分组，叫fileCacheGroup，用来缓存文件内容，缓存大小为64MB</span></span><br><span class="line">	<span class="comment">// 当本地缓存miss时，直接读取磁盘上的文件</span></span><br><span class="line">	<span class="keyword">var</span> fileCacheGroup = groupcache.NewGroup(<span class="string">"file"</span>, <span class="number">64</span>&lt;&lt;<span class="number">20</span>, groupcache.GetterFunc(</span><br><span class="line">		<span class="function"><span class="keyword">func</span><span class="params">(ctx groupcache.Context, key <span class="keyword">string</span>, dest groupcache.Sink)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">			result, err := ioutil.ReadFile(key)</span><br><span class="line">			<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">				log.Println(<span class="string">"Get file error."</span>)</span><br><span class="line">				<span class="keyword">return</span> err</span><br><span class="line">			&#125;</span><br><span class="line">			log.Printf(<span class="string">"Trying to get %s\n"</span>, key)</span><br><span class="line">			dest.SetBytes([]<span class="keyword">byte</span>(result))</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">		&#125;))</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 为了测试，建立一个对外的http服务，路由是host:port/file_cache?fname=&#123;&#125;</span></span><br><span class="line">	http.HandleFunc(<span class="string">"/file_cache"</span>, <span class="function"><span class="keyword">func</span><span class="params">(rw http.ResponseWriter, r *http.Request)</span></span> &#123;</span><br><span class="line">		<span class="keyword">var</span> value []<span class="keyword">byte</span></span><br><span class="line">		key := r.URL.Query().Get(<span class="string">"fname"</span>)</span><br><span class="line">		fileCacheGroup.Get(<span class="literal">nil</span>, key, groupcache.AllocatingByteSliceSink(&amp;value))</span><br><span class="line">		rw.Write([]<span class="keyword">byte</span>(value))</span><br><span class="line">	&#125;)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 启动http服务</span></span><br><span class="line">	log.Fatal(http.ListenAndServe(host, <span class="literal">nil</span>))</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如需测试上述代码，可编译后直接命令行执行（记得带上host参数如<code>127.0.0.1:8001</code>）。由于cache miss的逻辑是在本地磁盘上读取文件，所以可以先在目录下新建几个垃圾文本文件，里面随便填充一些内容，进行测试。</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/groupcache_test.png" alt=""></p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/postman_cache.png" alt=""></p>
+<p>测试结果如上图所示。</p>
 <ol>
 <li>先在本地随便新建一个<code>hh.txt</code>文件，里面写上<code>This is hh.txt!</code>。</li>
 <li>然后编译完上述例子程序后，直接传入参数<code>127.0.0.1:8001</code>以命令行启动程序。</li>

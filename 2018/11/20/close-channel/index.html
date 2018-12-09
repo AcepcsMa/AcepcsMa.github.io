@@ -6,18 +6,18 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="HandheldFriendly" content="True">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于1.11```。&amp;gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。#### Introduction现在在网上搜索```Go```，```Channel```，```关闭```等关键词时，一定会搜到一篇好几年前的“神贴”**《How To Gracefully Close C">
+    <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction现在在网上搜索Go，Channel，关闭等关键词时，一定会搜到一篇好几年前的“神贴”《How To Gracefully Close Channels》（原文链接请点击），或者各种国人执笔的中">
 <meta name="keywords" content="Go,笔记">
 <meta property="og:type" content="article">
 <meta property="og:title" content="[Golang]更正“神贴”《如何优雅地关闭Go Channel》">
 <meta property="og:url" content="http://yoursite.com/2018/11/20/close-channel/index.html">
 <meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
-<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于1.11```。&amp;gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。#### Introduction现在在网上搜索```Go```，```Channel```，```关闭```等关键词时，一定会搜到一篇好几年前的“神贴”**《How To Gracefully Close C">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction现在在网上搜索Go，Channel，关闭等关键词时，一定会搜到一篇好几年前的“神贴”《How To Gracefully Close Channels》（原文链接请点击），或者各种国人执笔的中">
 <meta property="og:locale" content="default">
-<meta property="og:updated_time" content="2018-12-09T07:57:15.000Z">
+<meta property="og:updated_time" content="2018-12-09T09:05:35.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="[Golang]更正“神贴”《如何优雅地关闭Go Channel》">
-<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于1.11```。&amp;gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。#### Introduction现在在网上搜索```Go```，```Channel```，```关闭```等关键词时，一定会搜到一篇好几年前的“神贴”**《How To Gracefully Close C">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction现在在网上搜索Go，Channel，关闭等关键词时，一定会搜到一篇好几年前的“神贴”《How To Gracefully Close Channels》（原文链接请点击），或者各种国人执笔的中">
     
     
         
@@ -101,7 +101,7 @@
 
     </div>
     <div id="toc">
-      <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">1.</span> <span class="toc-text">总结</span></a></li></ol>
+      <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#Introduction"><span class="toc-number">1.</span> <span class="toc-text">Introduction</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#驳斥理由"><span class="toc-number">2.</span> <span class="toc-text">驳斥理由</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#解决方案"><span class="toc-number">3.</span> <span class="toc-text">解决方案</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li></ol>
     </div>
   </span>
 </div>
@@ -142,91 +142,26 @@
   <div class="content" itemprop="articleBody">
     <blockquote>
 <p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
-<p>本文写于2018/11/19，基于<figure class="highlight go"><figcaption><span>1.11```。</span></figcaption><table><tr><td class="code"><pre><span class="line">&gt; 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</span><br><span class="line"></span><br><span class="line">#### Introduction</span><br><span class="line"></span><br><span class="line">现在在网上搜索<span class="string">``</span><span class="string">`Go`</span><span class="string">``</span>，<span class="string">``</span><span class="string">`Channel`</span><span class="string">``</span>，<span class="string">``</span><span class="string">`关闭`</span><span class="string">``</span>等关键词时，一定会搜到一篇好几年前的“神贴”**《How To Gracefully Close Channels》**（[原文链接请点击](https:<span class="comment">//go101.org/article/channel-closing.html)），或者各种国人执笔的中文直译版**《如何优雅地关闭Go Channel》**。</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">基于<span class="string">``</span><span class="string">`Go`</span><span class="string">``</span>本身对并发的强支持，不断地有开发者需要学习<span class="string">``</span><span class="string">`Channel`</span><span class="string">``</span>这个被设计为多个<span class="string">``</span><span class="string">`goroutine`</span><span class="string">``</span>间**安全**传递数据的内置数据结构，自然也有很多人学习过以上这篇文章。**然而不知道是受当时写作的时间背景限制，还是其他原因，实际上这篇文章里有一些比较严重的缺陷，必须得到纠正。**</span><br><span class="line"></span><br><span class="line">我这么一个<span class="string">``</span><span class="string">`Go`</span><span class="string">``</span>的初学者，研究过后暂时**没有**发现网上对原贴进行优化或者更正的博客，所以我决定写下这篇更正“神贴”的博客，并提供一些我的关闭<span class="string">``</span><span class="string">`Go Channel`</span><span class="string">``</span>的解决方案。</span><br><span class="line"></span><br><span class="line">#### 驳斥理由</span><br><span class="line"></span><br><span class="line">+ 原文标题的核心是<span class="string">``</span><span class="string">`Close Channels`</span><span class="string">``</span>，然而除了第一个最简单的例子（M receivers，one sender）里有关闭数据channel的逻辑外，其他几个复杂例子中**压根没有<span class="built_in">close</span> channel，仅仅只是退出sender**</span><br><span class="line">+ 即使我们把“退出sender”等价于“<span class="built_in">close</span> channel”。但是同样除了第一个最简单的例子（M receivers，one sender）里是sender主动关闭外，其他几个例子中退出sender都是由receiver触发的，类似receiver读到一个什么特殊值就提示sender停止生产。**我不否认在某些场景里确实需要receiver提示sender何时结束**（例如receiver发生了异常，无法继续处理，可通知sender赶紧结束）。**但是在很多场景里是需要sender自己触发停止生产的，而不是让receiver告知才停止**（例如<span class="number">100</span>个sender分别读<span class="number">100</span>台机器上的文件，然后把文件数据怼到一个channel里，此时肯定不可能让receiver来主导sender的数据读取何时停止，对吧）。</span><br><span class="line">+ 最后一个问题，原贴例子里receiver读到一个特殊值导致退出后，并没有安排别的<span class="string">``</span><span class="string">`goroutine`</span><span class="string">``</span>去读完channel中可能剩下的数据，直接导致数据丢失。（当然作者也意识到这一点了，所以在最后提了一下，说读完剩下的数据很简单blabla，我就不写了你们自己去实现就好了）</span><br><span class="line"></span><br><span class="line">#### 解决方案</span><br><span class="line">其实很明显，关闭channel最主要的麻烦在于sender端如何控制，既不能不去关闭，也不能重复关闭（<span class="string">``</span><span class="string">`panic`</span><span class="string">``</span>）。所以接下来就讨论两种在sender端关闭channel的解决方案：单个sender和多个sender的应用场景。</span><br><span class="line"></span><br><span class="line">+ 单个sender</span><br></pre></td></tr></table></figure></p>
+<p>本文写于2018/11/19，基于<code>Go 1.11</code>。<br>至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
 </blockquote>
-<pre><code>package main
-
-import (
-    &quot;fmt&quot;
-    &quot;sync&quot;
-)
-
-// 一个sender，一个receiver
-func main() {
-    dataChannel := make(chan int, 100)
-    done := make(chan interface{})
-    go sender(dataChannel)
-    go receiver(dataChannel, done)
-
-    // 阻塞直到receiver完成，避免主线程马上退出
-    &lt;-done
-    fmt.Println(&quot;Done.&quot;)
-}
-
-func sender(dataChannel chan int) {
-    defer close(dataChannel)
-    for i := 0;i &lt; 1000;i++ {
-        dataChannel &lt;- i
-    }
-}
-
-func receiver(dataChannel chan int, done chan interface{}) {
-    for data := range dataChannel {
-        fmt.Printf(&quot;Receive data %d\n&quot;, data)
-    }
-    done &lt;- nil
-}
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">	</span><br><span class="line">	在单个sender的场景下，没有什么好说的。其实就是当sender把所有数据都塞到channel之后主动关闭该channel。**显式close channel的好处是，当receiver端使用```for range```从channel中读数据，读到close标识后会自动结束循环。（或者是普通循环里的ok标识为false，用来结束循环）**</span><br><span class="line"></span><br><span class="line">+ 多个sender</span><br></pre></td></tr></table></figure>
-
-package main
-
-
-
-// 多个sender，一个receiver
-const (
-    SENDER_COUNT = 5
-)
-
-func sender(id int, dataChannel chan string, wg *sync.WaitGroup) {
-    defer wg.Done()
-    for i := 0;i &lt; 100;i++ {
-        dataChannel &lt;- fmt.Sprintf(&quot;Sender %d is sending %d&quot;, id, i)
-    }
-}
-
-func receiver(dataChannel chan string, done chan interface{}) {
-    for data := range dataChannel {
-        fmt.Printf(&quot;Receive data: %s\n&quot;, data)
-    }
-    done &lt;- nil
-}
-
-func monitor(dataChannel chan string, wg *sync.WaitGroup) {
-    wg.Wait()
-    close(dataChannel)
-}
-
-func main() {
-    dataChannel := make(chan string, 100)
-    done := make(chan interface{})
-    wg := &amp;sync.WaitGroup{}
-    wg.Add(SENDER_COUNT)
-
-    go monitor(dataChannel, wg)
-    for i := 0;i &lt; SENDER_COUNT;i++ {
-        go sender(i, dataChannel, wg)
-    }
-    go receiver(dataChannel, done)
-
-    &lt;-done
-    fmt.Println(&quot;Done.&quot;)
-}
-```
-
-参照以上代码，核心的思想是利用```sync```包自带的```WaitGroup```（类似于```Java```里```J.U.C```包的```CountdownLatch```），用来统计已完成工作的sender数。除了sender和receiver外，我们还定义了一个monitor协程，用来关闭channel。
-
-可以看到我们定义了1个monitor，1个receiver，5个sender，并且在启动sender之前先启动了monitor，传入```waitGroup```，让其等待所有sender协程完成工作。在sender里，通过```defer```来保证sender在完成作业（或者发生异常）之后能够通知```waitGroup```。当所有sender都完成工作后，```waitGroup```计数自然减为0，monitor协程主动关闭了数据channel，所以receiver端的```for range```循环在读完所有数据后就能正常退出。
-</code></pre><h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p>本文是对《How To Gracefully Close Channels》的核心内容表示质疑，并且提出了我自己的解决方案。<strong>其实原文里作者提供的解决方案并不是错误的，里面的方案对部分场景肯定是适用的。只是对sender端主动关闭的场景而言有一定的纰漏。</strong></p>
+<h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p>现在在网上搜索<code>Go</code>，<code>Channel</code>，<code>关闭</code>等关键词时，一定会搜到一篇好几年前的“神贴”<strong>《How To Gracefully Close Channels》</strong>（<a href="https://go101.org/article/channel-closing.html" target="_blank" rel="noopener">原文链接请点击</a>），或者各种国人执笔的中文直译版<strong>《如何优雅地关闭Go Channel》</strong>。</p>
+<p>基于<code>Go</code>本身对并发的强支持，不断地有开发者需要学习<code>Channel</code>这个被设计为多个<code>goroutine</code>间<strong>安全</strong>传递数据的内置数据结构，自然也有很多人学习过以上这篇文章。<strong>然而不知道是受当时写作的时间背景限制，还是其他原因，实际上这篇文章里有一些比较严重的缺陷，必须得到纠正。</strong></p>
+<p>我这么一个<code>Go</code>的初学者，研究过后暂时<strong>没有</strong>发现网上对原贴进行优化或者更正的博客，所以我决定写下这篇更正“神贴”的博客，并提供一些我的关闭<code>Go Channel</code>的解决方案。</p>
+<h4 id="驳斥理由"><a href="#驳斥理由" class="headerlink" title="驳斥理由"></a>驳斥理由</h4><ul>
+<li>原文标题的核心是<code>Close Channels</code>，然而除了第一个最简单的例子（M receivers，one sender）里有关闭数据channel的逻辑外，其他几个复杂例子中<strong>压根没有close channel，仅仅只是退出sender</strong></li>
+<li>即使我们把“退出sender”等价于“close channel”。但是同样除了第一个最简单的例子（M receivers，one sender）里是sender主动关闭外，其他几个例子中退出sender都是由receiver触发的，类似receiver读到一个什么特殊值就提示sender停止生产。<strong>我不否认在某些场景里确实需要receiver提示sender何时结束</strong>（例如receiver发生了异常，无法继续处理，可通知sender赶紧结束）。<strong>但是在很多场景里是需要sender自己触发停止生产的，而不是让receiver告知才停止</strong>（例如100个sender分别读100台机器上的文件，然后把文件数据怼到一个channel里，此时肯定不可能让receiver来主导sender的数据读取何时停止，对吧）。</li>
+<li>最后一个问题，原贴例子里receiver读到一个特殊值导致退出后，并没有安排别的<code>goroutine</code>去读完channel中可能剩下的数据，直接导致数据丢失。（当然作者也意识到这一点了，所以在最后提了一下，说读完剩下的数据很简单blabla，我就不写了你们自己去实现就好了）</li>
+</ul>
+<h4 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h4><p>其实很明显，关闭channel最主要的麻烦在于sender端如何控制，既不能不去关闭，也不能重复关闭（<code>panic</code>）。所以接下来就讨论两种在sender端关闭channel的解决方案：单个sender和多个sender的应用场景。</p>
+<ul>
+<li><p>单个sender</p>
+  <figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"fmt"</span></span><br><span class="line">	<span class="string">"sync"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 一个sender，一个receiver</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	dataChannel := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="keyword">int</span>, <span class="number">100</span>)</span><br><span class="line">	done := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="keyword">interface</span>&#123;&#125;)</span><br><span class="line">	<span class="keyword">go</span> sender(dataChannel)</span><br><span class="line">	<span class="keyword">go</span> receiver(dataChannel, done)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 阻塞直到receiver完成，避免主线程马上退出</span></span><br><span class="line">	&lt;-done</span><br><span class="line">	fmt.Println(<span class="string">"Done."</span>)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">sender</span><span class="params">(dataChannel <span class="keyword">chan</span> <span class="keyword">int</span>)</span></span> &#123;</span><br><span class="line">	<span class="keyword">defer</span> <span class="built_in">close</span>(dataChannel)</span><br><span class="line">	<span class="keyword">for</span> i := <span class="number">0</span>;i &lt; <span class="number">1000</span>;i++ &#123;</span><br><span class="line">		dataChannel &lt;- i</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">receiver</span><span class="params">(dataChannel <span class="keyword">chan</span> <span class="keyword">int</span>, done <span class="keyword">chan</span> <span class="keyword">interface</span>&#123;&#125;)</span></span> &#123;</span><br><span class="line">	<span class="keyword">for</span> data := <span class="keyword">range</span> dataChannel &#123;</span><br><span class="line">		fmt.Printf(<span class="string">"Receive data %d\n"</span>, data)</span><br><span class="line">	&#125;</span><br><span class="line">	done &lt;- <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>  在单个sender的场景下，没有什么好说的。其实就是当sender把所有数据都塞到channel之后主动关闭该channel。**显式close channel的好处是，当receiver端使用<figure class="highlight plain"><figcaption><span>range```从channel中读数据，读到close标识后会自动结束循环。（或者是普通循环里的ok标识为false，用来结束循环）**</span></figcaption><table><tr><td class="code"><pre><span class="line"></span><br><span class="line">+ 多个sender</span><br><span class="line"></span><br><span class="line">	```golang</span><br><span class="line">	package main</span><br><span class="line">	</span><br><span class="line">	</span><br><span class="line">	</span><br><span class="line">	// 多个sender，一个receiver</span><br><span class="line">	const (</span><br><span class="line">		SENDER_COUNT = 5</span><br><span class="line">	)</span><br><span class="line">	</span><br><span class="line">	func sender(id int, dataChannel chan string, wg *sync.WaitGroup) &#123;</span><br><span class="line">		defer wg.Done()</span><br><span class="line">		for i := 0;i &lt; 100;i++ &#123;</span><br><span class="line">			dataChannel &lt;- fmt.Sprintf(&quot;Sender %d is sending %d&quot;, id, i)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	func receiver(dataChannel chan string, done chan interface&#123;&#125;) &#123;</span><br><span class="line">		for data := range dataChannel &#123;</span><br><span class="line">			fmt.Printf(&quot;Receive data: %s\n&quot;, data)</span><br><span class="line">		&#125;</span><br><span class="line">		done &lt;- nil</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	func monitor(dataChannel chan string, wg *sync.WaitGroup) &#123;</span><br><span class="line">		wg.Wait()</span><br><span class="line">		close(dataChannel)</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	func main() &#123;</span><br><span class="line">		dataChannel := make(chan string, 100)</span><br><span class="line">		done := make(chan interface&#123;&#125;)</span><br><span class="line">		wg := &amp;sync.WaitGroup&#123;&#125;</span><br><span class="line">		wg.Add(SENDER_COUNT)</span><br><span class="line">	</span><br><span class="line">		go monitor(dataChannel, wg)</span><br><span class="line">		for i := 0;i &lt; SENDER_COUNT;i++ &#123;</span><br><span class="line">			go sender(i, dataChannel, wg)</span><br><span class="line">		&#125;</span><br><span class="line">		go receiver(dataChannel, done)</span><br><span class="line">	</span><br><span class="line">		&lt;-done</span><br><span class="line">		fmt.Println(&quot;Done.&quot;)</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure></p>
+<p>  参照以上代码，核心的思想是利用<code>sync</code>包自带的<code>WaitGroup</code>（类似于<code>Java</code>里<code>J.U.C</code>包的<code>CountdownLatch</code>），用来统计已完成工作的sender数。除了sender和receiver外，我们还定义了一个monitor协程，用来关闭channel。</p>
+<p>  可以看到我们定义了1个monitor，1个receiver，5个sender，并且在启动sender之前先启动了monitor，传入<code>waitGroup</code>，让其等待所有sender协程完成工作。在sender里，通过<code>defer</code>来保证sender在完成作业（或者发生异常）之后能够通知<code>waitGroup</code>。当所有sender都完成工作后，<code>waitGroup</code>计数自然减为0，monitor协程主动关闭了数据channel，所以receiver端的<code>for range</code>循环在读完所有数据后就能正常退出。</p>
+</li>
+</ul>
+<h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p>本文是对《How To Gracefully Close Channels》的核心内容表示质疑，并且提出了我自己的解决方案。<strong>其实原文里作者提供的解决方案并不是错误的，里面的方案对部分场景肯定是适用的。只是对sender端主动关闭的场景而言有一定的纰漏。</strong></p>
 <p>希望读者能理解不同场景下应该有不同的解决方案，具体还是要结合实际项目来分析。</p>
 
   </div>
@@ -256,7 +191,7 @@ func main() {
     </div>
 
     <div id="toc-footer" style="display: none">
-      <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">1.</span> <span class="toc-text">总结</span></a></li></ol>
+      <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#Introduction"><span class="toc-number">1.</span> <span class="toc-text">Introduction</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#驳斥理由"><span class="toc-number">2.</span> <span class="toc-text">驳斥理由</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#解决方案"><span class="toc-number">3.</span> <span class="toc-text">解决方案</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li></ol>
     </div>
 
     <div id="share-footer" style="display: none">
