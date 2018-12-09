@@ -6,21 +6,21 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="HandheldFriendly" content="True">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <meta name="description" content="Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。  为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。  选主过程最重要的限制是：   Leader必须存有所有已">
+    <meta name="description" content="Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。  为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。  选主过程最重要的限制是： Leader必须存有所有已经c">
 <meta name="keywords" content="笔记,算法,分布式">
 <meta property="og:type" content="article">
 <meta property="og:title" content="[Raft]Leader Election(选主)笔记">
 <meta property="og:url" content="http://yoursite.com/2018/12/09/raft-leader-election/index.html">
 <meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
-<meta property="og:description" content="Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。  为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。  选主过程最重要的限制是：   Leader必须存有所有已">
+<meta property="og:description" content="Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。  为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。  选主过程最重要的限制是： Leader必须存有所有已经c">
 <meta property="og:locale" content="default">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_1.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_2.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_election.png">
-<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta property="og:updated_time" content="2018-12-09T03:16:11.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="[Raft]Leader Election(选主)笔记">
-<meta name="twitter:description" content="Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。  为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。  选主过程最重要的限制是：   Leader必须存有所有已">
+<meta name="twitter:description" content="Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。  为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。  选主过程最重要的限制是： Leader必须存有所有已经c">
 <meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_1.png">
     
     
@@ -61,11 +61,11 @@
          
           <li><a href="/">Home</a></li>
          
-          <li><a href="/about">About</a></li>
+          <li><a href="/tags/">Tags</a></li>
          
           <li><a href="/archives/">Writing</a></li>
          
-          <li><a href="https://github.com/AcepcsMa">Projects</a></li>
+          <li><a href="/about">About</a></li>
          
           <li><a href="/search/">Search</a></li>
         
@@ -148,17 +148,15 @@
 <li><p>为了保证不丢数据（<strong>特指已经commit且成功通知client的数据</strong>），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。</p>
 </li>
 <li><p>选主过程最重要的限制是：</p>
+<p><strong><em>Leader必须存有所有已经commit过的log entry，这样才能保证整个分布式系统的一致性。</em></strong></p>
+<p><strong>在外部用户看来，已经commit成功的就必然是100%正常存储好了的。</strong>如果选出一个Leader，结果它上面缺了几条已经commit过的数据，那这个分布式系统就没有任何意义了。几分钟前跟用户说“我已经commit了，你放心吧”，过一会用户想查一查数据却发现“尼玛，怎么丢数据了，说好的已经commit了呢？！”</p>
 </li>
-</ol>
-<p><strong><em>Leader必须存有所有已经commit过的log entry，这样才能保证整个分布式系统的一致性。</em></strong> <strong>在外部用户看来，已经commit成功的就必然是100%正常存储好了的。</strong>如果选出一个Leader，结果它上面缺了几条已经commit过的数据，那这个分布式系统就没有任何意义了。几分钟前跟用户说“我已经commit了，你放心吧”，过一会用户想查一查数据却发现“尼玛，怎么丢数据了，说好的已经commit了呢？！”</p>
-<ol start="4">
-<li>为了满足这个条件（Leader上必须存有所有已经commit过的数据），Raft中提出了两个限制条件，<strong>如果严格遵守以下两个条件，是能保证选出合法Leader的</strong>。</li>
-</ol>
+<li><p>为了满足这个条件（Leader上必须存有所有已经commit过的数据），Raft中提出了两个限制条件，<strong>如果严格遵守以下两个条件，是能保证选出合法Leader的</strong>。</p>
 <ul>
 <li>在选主过程中，每台服务器只会投票给拥有比自己更新的log entry的服务器。</li>
 <li>Leader在commit log entry的时候，只允许<strong>直接</strong>commit当前term（任期）的log entry，决不允许<strong>直接</strong>commit“历史”log entry。（历史log entry只能<strong>间接被动</strong>commit）</li>
 </ul>
-<p>（1）先来看看第一个条件：每台server只会投票给拥有比自己更新的log entry的server。这句话里最关键的是如何定义<strong><em>“更新的log entry”</em></strong>。按照Raft论文里给出的定义：</p>
+<p>（1）先来看看第一个条件：每台server只会投票给拥有比自己更新的log entry的server。这句话里最关键的是如何定义<strong>“更新的log entry”</strong>。按照Raft论文里给出的定义：</p>
 <blockquote>
 <p>Raft determines which of two logs is more up-to-date by comparing the index and term of the last entries in the logs. If the logs have last entries with different terms, then the log with the later term is more up-to-date. If the logs end with the same term, then whichever log is longer is more up-to-date.</p>
 </blockquote>
@@ -166,7 +164,14 @@
 <li>两台服务器上的<strong>最后一条</strong>log entry，如果它们的term不同，则term更大者是“更新”的。</li>
 <li>两台服务器上的<strong>最后一条</strong>log entry，如果它们的term相同，则index更大者是“更新”的。</li>
 </ul>
-<p>（这里我觉得论文里漏了一个小细节，如果两条log entry的term和index都相同，<strong>应该会默认把发起投票的服务器当成更新的</strong>，term和index都一样的情况下不存在所谓的“更新”，一切为了选主的顺利进行，能快速有效选出leader才是最重要的。） <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_1.png" alt=""> 如上图所示，根据Raft的判断标准，<strong>下者的记录比上者更新，因为下者最后一条log entry的term为5，5比4大</strong>。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_2.png" alt=""> 如上图所示，根据Raft的判断标准，<strong>上者的记录比上者更新，因为上者最后一条log entry的index为4，下者最后一条log entry的index为3，4比3大</strong>。 （2）再研究第二个条件：Leader只允许<strong>直接</strong>commit当前term（任期）的log entry，决不允许<strong>直接</strong>commit“历史”log entry。这条前提一看上去有点云里雾里的，感觉并没有什么必要性。<strong>实则不然，这条前提非常重要，是用来避免异常情况下频繁换Leader可能造成的commited log entry被覆盖的问题。</strong> Raft原版论文里也给出了一个经典场景： <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_election.png" alt=""></p>
+<p>（这里我觉得论文里漏了一个小细节，如果两条log entry的term和index都相同，<strong>应该会默认把发起投票的服务器当成更新的</strong>，term和index都一样的情况下不存在所谓的“更新”，一切为了选主的顺利进行，能快速有效选出leader才是最重要的。） </p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_1.png" alt=""> </p>
+<p>如上图所示，根据Raft的判断标准，<strong>下者的记录比上者更新，因为下者最后一条log entry的term为5，5比4大</strong>。 </p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_2.png" alt=""> </p>
+<p>如上图所示，根据Raft的判断标准，<strong>上者的记录比上者更新，因为上者最后一条log entry的index为4，下者最后一条log entry的index为3，4比3大</strong>。 </p>
+<p>（2）再研究第二个条件：Leader只允许<strong>直接</strong>commit当前term（任期）的log entry，决不允许<strong>直接</strong>commit“历史”log entry。这条前提一看上去有点云里雾里的，感觉并没有什么必要性。<strong>实则不然，这条前提非常重要，是用来避免异常情况下频繁换Leader可能造成的commited log entry被覆盖的问题。</strong> </p>
+<p>Raft原版论文里也给出了一个经典场景： </p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_election.png" alt=""></p>
 <ul>
 <li>在(a)阶段，已经处于<code>term:2</code>了，<code>S1</code>是本轮（<code>term:2</code>）的leader。在<code>S1</code>上任后没多久，收到了客户端的请求，写入一条<code>{term:2, index:2}</code>的log，并将此log成功复制到<code>S2</code>这个小兄弟上。<strong>结果天不如人愿，还没来得及把log复制到其他小兄弟上，<code>S1</code>自己就宕机了。</strong></li>
 <li>到了(b)阶段，<code>S1</code>宕机后，整个集群处于无领导状态。经过了一小会，<code>S5</code>很幸运率先结束timeout，自增term号（从<code>term:2</code>自增到<code>term:3</code>），发起了选主。由于此时<code>S3</code>和<code>S4</code>上的记录都和<code>S5</code>一样新，所以都愿意投票给<code>S5</code>，<code>S5</code>成功当选，成为leader。<code>S5</code>成为leader后马上又收到了客户端的请求，于是在本机上写入一条<code>{term:3, index:2}</code>的log。<strong>然而<code>S5</code>的命运比<code>S1</code>更惨，只来得及存在本地，来不及把log entry复制给任何一个小兄弟，直接就挂了。</strong></li>
@@ -178,6 +183,8 @@
 <li>再看(e)。<strong>假设我们一定要坚守第二条前提，也就是说leader只能直接commit当前term的log entry，不能直接commit历史log entry。</strong>那么在(c)结束后，<code>S1</code>也不能commit<code>{term:2, index:2}</code>的log，因为<code>S1</code>此时是<code>term:4</code>的leader，而不是<code>term:2</code>的leader。只有如(e)所示，之后<code>S1</code>有机会commit属于当前term的log entry（<code>{term:4, index:3}</code>）时，才有机会<strong>间接地</strong>把之前<code>term:2</code>的历史记录也commit掉。即使此时<code>S1</code>宕机，<code>S5</code>也绝对不可能选上下一轮的leader，因为<code>S5</code>上最新的log<code>{term:3, index:2}</code>已经不如<code>S1 ~ S3</code>的新了，他拿不到过半的选票，做不了leader，也就不会发生已经commit的记录被覆盖的错误了。</li>
 </ul>
 <p>经过这一轮例子分析，可以很清晰地看到第二条前提的重要性了。如果允许leader随便直接commit历史记录的话，极端情况下很可能会造成数据丢失的系统错误（客户端知道你commit成功了，他就应该能放心了，结果过了一会你跟客户说commit也不算数，我搞丢了。。。。。。）<strong>所以，对于历史记录的commit只能被动触发！！！在commit当前term的log entry时顺便把之前未处理的log entry给commit掉。</strong></p>
+</li>
+</ol>
 
   </div>
 </article>
@@ -194,11 +201,11 @@
          
           <li><a href="/">Home</a></li>
          
-          <li><a href="/about">About</a></li>
+          <li><a href="/tags/">Tags</a></li>
          
           <li><a href="/archives/">Writing</a></li>
          
-          <li><a href="https://github.com/AcepcsMa">Projects</a></li>
+          <li><a href="/about">About</a></li>
          
           <li><a href="/search/">Search</a></li>
         
@@ -248,11 +255,11 @@
          
           <li><a href="/">Home</a></li>
          
-          <li><a href="/about">About</a></li>
+          <li><a href="/tags/">Tags</a></li>
          
           <li><a href="/archives/">Writing</a></li>
          
-          <li><a href="https://github.com/AcepcsMa">Projects</a></li>
+          <li><a href="/about">About</a></li>
          
           <li><a href="/search/">Search</a></li>
         
