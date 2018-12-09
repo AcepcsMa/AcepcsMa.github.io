@@ -6,20 +6,20 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="HandheldFriendly" content="True">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <meta name="description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  问题背景：All About Search在数据库领域和搜索引擎领域，倒排索引是一种很重要的数据结构。在大部分的应用场景中，文本型数据（Text）是主流，依靠倒排索引这种数据结构，可以显著提高文本数据项（Term）的搜索速度（无论是理论还是实际应用中）。 假设现在我们拥有以下数据。 // Document A My name is">
+    <meta name="description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  问题背景：All About Search在数据库领域和搜索引擎领域，倒排索引是一种很重要的数据结构。在大部分的应用场景中，文本型数据（Text）是主流，依靠倒排索引这种数据结构，可以显著提高文本数据项（Term）的搜索速度（无论是理论还是实际应用中）。 假设现在我们拥有以下数据。 // Document AMy name is">
 <meta name="keywords" content="数据结构,bigdata,hadoop,mapreduce">
 <meta property="og:type" content="article">
 <meta property="og:title" content="谈谈倒排索引，升级版“WordCount”">
 <meta property="og:url" content="http://yoursite.com/2018/02/25/ii-wc/index.html">
 <meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
-<meta property="og:description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  问题背景：All About Search在数据库领域和搜索引擎领域，倒排索引是一种很重要的数据结构。在大部分的应用场景中，文本型数据（Text）是主流，依靠倒排索引这种数据结构，可以显著提高文本数据项（Term）的搜索速度（无论是理论还是实际应用中）。 假设现在我们拥有以下数据。 // Document A My name is">
+<meta property="og:description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  问题背景：All About Search在数据库领域和搜索引擎领域，倒排索引是一种很重要的数据结构。在大部分的应用场景中，文本型数据（Text）是主流，依靠倒排索引这种数据结构，可以显著提高文本数据项（Term）的搜索速度（无论是理论还是实际应用中）。 假设现在我们拥有以下数据。 // Document AMy name is">
 <meta property="og:locale" content="default">
-<meta property="og:image" content="http://p0u4yewt0.bkt.clouddn.com/invertedIndex.png">
-<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/invertedIndex.png">
+<meta property="og:updated_time" content="2018-12-09T22:54:30.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="谈谈倒排索引，升级版“WordCount”">
-<meta name="twitter:description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  问题背景：All About Search在数据库领域和搜索引擎领域，倒排索引是一种很重要的数据结构。在大部分的应用场景中，文本型数据（Text）是主流，依靠倒排索引这种数据结构，可以显著提高文本数据项（Term）的搜索速度（无论是理论还是实际应用中）。 假设现在我们拥有以下数据。 // Document A My name is">
-<meta name="twitter:image" content="http://p0u4yewt0.bkt.clouddn.com/invertedIndex.png">
+<meta name="twitter:description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  问题背景：All About Search在数据库领域和搜索引擎领域，倒排索引是一种很重要的数据结构。在大部分的应用场景中，文本型数据（Text）是主流，依靠倒排索引这种数据结构，可以显著提高文本数据项（Term）的搜索速度（无论是理论还是实际应用中）。 假设现在我们拥有以下数据。 // Document AMy name is">
+<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/invertedIndex.png">
     
     
         
@@ -145,165 +145,33 @@
     <blockquote>
 <p>全文为本人（Haoxiang Ma）原创内容，转载请标明出处。</p>
 </blockquote>
-<h2 id="问题背景：All-About-Search"><a href="#问题背景：All-About-Search" class="headerlink" title="问题背景：All About Search"></a>问题背景：All About Search</h2><p>在数据库领域和搜索引擎领域，<strong><em>倒排索引</em></strong>是一种很重要的数据结构。在大部分的应用场景中，文本型数据（Text）是主流，依靠<strong><em>倒排索引</em></strong>这种数据结构，可以显著提高<strong><em>文本数据项（Term）</em></strong>的搜索速度（无论是理论还是实际应用中）。 假设现在我们拥有以下数据。</p>
-<pre><code>// Document A
-My name is superman.
-
-// Document B
-I love my cat whose name is Kitty!
-
-// Document C
-Please name my car.
-</code></pre><p>如果不对以上原始数据作额外处理，径直将3个文件保存至磁盘的同一目录下，分别命名为<code>Document A</code>、<code>Document B</code>、<code>Document C</code>。那么当需要查找<code>car</code>这个数据项时，我们需要遍历文件目录下的所有文件，才能输出搜索结果：<code>Found in Document C!</code>。若将此场景扩展至<strong>_N_</strong>个数据文件，平均每个数据文件的Term Count为<strong>_K_</strong>，那么此搜索算法的时间复杂度将为<code>O(N*K)</code>，随着N和K的增长，这个时间复杂度无疑是灾难性的。 也许有人会说，既然每个文件是独立的，那么我们可以将目录下的数据文件进行<strong><em>“Partition”</em></strong>，分成<code>M</code>块，每一块包含<code>N/M</code>个文件，同时启动<code>M</code>个线程独立负责搜索自己块内的文件，不就能够大幅提高速度，解决搜索的性能问题了吗？先撇开硬盘的I/O性能不谈，<strong>启动、协同<code>M</code>个线程，合并多个线程的计算结果所需要的系统开销将会是一个天文数字</strong>，很有可能就因为这个搜索任务导致整个节点崩溃。再者，当系统的用户数快速增长，同时执行多个用户的搜索请求时根本无法保证搜索的及时性，难以并发。 所以这个时候我们就要转变思路，<strong>不要傻傻地把真正的“搜索”放在用户发送搜索请求时执行</strong>，而应该早早地为数据文件里的每个<strong><em>数据项（Term）</em></strong>建立起<strong><em>索引（Term Index）</em></strong>，到用户需要搜索时就可以通过已建立好的索引快速定位并返回结果，不需要一次又一次地扫描磁盘文件。 <strong><em>倒排索引（Inverted Index)</em></strong>这种数据结构就是基于以上需求而来到了这个世界上的。</p>
-<pre><code>// 正常情况下，我们第一反应下的索引应该是以下结构
-DocumentID          Terms
-    A         [My, name, is, superman]
-    B         [I, love, my, cat, whose, name, is, Kitty]
-    C         [Please, name, my, car]
-</code></pre><p>如果我们按照以上的结构建立索引，仍需要逐个ID扫描其对应的Terms，搜索的时间复杂度仍然是<code>O(N*K)</code>，压根没有提升任何性能。</p>
-<pre><code>// 所以我们需要通过“倒排”的方式改变索引结构
-Term        DocumentIDs
-My          [A, B, C]
-name        [A, B, C]
-is          [A, B]
-superman    [A]
-I           [B]
-love        [B]
-cat         [B]
-whose       [B]
-Kitty       [B]
-Please      [C]
-car         [C]
-</code></pre><p>所谓“倒排”，无非就是将原来的<strong><em>Key</em></strong>（<code>DocuementID</code>）和<strong><em>Value</em></strong>（<code>Terms</code>）颠倒过来，用<code>Term</code>作为<strong><em>Key</em></strong>，<code>DocumentIDs</code>作为<strong><em>Value</em></strong>。通过构建这样的索引结构，当我们需要搜索<code>car</code>这一数据项时，我们只需从头开始线性扫描<strong>一遍</strong>索引表，定位到<code>car</code>那一行并直接取出其对应的<code>DocumentIDs</code>，单次搜索的时间复杂度降低到了<code>O(N)</code>。 当然在数据量特别大时，<code>O(N)</code>仍然不是一个理想的指标，仍然有进步的空间。我们可以对每个<code>Term</code>进行Hash得到<code>h = Hash(Term)</code>，然后记录<code>h</code>与行号的映射表<code>H_TABLE</code>。那么每次搜索时根据搜索项的Hash可以查<code>H_TABLE</code>快速定位到具体的某一行，直接就可取出其对应的<code>DocumentIDs</code>，总的时间复杂度理论上是<code>O(1)</code>。<strong>（关于Hash冲突与优化的问题本文暂时不予探讨）</strong></p>
-<h2 id="实现方案：WordCount-Again？"><a href="#实现方案：WordCount-Again？" class="headerlink" title="实现方案：WordCount Again？"></a>实现方案：WordCount Again？</h2><p>当系统中有海量的数据文件时，第一反应肯定就是使用Hadoop以及Hadoop生态中的工具帮助我们处理数据。那么我们是不是可以用Map-Reduce来构建倒排索引表呢？ <strong>答案是肯定的，确实可以使用Map-Reduce。而且仔细一想，这不就是Hadoop中的“HelloWorld”——WordCount的翻版吗？？？</strong>确实也可以这么说，处理逻辑跟WordCount非常类似，只是我们需要在Reducer中稍微多做一点点工作，所以我称之为<strong><em>升级版WordCount</em></strong>哈哈😄😄😄。</p>
-<pre><code>// 如果100%照搬WordCount的逻辑，那么最终产出的结果文件会是
-My      A
-My      B
-My      C
-name    A
-name    B
-name    C
-......
-</code></pre><p>显然我们想要的倒排表格式是需要把同一个<code>Term</code>下的所有<code>DocumentID</code>合并到一行里。所以为了数据格式的正确性，我们需要对输出做点小处理。于是我们要设置一个自定义的<code>DocumentBean</code>类，逻辑上可以简单看作<code>DocumentBean = List&lt;DocumentID&gt;</code>。<strong>最终我们需要通过Reducer输出<code>&lt;Term, DocumentBean&gt;</code></strong>，那么结果里的每一行自然就是我们想要的格式了。</p>
-<pre><code>/**
- * 集成多个DocumentID的Bean
- */
-public class DocumentBean implements Writable {
-
-    private int documentCount;
-    private List&lt;String&gt; documentIDs;
-
-    public DocumentBean() {
-        documentCount = 0;
-        documentIDs = new ArrayList&lt;&gt;();
-    }
-
-    public void set(Iterable&lt;Text&gt; documentIDs) {
-        this.documentIDs.clear();
-        for(Text documentID : documentIDs) {
-            this.documentIDs.add(documentID.toString());
-        }
-        documentCount = this.documentIDs.size();
-    }
-
-    @Override
-    public void write(DataOutput dataOutput) throws IOException {
-        dataOutput.writeInt(documentCount);
-        for(String documentID : documentIDs) {
-            dataOutput.writeUTF(documentID);
-        }
-    }
-
-    @Override
-    public void readFields(DataInput dataInput) throws IOException {
-        documentCount = dataInput.readInt();
-        for(int i = 0;i &lt; documentCount;i++) {
-            documentIDs.add(dataInput.readUTF());
-        }
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder();
-        for(String documentID : documentIDs) {
-            sb.append(documentID).append(&quot;, &quot;);
-        }
-        return sb.substring(0, sb.length() - 2);
-    }
-}
-
-
-/**
- * 倒排索引的Mapper
- */
-public class InvertedMapper extends Mapper&lt;LongWritable, Text, Text, Text&gt; {
-
-    private Text outputKey = new Text();
-    private Text outputValue = new Text();
-
-    @Override
-    protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-        FileSplit split = (FileSplit) context.getInputSplit();
-        String fileName = split.getPath().getName();
-        outputValue.set(fileName);
-
-        String line = value.toString();
-        String[] terms = line.split(&quot; &quot;);
-        for(String term : terms) {
-            outputKey.set(term);
-            context.write(outputKey, outputValue);
-        }
-    }
-}
-
-
-/**
- * 倒排索引的Reducer
- */
-public class InvertedReducer extends Reducer&lt;Text, Text, Text, DocumentBean&gt; {
-
-    private DocumentBean outputValue = new DocumentBean();
-
-    @Override
-    protected void reduce(Text key, Iterable&lt;Text&gt; values, Context context) throws IOException, InterruptedException {
-        outputValue.set(values);
-        context.write(key, outputValue);
-    }
-}
-
-
-
-/**
- * 程序入口
- */
-public class InvertedDriver {
-
-    public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
-        Configuration conf = new Configuration();
-        conf.set(&quot;fs.defaultFS&quot;, &quot;hdfs://localhost:9000&quot;);
-
-        Job invertedJob = Job.getInstance(conf);
-
-        invertedJob.setJarByClass(InvertedDriver.class);
-
-        invertedJob.setMapperClass(InvertedMapper.class);
-        invertedJob.setReducerClass(InvertedReducer.class);
-
-        invertedJob.setMapOutputKeyClass(Text.class);
-        invertedJob.setMapOutputValueClass(Text.class);
-        invertedJob.setOutputKeyClass(Text.class);
-        invertedJob.setOutputValueClass(DocumentBean.class);
-
-        FileInputFormat.setInputPaths(invertedJob, new Path(&quot;/inverted_index/data/&quot;));
-        FileOutputFormat.setOutputPath(invertedJob, new Path(&quot;/inverted_index/output/&quot;));
-
-        System.exit(invertedJob.waitForCompletion(true) ? 1 : 0);
-    }
-}
-</code></pre><h2 id="总结：What-Should-Be-Remembered"><a href="#总结：What-Should-Be-Remembered" class="headerlink" title="总结：What Should Be Remembered"></a>总结：What Should Be Remembered</h2><ol>
+<h2 id="问题背景：All-About-Search"><a href="#问题背景：All-About-Search" class="headerlink" title="问题背景：All About Search"></a>问题背景：All About Search</h2><p>在数据库领域和搜索引擎领域，<strong><em>倒排索引</em></strong>是一种很重要的数据结构。在大部分的应用场景中，文本型数据（Text）是主流，依靠<strong><em>倒排索引</em></strong>这种数据结构，可以显著提高<strong><em>文本数据项（Term）</em></strong>的搜索速度（无论是理论还是实际应用中）。</p>
+<p>假设现在我们拥有以下数据。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">// Document A</span><br><span class="line">My name is superman.</span><br><span class="line"></span><br><span class="line">// Document B</span><br><span class="line">I love my cat whose name is Kitty!</span><br><span class="line"></span><br><span class="line">// Document C</span><br><span class="line">Please name my car.</span><br></pre></td></tr></table></figure>
+<p>如果不对以上原始数据作额外处理，径直将3个文件保存至磁盘的同一目录下，分别命名为<code>Document A</code>、<code>Document B</code>、<code>Document C</code>。那么当需要查找<code>car</code>这个数据项时，我们需要遍历文件目录下的所有文件，才能输出搜索结果：<code>Found in Document C!</code>。若将此场景扩展至<strong><em>N</em></strong>个数据文件，平均每个数据文件的Term Count为<strong><em>K</em></strong>，那么此搜索算法的时间复杂度将为<code>O(N*K)</code>，随着N和K的增长，这个时间复杂度无疑是灾难性的。</p>
+<p>也许有人会说，既然每个文件是独立的，那么我们可以将目录下的数据文件进行<strong><em>“Partition”</em></strong>，分成<code>M</code>块，每一块包含<code>N/M</code>个文件，同时启动<code>M</code>个线程独立负责搜索自己块内的文件，不就能够大幅提高速度，解决搜索的性能问题了吗？先撇开硬盘的I/O性能不谈，<strong>启动、协同<code>M</code>个线程，合并多个线程的计算结果所需要的系统开销将会是一个天文数字</strong>，很有可能就因为这个搜索任务导致整个节点崩溃。再者，当系统的用户数快速增长，同时执行多个用户的搜索请求时根本无法保证搜索的及时性，难以并发。</p>
+<p>所以这个时候我们就要转变思路，<strong>不要傻傻地把真正的“搜索”放在用户发送搜索请求时执行</strong>，而应该早早地为数据文件里的每个<strong><em>数据项（Term）</em></strong>建立起<strong><em>索引（Term Index）</em></strong>，到用户需要搜索时就可以通过已建立好的索引快速定位并返回结果，不需要一次又一次地扫描磁盘文件。</p>
+<p><strong><em>倒排索引（Inverted Index)</em></strong>这种数据结构就是基于以上需求而来到了这个世界上的。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">// 正常情况下，我们第一反应下的索引应该是以下结构</span><br><span class="line">DocumentID			Terms</span><br><span class="line">	A		  [My, name, is, superman]</span><br><span class="line">	B		  [I, love, my, cat, whose, name, is, Kitty]</span><br><span class="line">	C		  [Please, name, my, car]</span><br></pre></td></tr></table></figure>
+<p>如果我们按照以上的结构建立索引，仍需要逐个ID扫描其对应的Terms，搜索的时间复杂度仍然是<code>O(N*K)</code>，压根没有提升任何性能。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">// 所以我们需要通过“倒排”的方式改变索引结构</span><br><span class="line">Term		DocumentIDs</span><br><span class="line">My			[A, B, C]</span><br><span class="line">name		[A, B, C]</span><br><span class="line">is			[A, B]</span><br><span class="line">superman	[A]</span><br><span class="line">I			[B]</span><br><span class="line">love		[B]</span><br><span class="line">cat			[B]</span><br><span class="line">whose		[B]</span><br><span class="line">Kitty		[B]</span><br><span class="line">Please		[C]</span><br><span class="line">car			[C]</span><br></pre></td></tr></table></figure>
+<p>所谓“倒排”，无非就是将原来的<strong><em>Key</em></strong>（<code>DocuementID</code>）和<strong><em>Value</em></strong>（<code>Terms</code>）颠倒过来，用<code>Term</code>作为<strong><em>Key</em></strong>，<code>DocumentIDs</code>作为<strong><em>Value</em></strong>。通过构建这样的索引结构，当我们需要搜索<code>car</code>这一数据项时，我们只需从头开始线性扫描<strong>一遍</strong>索引表，定位到<code>car</code>那一行并直接取出其对应的<code>DocumentIDs</code>，单次搜索的时间复杂度降低到了<code>O(N)</code>。</p>
+<p>当然在数据量特别大时，<code>O(N)</code>仍然不是一个理想的指标，仍然有进步的空间。我们可以对每个<code>Term</code>进行Hash得到<code>h = Hash(Term)</code>，然后记录<code>h</code>与行号的映射表<code>H_TABLE</code>。那么每次搜索时根据搜索项的Hash可以查<code>H_TABLE</code>快速定位到具体的某一行，直接就可取出其对应的<code>DocumentIDs</code>，总的时间复杂度理论上是<code>O(1)</code>。<strong>（关于Hash冲突与优化的问题本文暂时不予探讨）</strong></p>
+<h2 id="实现方案：WordCount-Again？"><a href="#实现方案：WordCount-Again？" class="headerlink" title="实现方案：WordCount Again？"></a>实现方案：WordCount Again？</h2><p>当系统中有海量的数据文件时，第一反应肯定就是使用Hadoop以及Hadoop生态中的工具帮助我们处理数据。那么我们是不是可以用Map-Reduce来构建倒排索引表呢？</p>
+<p><strong>答案是肯定的，确实可以使用Map-Reduce。而且仔细一想，这不就是Hadoop中的“HelloWorld”——WordCount的翻版吗？？？</strong>确实也可以这么说，处理逻辑跟WordCount非常类似，只是我们需要在Reducer中稍微多做一点点工作，所以我称之为<strong><em>升级版WordCount</em></strong>哈哈😄😄😄。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">// 如果100%照搬WordCount的逻辑，那么最终产出的结果文件会是</span><br><span class="line">My		A</span><br><span class="line">My		B</span><br><span class="line">My		C</span><br><span class="line">name	A</span><br><span class="line">name	B</span><br><span class="line">name	C</span><br><span class="line">......</span><br></pre></td></tr></table></figure>
+<p>显然我们想要的倒排表格式是需要把同一个<code>Term</code>下的所有<code>DocumentID</code>合并到一行里。所以为了数据格式的正确性，我们需要对输出做点小处理。于是我们要设置一个自定义的<code>DocumentBean</code>类，逻辑上可以简单看作<code>DocumentBean = List&lt;DocumentID&gt;</code>。<strong>最终我们需要通过Reducer输出<code>&lt;Term, DocumentBean&gt;</code></strong>，那么结果里的每一行自然就是我们想要的格式了。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 集成多个DocumentID的Bean</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">DocumentBean</span> <span class="keyword">implements</span> <span class="title">Writable</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">int</span> documentCount;</span><br><span class="line">	<span class="keyword">private</span> List&lt;String&gt; documentIDs;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">DocumentBean</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		documentCount = <span class="number">0</span>;</span><br><span class="line">		documentIDs = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">set</span><span class="params">(Iterable&lt;Text&gt; documentIDs)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.documentIDs.clear();</span><br><span class="line">		<span class="keyword">for</span>(Text documentID : documentIDs) &#123;</span><br><span class="line">			<span class="keyword">this</span>.documentIDs.add(documentID.toString());</span><br><span class="line">		&#125;</span><br><span class="line">		documentCount = <span class="keyword">this</span>.documentIDs.size();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">write</span><span class="params">(DataOutput dataOutput)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">		dataOutput.writeInt(documentCount);</span><br><span class="line">		<span class="keyword">for</span>(String documentID : documentIDs) &#123;</span><br><span class="line">			dataOutput.writeUTF(documentID);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">readFields</span><span class="params">(DataInput dataInput)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">		documentCount = dataInput.readInt();</span><br><span class="line">		<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>;i &lt; documentCount;i++) &#123;</span><br><span class="line">			documentIDs.add(dataInput.readUTF());</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">toString</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		StringBuilder sb = <span class="keyword">new</span> StringBuilder();</span><br><span class="line">		<span class="keyword">for</span>(String documentID : documentIDs) &#123;</span><br><span class="line">			sb.append(documentID).append(<span class="string">", "</span>);</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">return</span> sb.substring(<span class="number">0</span>, sb.length() - <span class="number">2</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 倒排索引的Mapper</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">InvertedMapper</span> <span class="keyword">extends</span> <span class="title">Mapper</span>&lt;<span class="title">LongWritable</span>, <span class="title">Text</span>, <span class="title">Text</span>, <span class="title">Text</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> Text outputKey = <span class="keyword">new</span> Text();</span><br><span class="line">	<span class="keyword">private</span> Text outputValue = <span class="keyword">new</span> Text();</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">map</span><span class="params">(LongWritable key, Text value, Context context)</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line">		FileSplit split = (FileSplit) context.getInputSplit();</span><br><span class="line">		String fileName = split.getPath().getName();</span><br><span class="line">		outputValue.set(fileName);</span><br><span class="line"></span><br><span class="line">		String line = value.toString();</span><br><span class="line">		String[] terms = line.split(<span class="string">" "</span>);</span><br><span class="line">		<span class="keyword">for</span>(String term : terms) &#123;</span><br><span class="line">			outputKey.set(term);</span><br><span class="line">			context.write(outputKey, outputValue);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 倒排索引的Reducer</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">InvertedReducer</span> <span class="keyword">extends</span> <span class="title">Reducer</span>&lt;<span class="title">Text</span>, <span class="title">Text</span>, <span class="title">Text</span>, <span class="title">DocumentBean</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> DocumentBean outputValue = <span class="keyword">new</span> DocumentBean();</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">reduce</span><span class="params">(Text key, Iterable&lt;Text&gt; values, Context context)</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line">		outputValue.set(values);</span><br><span class="line">		context.write(key, outputValue);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 程序入口</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">InvertedDriver</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException, ClassNotFoundException, InterruptedException </span>&#123;</span><br><span class="line">		Configuration conf = <span class="keyword">new</span> Configuration();</span><br><span class="line">		conf.set(<span class="string">"fs.defaultFS"</span>, <span class="string">"hdfs://localhost:9000"</span>);</span><br><span class="line"></span><br><span class="line">		Job invertedJob = Job.getInstance(conf);</span><br><span class="line"></span><br><span class="line">		invertedJob.setJarByClass(InvertedDriver.class);</span><br><span class="line"></span><br><span class="line">		invertedJob.setMapperClass(InvertedMapper.class);</span><br><span class="line">		invertedJob.setReducerClass(InvertedReducer.class);</span><br><span class="line"></span><br><span class="line">		invertedJob.setMapOutputKeyClass(Text.class);</span><br><span class="line">		invertedJob.setMapOutputValueClass(Text.class);</span><br><span class="line">		invertedJob.setOutputKeyClass(Text.class);</span><br><span class="line">		invertedJob.setOutputValueClass(DocumentBean.class);</span><br><span class="line"></span><br><span class="line">		FileInputFormat.setInputPaths(invertedJob, <span class="keyword">new</span> Path(<span class="string">"/inverted_index/data/"</span>));</span><br><span class="line">		FileOutputFormat.setOutputPath(invertedJob, <span class="keyword">new</span> Path(<span class="string">"/inverted_index/output/"</span>));</span><br><span class="line"></span><br><span class="line">		System.exit(invertedJob.waitForCompletion(<span class="keyword">true</span>) ? <span class="number">1</span> : <span class="number">0</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="总结：What-Should-Be-Remembered"><a href="#总结：What-Should-Be-Remembered" class="headerlink" title="总结：What Should Be Remembered"></a>总结：What Should Be Remembered</h2><ul>
 <li>利用自定义的<strong><code>Bean</code></strong>类来辅佐Map-Reduce，实现各种复杂功能的思路已经很普遍了，例如自定义输出输出格式／实现两表join／二次排序等等等等。</li>
-</ol>
-<p><img src="http://p0u4yewt0.bkt.clouddn.com/invertedIndex.png" alt=""> 2. <strong>倒排索引表的设计与优化其实很复杂，本文谈到的内容只是管中窥豹</strong>。如上图所示，在倒排索引表中甚至可以存储每个Term在不同文件中的出现次数／文件更新（插入）时间／Term的TF-IDF值等等等等。通过存储这些文本数据可以帮助搭建高效的推荐系统，或者对搜索排序进行优化。</p>
+</ul>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/invertedIndex.png" alt=""></p>
+<ul>
+<li><strong>倒排索引表的设计与优化其实很复杂，本文谈到的内容只是管中窥豹</strong>。如上图所示，在倒排索引表中甚至可以存储每个Term在不同文件中的出现次数／文件更新（插入）时间／Term的TF-IDF值等等等等。通过存储这些文本数据可以帮助搭建高效的推荐系统，或者对搜索排序进行优化。</li>
+</ul>
 
   </div>
 </article>

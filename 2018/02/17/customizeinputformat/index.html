@@ -19,7 +19,7 @@
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/TextInputFormat.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/mergeProcess.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/relations.png">
-<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta property="og:updated_time" content="2018-12-09T22:53:06.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="海量小文件优化之自定义InputFormat">
 <meta name="twitter:description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  问题背景HDFS作为分布式文件存储系统，极其适用于海量大文件的存储场景。每个大文件在系统底层会被切分成多个Block（Block Size默认为128MB），且每个Block会自动被冗余处理（默认备份数为3份）以保证一定程度上的数据安全。 HDFS对大文件友好，但是世事往往不尽如人意。“存储”对于整个业务系统而言只是其中一环，在存">
@@ -149,209 +149,41 @@
     <blockquote>
 <p>全文为本人（Haoxiang Ma）原创内容，转载请标明出处。</p>
 </blockquote>
-<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>HDFS作为分布式文件存储系统，极其适用于海量大文件的存储场景。每个大文件在系统底层会被切分成多个<strong><em>Block</em></strong>（Block Size默认为128MB），且每个Block会自动被冗余处理（默认备份数为3份）以保证一定程度上的数据安全。 HDFS对大文件友好，但是世事往往不尽如人意。“存储”对于整个业务系统而言只是其中一环，在存储之前必须先有数据收集的流程。假如前端进行数据收集时raw data为海量的小数据文件（从1KB到10MB不等），且没有经过合并就直接通过HDFS的上传API写到HDFS中，那么NameNode上就会保存大量的Block元数据记录（<strong>即使单个小文件的大小远远不到一个Block的容量，但在逻辑上也会被切分为一个Block，虽然物理上并没有占用一个真正的Block的物理容量</strong>）。 相比NameNode中存储大量Block元数据带来的影响，更值得关注的是<strong>海量小文件输入对Map-Reduce任务的影响</strong>。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/normalMap.png" alt="理想情况"> 理想情况下，假设Map-Reduce任务的文件输入是/xx/xx/xx.dat，为了方便，我们假设xx.dat文件的大小刚好是3个Block的大小（3 * 128MB），暂且忽略备份情况。如图所示，在以该文件作为输入启动Map-Reduce任务时，系统getSplit()自然而然地将该文件分成3个Split，定位到各Split所在的DataNode并在上面启动Map任务。3个Map任务各自处理Local Data（Hadoop提倡的Data Locality），然后Map端输出会被相应的Reducer拉取进行Reduce操作。在以上理想情况中，各个Map任务负载基本均衡，每个Map处理的都是本地128MB的数据，系统运行状态良好。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/abnormalMap.png" alt="海量小文件"> 然而，如果Map端输入为海量的小文件，那么默认每个小文件本身就会被当作一个Split（小到不可再划分了）。如上图所示，假如系统中小文件的分布比较均匀，在每个存放有小文件的DataNode上都会启动一个Map任务。但是假如小文件的数目远远大于系统中DataNode的个数（100万个小文件，100个DataNode），也就是说一个DataNode上可能存放有N个小文件时，那么DataNode就要不断启动一个又一个的Map任务直到N个小文件都被处理完。更极端的情况是<strong>小文件分布不均匀，在某个特定的DataNode上存放了80%的小文件，剩余DataNode上只存放了20%的小文件</strong>，那么其他DataNode在结束自己本地的计算后，还得“默默等待”那个存放了80%小文件的DataNode完成它的所有map工作，严重影响了整个Map-Reduce任务的效率。 所以对于海量小文件数据，我们在启动Map-Reduce任务前必须对其进行优化，常见的优化思路有</p>
+<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>HDFS作为分布式文件存储系统，极其适用于海量大文件的存储场景。每个大文件在系统底层会被切分成多个<strong><em>Block</em></strong>（Block Size默认为128MB），且每个Block会自动被冗余处理（默认备份数为3份）以保证一定程度上的数据安全。</p>
+<p>HDFS对大文件友好，但是世事往往不尽如人意。“存储”对于整个业务系统而言只是其中一环，在存储之前必须先有数据收集的流程。假如前端进行数据收集时raw data为海量的小数据文件（从1KB到10MB不等），且没有经过合并就直接通过HDFS的上传API写到HDFS中，那么NameNode上就会保存大量的Block元数据记录（<strong>即使单个小文件的大小远远不到一个Block的容量，但在逻辑上也会被切分为一个Block，虽然物理上并没有占用一个真正的Block的物理容量</strong>）。</p>
+<p>相比NameNode中存储大量Block元数据带来的影响，更值得关注的是<strong>海量小文件输入对Map-Reduce任务的影响</strong>。</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/normalMap.png" alt="理想情况"></p>
+<p>理想情况下，假设Map-Reduce任务的文件输入是/xx/xx/xx.dat，为了方便，我们假设xx.dat文件的大小刚好是3个Block的大小（3 * 128MB），暂且忽略备份情况。如图所示，在以该文件作为输入启动Map-Reduce任务时，系统getSplit()自然而然地将该文件分成3个Split，定位到各Split所在的DataNode并在上面启动Map任务。3个Map任务各自处理Local Data（Hadoop提倡的Data Locality），然后Map端输出会被相应的Reducer拉取进行Reduce操作。在以上理想情况中，各个Map任务负载基本均衡，每个Map处理的都是本地128MB的数据，系统运行状态良好。</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/abnormalMap.png" alt="海量小文件"></p>
+<p>然而，如果Map端输入为海量的小文件，那么默认每个小文件本身就会被当作一个Split（小到不可再划分了）。如上图所示，假如系统中小文件的分布比较均匀，在每个存放有小文件的DataNode上都会启动一个Map任务。但是假如小文件的数目远远大于系统中DataNode的个数（100万个小文件，100个DataNode），也就是说一个DataNode上可能存放有N个小文件时，那么DataNode就要不断启动一个又一个的Map任务直到N个小文件都被处理完。更极端的情况是<strong>小文件分布不均匀，在某个特定的DataNode上存放了80%的小文件，剩余DataNode上只存放了20%的小文件</strong>，那么其他DataNode在结束自己本地的计算后，还得“默默等待”那个存放了80%小文件的DataNode完成它的所有map工作，严重影响了整个Map-Reduce任务的效率。</p>
+<p>所以对于海量小文件数据，我们在启动Map-Reduce任务前必须对其进行优化，常见的优化思路有</p>
 <ol>
 <li>在系统前沿就把多个小文件合并，将合并后的大文件写入HDFS</li>
 <li>小文件已大量分布在HDFS中，通过一定手段在HDFS中合并它们</li>
 <li>在启动正式的Map-Reduce任务前，先预处理合并大量小文件</li>
 </ol>
 <p>其中<strong><em>思路1</em></strong>的逻辑无关HDFS，不在本文讨论范围。<strong><em>思路2与思路3本质上一样</em></strong>，是通过一定的手段让小文件合并为大文件，以大文件作为正式的Map-Reduce任务的数据输入。</p>
-<h2 id="源码分析"><a href="#源码分析" class="headerlink" title="源码分析"></a>源码分析</h2><p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/TextInputFormat.png" alt="Hadoop源码"> 默认情况下，Map-Reduce使用的默认输入格式（InputFormat）是<strong><em>TextInputFormat</em></strong>，通过查看源码可知<strong><em>TextInputFormat</em></strong>实现的泛型是<strong><em>&lt;LongWritable, Text&gt;</em></strong>，这也就解释了为什么默认情况下我们Map任务的输入是<strong><em>&lt;LongWritable, Text&gt;</em></strong>。 调用getRecordReader方法会返回一个真正的<strong><em>RecordReader&lt;LongWritable, Text&gt;</em></strong>对象（实现了具体读文件的逻辑）供外部使用。每次我们把Map-Reduce的作业提交之后，系统会根据设定的InputFormat（默认/自定义）建立一个RecordReader对象来读取Split，并按照一定格式对Split进行预处理。如图所示，默认的RecordReader为<strong><em>LineRecordReader</em></strong>，也就是按行读取Split中的数据内容，每读取一行都会生成一个<strong><em>&lt;LongWritable, Text&gt;</em></strong>（行起始偏移量, 文本内容)的K-V对。利用RecordReader不断地读取，就可以完成map端的输入。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/mergeProcess.png" alt="合并过程示意图"> 基于以上原理，实现小文件合并为大文件的逻辑其实很简单。我们完全可以自定义InputFormat，对每个小文件不再逐行读取，而是将整个小文件的内容全部读取以生成<strong><em>&lt;小文件名, 文件全部内容&gt;</em></strong>的K-V对，然后将N个小文件的N个K-V对通过<strong><em>1个Reducer</em></strong>最终合并成一个大文件(<strong>本例使用SequenceFile</strong>)。 <strong>所以，关键就在于实现自定义的InputFormat类与自定义的RecordReader类。</strong></p>
-<h2 id="具体实现"><a href="#具体实现" class="headerlink" title="具体实现"></a>具体实现</h2><h4 id="简要原理"><a href="#简要原理" class="headerlink" title="简要原理"></a>简要原理</h4><p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/relations.png" alt="合并过程示意图"> 网上的各种自定义InputFormat教程中总是先贴一大段代码，让人很难一下子搞清楚InputFormat、RecordReader和Map-Reduce任务的关系。简单来说，InputFormat和RecordReader的功能如下</p>
+<h2 id="源码分析"><a href="#源码分析" class="headerlink" title="源码分析"></a>源码分析</h2><p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/TextInputFormat.png" alt="Hadoop源码"><br>默认情况下，Map-Reduce使用的默认输入格式（InputFormat）是<strong><em>TextInputFormat</em></strong>，通过查看源码可知<strong><em>TextInputFormat</em></strong>实现的泛型是<strong><em>\&lt;LongWritable, Text></em></strong>，这也就解释了为什么默认情况下我们Map任务的输入是<strong><em>\&lt;LongWritable, Text></em></strong>。</p>
+<p>调用getRecordReader方法会返回一个真正的<strong><em>RecordReader\&lt;LongWritable, Text></em></strong>对象（实现了具体读文件的逻辑）供外部使用。每次我们把Map-Reduce的作业提交之后，系统会根据设定的InputFormat（默认/自定义）建立一个RecordReader对象来读取Split，并按照一定格式对Split进行预处理。如图所示，默认的RecordReader为<strong><em>LineRecordReader</em></strong>，也就是按行读取Split中的数据内容，每读取一行都会生成一个<strong><em>\&lt;LongWritable, Text></em></strong>（行起始偏移量, 文本内容)的K-V对。利用RecordReader不断地读取，就可以完成map端的输入。</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/mergeProcess.png" alt="合并过程示意图"><br>基于以上原理，实现小文件合并为大文件的逻辑其实很简单。我们完全可以自定义InputFormat，对每个小文件不再逐行读取，而是将整个小文件的内容全部读取以生成<strong><em>\&lt;小文件名, 文件全部内容></em></strong>的K-V对，然后将N个小文件的N个K-V对通过<strong><em>1个Reducer</em></strong>最终合并成一个大文件(<strong>本例使用SequenceFile</strong>)。</p>
+<p><strong>所以，关键就在于实现自定义的InputFormat类与自定义的RecordReader类。</strong></p>
+<h2 id="具体实现"><a href="#具体实现" class="headerlink" title="具体实现"></a>具体实现</h2><h4 id="简要原理"><a href="#简要原理" class="headerlink" title="简要原理"></a>简要原理</h4><p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/relations.png" alt="合并过程示意图"><br>网上的各种自定义InputFormat教程中总是先贴一大段代码，让人很难一下子搞清楚InputFormat、RecordReader和Map-Reduce任务的关系。简单来说，InputFormat和RecordReader的功能如下</p>
 <ul>
 <li><strong>自定义的InputFormat为本次Map-Reduce任务提供了一个自定义的RecordReader</strong></li>
 <li><strong>自定义的RecordReader实现具体的如何从Split中读取数据的逻辑</strong></li>
 </ul>
 <h4 id="Java代码"><a href="#Java代码" class="headerlink" title="Java代码"></a>Java代码</h4><p>首先实现自定义的RecordReader类。</p>
-<pre><code>/**
- * 自定义的RecordReader, 用于将Split中的内容转换为自定义的K-V对形式
- */
-public class MyRecordReader extends RecordReader&lt;Text, BytesWritable&gt; {
-
-    private FileSplit split;        // 读入的文件split
-    private boolean isFinished;     // 转换是否完成的标志位
-    private Text key;               // 输出Key
-    private BytesWritable value;    // 输出Value
-    private JobContext context;     // 作业内容
-
-    /**
-     * 初始化RecordReader方法
-     * @param inputSplit 读入的文件split
-     * @param taskAttemptContext 作业内容
-     * @throws IOException
-     * @throws InterruptedException
-     */
-    @Override
-    public void initialize(InputSplit inputSplit, TaskAttemptContext taskAttemptContext) throws IOException, InterruptedException {
-        this.isFinished = false;
-        this.key = new Text();
-        this.value = new BytesWritable();
-        this.split = (FileSplit) inputSplit;
-        this.context = taskAttemptContext;
-    }
-
-    /**
-     * 告诉调用者是否还有未读的下一个K-V对
-     * @return true / false
-     * @throws IOException
-     * @throws InterruptedException
-     */
-    @Override
-    public boolean nextKeyValue() throws IOException, InterruptedException {
-        if(!isFinished) {
-
-            String fileName = this.split.getPath().getName();
-            this.key.set(fileName);
-
-            int contentLength = (int)split.getLength();
-            byte[] content = new byte[contentLength];
-            FileSystem fs = FileSystem.get(context.getConfiguration());
-            FSDataInputStream inputStream = null;
-            try {
-                inputStream = fs.open(this.split.getPath());
-                IOUtils.readFully(inputStream, content, 0, contentLength);
-                value.set(content, 0, contentLength);
-            } catch (Exception e) {
-                System.out.println(e.toString());
-            } finally {
-                if(inputStream != null) {
-                    try {
-                        IOUtils.closeStream(inputStream);
-                    } catch (Exception e) {
-                        System.out.println(e.toString());
-                    }
-                }
-            }
-            isFinished = true;
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * 返回当前读到的Key
-     * @return key
-     * @throws IOException
-     * @throws InterruptedException
-     */
-    @Override
-    public Text getCurrentKey() throws IOException, InterruptedException {
-        return this.key;
-    }
-
-    /**
-     * 返回当前读到的Value
-     * @return
-     * @throws IOException
-     * @throws InterruptedException
-     */
-    @Override
-    public BytesWritable getCurrentValue() throws IOException, InterruptedException {
-        return this.value;
-    }
-
-    /**
-     * 返回转换过程的状态 (是否转换完成)
-     * @return true / false
-     * @throws IOException
-     * @throws InterruptedException
-     */
-    @Override
-    public float getProgress() throws IOException, InterruptedException {
-        return this.isFinished ? 1.0f : 0.0f;
-    }
-
-    @Override
-    public void close() throws IOException {
-
-    }
-}
-</code></pre><p>然后实现自定义的InputFormat类。</p>
-<pre><code>/**
- * 自定义InputFormat, 创建一个自定义的RecordReader(以实现自定义的读取输入文件逻辑)
- */
-public class MyInputFormat extends FileInputFormat&lt;Text, BytesWritable&gt;{
-    @Override
-    public RecordReader&lt;Text, BytesWritable&gt; createRecordReader(InputSplit inputSplit,
-                                                                TaskAttemptContext taskAttemptContext) throws IOException, InterruptedException {
-        // 初始化一个自定义的RecordReader并返回
-        RecordReader&lt;Text, BytesWritable&gt; recordReader = new MyRecordReader();
-        recordReader.initialize(inputSplit, taskAttemptContext);
-        return recordReader;
-    }
-}
-</code></pre><p>实现了自定义的<strong><em>MyInputFormat</em></strong>类和<strong><em>MyRecordReader</em></strong>类后，Mapper和Reducer并没有什么可做的，map端只是简单地将数据输入直接输出，reduce端收集到K-V对后将其直接输出。</p>
-<pre><code>/**
- * Mapper, 负责处理从Split中读取的K-V型数据
- */
-public class MyMapper extends Mapper&lt;Text, BytesWritable, Text, BytesWritable&gt; {
-
-    @Override
-    protected void map(Text key, BytesWritable value, Context context) throws IOException, InterruptedException {
-        context.write(key, value);
-    }
-}
-
-
-/**
- * Reducer, 负责接收K-V对后输出为结果文件
- */
-public class MyReducer extends Reducer&lt;Text, BytesWritable, Text, BytesWritable&gt; {
-    @Override
-    protected void reduce(Text key, Iterable&lt;BytesWritable&gt; values, Context context) throws IOException, InterruptedException {
-        for(BytesWritable value : values) {
-            context.write(key, value);
-        }
-    }
-}
-</code></pre><p>最后把Job信息设置好后就可以提交到集群上运行。</p>
-<pre><code>/**
- * 程序入口
- */
-public class Driver {
-
-    private static final String HDFS_HOST = &quot;hdfs://localhost:9000&quot;;
-    private static final int NUM_REDUCE_TASKS = 1;
-    private static final String FILE_INPUT_PATH = &quot;/small_files/data&quot;;
-    private static final String RESULT_OUTPUT_PATH = &quot;/small_files/output&quot;;
-
-    public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
-
-        Configuration conf = new Configuration();
-        conf.set(&quot;fs.defaultFS&quot;, HDFS_HOST);
-        Job myJob = Job.getInstance(conf);
-
-        // 通过类名设置运行的jar包
-        myJob.setJarByClass(Driver.class);
-
-        // 设置Mapper Class与Reducer Class
-        myJob.setMapperClass(MyMapper.class);
-        myJob.setReducerClass(MyReducer.class);
-
-        // 设置Mapper与Reducer的输出数据类型
-        myJob.setMapOutputKeyClass(Text.class);
-        myJob.setMapOutputValueClass(BytesWritable.class);
-        myJob.setOutputKeyClass(Text.class);
-        myJob.setOutputValueClass(BytesWritable.class);
-
-        // 设置InputFormat与OutputFormat
-        // 使用自定义的InputFormat作为Input格式, Sequence文件作为Output格式
-        myJob.setInputFormatClass(MyInputFormat.class);
-        myJob.setOutputFormatClass(SequenceFileOutputFormat.class);
-
-        // 自定义Reduce Task数量, 决定最终输出多少个结果文件
-        myJob.setNumReduceTasks(NUM_REDUCE_TASKS);
-
-        // 设置数据所在目录, 结果输出目录
-        FileInputFormat.setInputPaths(myJob, new Path(FILE_INPUT_PATH));
-        FileOutputFormat.setOutputPath(myJob, new Path(RESULT_OUTPUT_PATH));
-
-        System.exit(myJob.waitForCompletion(true) ? 1 : 0);
-
-    }
-}
-</code></pre><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>当HDFS中存储了海量小文件时，利用自定义的InputFormat和RecordReader启动Map-Reduce任务可将小文件合并为大文件。这个合并的Job可以放在正式的Map-Reduce任务前，利用ControlledJob对合并Job与正式Job进行控制，合并结束后才启动正式Job；也可以定时地对HDFS上的文件进行合并，避免需要用时才进行合并。 <strong>当然，最优方案还是在系统前沿就把数据合并成尽量大的文件，再把大文件写入HDFS。</strong></p>
-<h2 id="完整代码"><a href="#完整代码" class="headerlink" title="完整代码"></a>完整代码</h2><p>完整代码请查看： <a href="https://github.com/AcepcsMa/hadoop_examples/tree/master/src/inputformat" target="_blank" rel="noopener">我的Github目录</a></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 自定义的RecordReader, 用于将Split中的内容转换为自定义的K-V对形式</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MyRecordReader</span> <span class="keyword">extends</span> <span class="title">RecordReader</span>&lt;<span class="title">Text</span>, <span class="title">BytesWritable</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> FileSplit split;		<span class="comment">// 读入的文件split</span></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">boolean</span> isFinished;		<span class="comment">// 转换是否完成的标志位</span></span><br><span class="line">	<span class="keyword">private</span> Text key;				<span class="comment">// 输出Key</span></span><br><span class="line">	<span class="keyword">private</span> BytesWritable value;	<span class="comment">// 输出Value</span></span><br><span class="line">	<span class="keyword">private</span> JobContext context;		<span class="comment">// 作业内容</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 初始化RecordReader方法</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@param</span> inputSplit 读入的文件split</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@param</span> taskAttemptContext 作业内容</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> IOException</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> InterruptedException</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">initialize</span><span class="params">(InputSplit inputSplit, TaskAttemptContext taskAttemptContext)</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.isFinished = <span class="keyword">false</span>;</span><br><span class="line">		<span class="keyword">this</span>.key = <span class="keyword">new</span> Text();</span><br><span class="line">		<span class="keyword">this</span>.value = <span class="keyword">new</span> BytesWritable();</span><br><span class="line">		<span class="keyword">this</span>.split = (FileSplit) inputSplit;</span><br><span class="line">		<span class="keyword">this</span>.context = taskAttemptContext;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 告诉调用者是否还有未读的下一个K-V对</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@return</span> true / false</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> IOException</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> InterruptedException</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">nextKeyValue</span><span class="params">()</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line">		<span class="keyword">if</span>(!isFinished) &#123;</span><br><span class="line"></span><br><span class="line">			String fileName = <span class="keyword">this</span>.split.getPath().getName();</span><br><span class="line">			<span class="keyword">this</span>.key.set(fileName);</span><br><span class="line"></span><br><span class="line">			<span class="keyword">int</span> contentLength = (<span class="keyword">int</span>)split.getLength();</span><br><span class="line">			<span class="keyword">byte</span>[] content = <span class="keyword">new</span> <span class="keyword">byte</span>[contentLength];</span><br><span class="line">			FileSystem fs = FileSystem.get(context.getConfiguration());</span><br><span class="line">			FSDataInputStream inputStream = <span class="keyword">null</span>;</span><br><span class="line">			<span class="keyword">try</span> &#123;</span><br><span class="line">				inputStream = fs.open(<span class="keyword">this</span>.split.getPath());</span><br><span class="line">				IOUtils.readFully(inputStream, content, <span class="number">0</span>, contentLength);</span><br><span class="line">				value.set(content, <span class="number">0</span>, contentLength);</span><br><span class="line">			&#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">				System.out.println(e.toString());</span><br><span class="line">			&#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">				<span class="keyword">if</span>(inputStream != <span class="keyword">null</span>) &#123;</span><br><span class="line">					<span class="keyword">try</span> &#123;</span><br><span class="line">						IOUtils.closeStream(inputStream);</span><br><span class="line">					&#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">						System.out.println(e.toString());</span><br><span class="line">					&#125;</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">			isFinished = <span class="keyword">true</span>;</span><br><span class="line">			<span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 返回当前读到的Key</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@return</span> key</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> IOException</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> InterruptedException</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> Text <span class="title">getCurrentKey</span><span class="params">()</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="keyword">this</span>.key;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 返回当前读到的Value</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> IOException</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> InterruptedException</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> BytesWritable <span class="title">getCurrentValue</span><span class="params">()</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="keyword">this</span>.value;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 返回转换过程的状态 (是否转换完成)</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@return</span> true / false</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> IOException</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> InterruptedException</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">float</span> <span class="title">getProgress</span><span class="params">()</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="keyword">this</span>.isFinished ? <span class="number">1.0f</span> : <span class="number">0.0f</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">close</span><span class="params">()</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然后实现自定义的InputFormat类。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 自定义InputFormat, 创建一个自定义的RecordReader(以实现自定义的读取输入文件逻辑)</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MyInputFormat</span> <span class="keyword">extends</span> <span class="title">FileInputFormat</span>&lt;<span class="title">Text</span>, <span class="title">BytesWritable</span>&gt;</span>&#123;</span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> RecordReader&lt;Text, BytesWritable&gt; <span class="title">createRecordReader</span><span class="params">(InputSplit inputSplit,</span></span></span><br><span class="line"><span class="function"><span class="params">                                                                TaskAttemptContext taskAttemptContext)</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line">		<span class="comment">// 初始化一个自定义的RecordReader并返回</span></span><br><span class="line">		RecordReader&lt;Text, BytesWritable&gt; recordReader = <span class="keyword">new</span> MyRecordReader();</span><br><span class="line">		recordReader.initialize(inputSplit, taskAttemptContext);</span><br><span class="line">		<span class="keyword">return</span> recordReader;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>实现了自定义的<strong><em>MyInputFormat</em></strong>类和<strong><em>MyRecordReader</em></strong>类后，Mapper和Reducer并没有什么可做的，map端只是简单地将数据输入直接输出，reduce端收集到K-V对后将其直接输出。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Mapper, 负责处理从Split中读取的K-V型数据</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MyMapper</span> <span class="keyword">extends</span> <span class="title">Mapper</span>&lt;<span class="title">Text</span>, <span class="title">BytesWritable</span>, <span class="title">Text</span>, <span class="title">BytesWritable</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">map</span><span class="params">(Text key, BytesWritable value, Context context)</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line">		context.write(key, value);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Reducer, 负责接收K-V对后输出为结果文件</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MyReducer</span> <span class="keyword">extends</span> <span class="title">Reducer</span>&lt;<span class="title">Text</span>, <span class="title">BytesWritable</span>, <span class="title">Text</span>, <span class="title">BytesWritable</span>&gt; </span>&#123;</span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">reduce</span><span class="params">(Text key, Iterable&lt;BytesWritable&gt; values, Context context)</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line">		<span class="keyword">for</span>(BytesWritable value : values) &#123;</span><br><span class="line">			context.write(key, value);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>最后把Job信息设置好后就可以提交到集群上运行。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 程序入口</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Driver</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String HDFS_HOST = <span class="string">"hdfs://localhost:9000"</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> NUM_REDUCE_TASKS = <span class="number">1</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String FILE_INPUT_PATH = <span class="string">"/small_files/data"</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String RESULT_OUTPUT_PATH = <span class="string">"/small_files/output"</span>;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException, ClassNotFoundException, InterruptedException </span>&#123;</span><br><span class="line"></span><br><span class="line">		Configuration conf = <span class="keyword">new</span> Configuration();</span><br><span class="line">		conf.set(<span class="string">"fs.defaultFS"</span>, HDFS_HOST);</span><br><span class="line">		Job myJob = Job.getInstance(conf);</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 通过类名设置运行的jar包</span></span><br><span class="line">		myJob.setJarByClass(Driver.class);</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 设置Mapper Class与Reducer Class</span></span><br><span class="line">		myJob.setMapperClass(MyMapper.class);</span><br><span class="line">		myJob.setReducerClass(MyReducer.class);</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 设置Mapper与Reducer的输出数据类型</span></span><br><span class="line">		myJob.setMapOutputKeyClass(Text.class);</span><br><span class="line">		myJob.setMapOutputValueClass(BytesWritable.class);</span><br><span class="line">		myJob.setOutputKeyClass(Text.class);</span><br><span class="line">		myJob.setOutputValueClass(BytesWritable.class);</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 设置InputFormat与OutputFormat</span></span><br><span class="line">		<span class="comment">// 使用自定义的InputFormat作为Input格式, Sequence文件作为Output格式</span></span><br><span class="line">		myJob.setInputFormatClass(MyInputFormat.class);</span><br><span class="line">		myJob.setOutputFormatClass(SequenceFileOutputFormat.class);</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 自定义Reduce Task数量, 决定最终输出多少个结果文件</span></span><br><span class="line">		myJob.setNumReduceTasks(NUM_REDUCE_TASKS);</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 设置数据所在目录, 结果输出目录</span></span><br><span class="line">		FileInputFormat.setInputPaths(myJob, <span class="keyword">new</span> Path(FILE_INPUT_PATH));</span><br><span class="line">		FileOutputFormat.setOutputPath(myJob, <span class="keyword">new</span> Path(RESULT_OUTPUT_PATH));</span><br><span class="line"></span><br><span class="line">		System.exit(myJob.waitForCompletion(<span class="keyword">true</span>) ? <span class="number">1</span> : <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>当HDFS中存储了海量小文件时，利用自定义的InputFormat和RecordReader启动Map-Reduce任务可将小文件合并为大文件。这个合并的Job可以放在正式的Map-Reduce任务前，利用ControlledJob对合并Job与正式Job进行控制，合并结束后才启动正式Job；也可以定时地对HDFS上的文件进行合并，避免需要用时才进行合并。</p>
+<p><strong>当然，最优方案还是在系统前沿就把数据合并成尽量大的文件，再把大文件写入HDFS。</strong></p>
+<h2 id="完整代码"><a href="#完整代码" class="headerlink" title="完整代码"></a>完整代码</h2><p>完整代码请查看：<br><a href="https://github.com/AcepcsMa/hadoop_examples/tree/master/src/inputformat" target="_blank" rel="noopener">我的Github目录</a></p>
 
   </div>
 </article>

@@ -18,7 +18,7 @@
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/breakdown.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/zk.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/zkds.png">
-<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta property="og:updated_time" content="2018-12-09T22:48:17.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="利用ZooKeeper开发服务器上下线感知程序">
 <meta name="twitter:description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  What is ZooKeeperZooKeeper是一个分布式的分布式应用程序协调服务。简单地来说，就是用于协调管理多个分布式应用程序的一个工具，扮演着一个第三方管理者的角色。 问题背景分析假设现在有10个应用程序(App#0 - App#9)，运行在由10台服务器(Server#0 - Server#9)组成的集群上（假设平均">
@@ -147,149 +147,36 @@
 <p>全文为本人（Haoxiang Ma）原创内容，转载请标明出处。</p>
 </blockquote>
 <h2 id="What-is-ZooKeeper"><a href="#What-is-ZooKeeper" class="headerlink" title="What is ZooKeeper"></a>What is ZooKeeper</h2><p>ZooKeeper是一个分布式的分布式应用程序协调服务。简单地来说，就是用于协调管理多个分布式应用程序的一个工具，扮演着一个第三方管理者的角色。</p>
-<h2 id="问题背景分析"><a href="#问题背景分析" class="headerlink" title="问题背景分析"></a>问题背景分析</h2><p>假设现在有<strong>10</strong>个应用程序(App#0 - App#9)，运行在由<strong>10</strong>台服务器(Server#0 - Server#9)组成的集群上（假设平均分配，每台服务器上运行一个程序）。此时由于某个热门线上活动的开始（如抢票or低价秒杀等），突然间有数以百万计的用户访问服务器上的资源，等待服务器处理并应答（如下图所示）。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/server.png" alt=""> 很不幸<strong>10</strong>台服务器中有<strong>K</strong>台受不住负载压力，导致服务器崩溃。在这种情况下，如果客户端无法感知服务器的状态（在线／离线），部分向已经崩溃的服务器发送请求的客户端将会有长时间无法获得应答，它们只能一直重复地向已经崩溃的服务器地址重发请求，无法切换至另外<strong>（10-K）</strong>台完好的服务器进行交互。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/breakdown.png" alt=""> 其实在这种场景下，如果客户端能够及时地感知到集群中哪些节点已经崩溃，哪些节点仍然完好，是可以切换至完好的节点并向其发送请求的。理论上只要集群中仍有1个节点是完好的，它即能向客户端提供服务。 <strong><em>所以整个问题的症结就在于，如何让客户端感知到服务器上下线状态，以便切换请求发送的地址。</em></strong> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/zk.png" alt=""> 重新参考ZooKeeper的功能描述，ZooKeeper可以用来协调管理多个分布式应用程序，那其实可以用于管理我们的分布式机器集群。如上图所示，<strong>在用户和服务器集群中间可设置ZooKeeper层</strong>，让ZooKeeper实时感知每一个节点的状态，然后客户端并不直接向具体节点发起请求，而应先向ZooKeeper询问当前仍然存活的服务器节点，然后再从中挑选一个负载较低的服务器节点进行交互。由于ZooKeeper本身的高可用性（本身也可拓展为分布式架构），所以就能大大地提高整个系统的可用性。</p>
-<h2 id="ZooKeeper数据结构"><a href="#ZooKeeper数据结构" class="headerlink" title="ZooKeeper数据结构"></a>ZooKeeper数据结构</h2><p>ZooKeeper数据结构采用了树状结构（在文件系统中被广泛使用），且不是简单的二叉树，而是多叉树。在ZooKeeper的树结构中，每一个节点被称为znode，可通过控制台命令或者Java的SDK对内部数据进行管理。 znode的类型有<code>2*2=4</code>种，分别是：</p>
+<h2 id="问题背景分析"><a href="#问题背景分析" class="headerlink" title="问题背景分析"></a>问题背景分析</h2><p>假设现在有<strong>10</strong>个应用程序(App#0 - App#9)，运行在由<strong>10</strong>台服务器(Server#0 - Server#9)组成的集群上（假设平均分配，每台服务器上运行一个程序）。此时由于某个热门线上活动的开始（如抢票or低价秒杀等），突然间有数以百万计的用户访问服务器上的资源，等待服务器处理并应答（如下图所示）。</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/server.png" alt=""></p>
+<p>很不幸<strong>10</strong>台服务器中有<strong>K</strong>台受不住负载压力，导致服务器崩溃。在这种情况下，如果客户端无法感知服务器的状态（在线／离线），部分向已经崩溃的服务器发送请求的客户端将会有长时间无法获得应答，它们只能一直重复地向已经崩溃的服务器地址重发请求，无法切换至另外<strong>（10-K）</strong>台完好的服务器进行交互。</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/breakdown.png" alt=""></p>
+<p>其实在这种场景下，如果客户端能够及时地感知到集群中哪些节点已经崩溃，哪些节点仍然完好，是可以切换至完好的节点并向其发送请求的。理论上只要集群中仍有1个节点是完好的，它即能向客户端提供服务。</p>
+<p><strong><em>所以整个问题的症结就在于，如何让客户端感知到服务器上下线状态，以便切换请求发送的地址。</em></strong></p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/zk.png" alt=""></p>
+<p>重新参考ZooKeeper的功能描述，ZooKeeper可以用来协调管理多个分布式应用程序，那其实可以用于管理我们的分布式机器集群。如上图所示，<strong>在用户和服务器集群中间可设置ZooKeeper层</strong>，让ZooKeeper实时感知每一个节点的状态，然后客户端并不直接向具体节点发起请求，而应先向ZooKeeper询问当前仍然存活的服务器节点，然后再从中挑选一个负载较低的服务器节点进行交互。由于ZooKeeper本身的高可用性（本身也可拓展为分布式架构），所以就能大大地提高整个系统的可用性。</p>
+<h2 id="ZooKeeper数据结构"><a href="#ZooKeeper数据结构" class="headerlink" title="ZooKeeper数据结构"></a>ZooKeeper数据结构</h2><p>ZooKeeper数据结构采用了树状结构（在文件系统中被广泛使用），且不是简单的二叉树，而是多叉树。在ZooKeeper的树结构中，每一个节点被称为znode，可通过控制台命令或者Java的SDK对内部数据进行管理。</p>
+<p>znode的类型有<code>2*2=4</code>种，分别是：</p>
 <ul>
 <li>PERSISTENT</li>
 <li>PERSISTENT_SEQUENTIAL</li>
 <li>EPHEMERAL</li>
 <li>EPHEMERAL_SEQUENTIAL</li>
 </ul>
-<p>其中<strong><em>PERSISTENT</em></strong>和<strong><em>EPHEMERAL</em></strong>的区别正如其名，在无外力影响下<strong><em>PERSISTENT</em></strong>节点不会被改变和删除，而<strong><em>EPHEMERAL</em></strong>节点在创建节点的session结束后会自动从树中删除。至于<strong><em>SEQUENTIAL</em></strong>与<strong><em>非SEQUENTIAL</em></strong>则影响了节点id自增，<strong><em>SEQUENTIAL</em></strong>节点的id会自动遵循父节点下的自增规则进行命名。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/zkds.png" alt=""> 如图所示，在本问题中我们可以把一台服务器看作树中的一个节点，我们可以利用<strong><em>EPHEMERAL</em></strong>节点的这一特性进行服务器状态的监听。服务器上线时创建与zk之间的session并向zk注册节点，只要服务器不崩溃，session便不会结束，即<strong><em>EPHEMERAL</em></strong>节点会一直存在，可被客户端感知；当服务器崩溃时，其与zk之间保持的session自然也会结束，<strong><em>EPHEMERAL</em></strong>节点会自动被删除，客户端查询服务器列表时绝对无法获得已删除的节点信息。</p>
+<p>其中<strong><em>PERSISTENT</em></strong>和<strong><em>EPHEMERAL</em></strong>的区别正如其名，在无外力影响下<strong><em>PERSISTENT</em></strong>节点不会被改变和删除，而<strong><em>EPHEMERAL</em></strong>节点在创建节点的session结束后会自动从树中删除。至于<strong><em>SEQUENTIAL</em></strong>与<strong><em>非SEQUENTIAL</em></strong>则影响了节点id自增，<strong><em>SEQUENTIAL</em></strong>节点的id会自动遵循父节点下的自增规则进行命名。</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/zkds.png" alt=""></p>
+<p>如图所示，在本问题中我们可以把一台服务器看作树中的一个节点，我们可以利用<strong><em>EPHEMERAL</em></strong>节点的这一特性进行服务器状态的监听。服务器上线时创建与zk之间的session并向zk注册节点，只要服务器不崩溃，session便不会结束，即<strong><em>EPHEMERAL</em></strong>节点会一直存在，可被客户端感知；当服务器崩溃时，其与zk之间保持的session自然也会结束，<strong><em>EPHEMERAL</em></strong>节点会自动被删除，客户端查询服务器列表时绝对无法获得已删除的节点信息。</p>
 <h2 id="Demo程序"><a href="#Demo程序" class="headerlink" title="Demo程序"></a>Demo程序</h2><ul>
-<li><p><strong><em>Server.java (服务器端代码)</em></strong></p>
-<p>package my.bigdata.zk;</p>
-<p>import org.apache.zookeeper.*;</p>
-<p>public class Server {</p>
-<pre><code>private static final String HOST_ADDRESS = &quot;localhost:2181&quot;;
-private static final int DEFAULT_TIMEOUT = 2000;
-private static final String DEFAULT_SERVER_PARENT = &quot;/servers&quot;;
-
-private ZooKeeper zkConnect = null;
-
-/**
- * 连接至ZooKeeper
- * @throws Exception
- */
-public void connect() throws Exception{
-    zkConnect = new ZooKeeper(HOST_ADDRESS, DEFAULT_TIMEOUT, new Watcher() {
-        @Override
-        public void process(WatchedEvent watchedEvent) {
-            System.out.println(&quot;Type:&quot; + watchedEvent.getType()
-                    + &quot; Path:&quot; + watchedEvent.getPath());
-        }
-    });
-}
-
-/**
- * 向ZooKeeper注册本服务器节点
- * @param data 服务器信息
- * @throws Exception
- */
-public void register(String data) throws Exception{
-    String create = zkConnect.create(DEFAULT_SERVER_PARENT + &quot;/server&quot;,
-                                        data.getBytes(),
-                                        ZooDefs.Ids.OPEN_ACL_UNSAFE,
-                                        CreateMode.EPHEMERAL_SEQUENTIAL);   // 注册成ephemeral节点以便自动在zk上注销
-    System.out.println(create + &quot; is registered!&quot;);
-}
-
-/**
- * 通过sleep模拟服务器在线
- */
-public void sleep() {
-    try {
-        Thread.sleep(20000);
-    } catch (Exception e) {
-        System.out.println(e.toString());
-    }
-}
-</code></pre></li>
+<li><strong><em>Server.java (服务器端代码)</em></strong></li>
 </ul>
-<pre><code>    public static void main(String[] args) throws Exception {
-
-        //连接至zk
-        Server server = new Server();
-        server.connect();
-
-        //向zk注册服务器信息
-        String data = args[0];
-        server.register(data);
-
-        server.sleep();
-    }
-}
-</code></pre><p>服务器端的重点在于，程序启动时向ZooKeeper的指定节点下注册服务器信息，相当于通知ZooKeeper这个第三方：“服务器已上线”。其次，注册的节点类型必须是<strong>ephemeral</strong>节点，为了实现节点id自增(auto-increment)还可以使用<strong>ephemeral_sequential</strong>节点。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> my.bigdata.zk;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.apache.zookeeper.*;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Server</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String HOST_ADDRESS = <span class="string">"localhost:2181"</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> DEFAULT_TIMEOUT = <span class="number">2000</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String DEFAULT_SERVER_PARENT = <span class="string">"/servers"</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> ZooKeeper zkConnect = <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 连接至ZooKeeper</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> Exception</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">connect</span><span class="params">()</span> <span class="keyword">throws</span> Exception</span>&#123;</span><br><span class="line">		zkConnect = <span class="keyword">new</span> ZooKeeper(HOST_ADDRESS, DEFAULT_TIMEOUT, <span class="keyword">new</span> Watcher() &#123;</span><br><span class="line">			<span class="meta">@Override</span></span><br><span class="line">			<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">process</span><span class="params">(WatchedEvent watchedEvent)</span> </span>&#123;</span><br><span class="line">				System.out.println(<span class="string">"Type:"</span> + watchedEvent.getType()</span><br><span class="line">						+ <span class="string">" Path:"</span> + watchedEvent.getPath());</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 向ZooKeeper注册本服务器节点</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@param</span> data 服务器信息</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> Exception</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">register</span><span class="params">(String data)</span> <span class="keyword">throws</span> Exception</span>&#123;</span><br><span class="line">		String create = zkConnect.create(DEFAULT_SERVER_PARENT + <span class="string">"/server"</span>,</span><br><span class="line">											data.getBytes(),</span><br><span class="line">											ZooDefs.Ids.OPEN_ACL_UNSAFE,</span><br><span class="line">											CreateMode.EPHEMERAL_SEQUENTIAL);	<span class="comment">// 注册成ephemeral节点以便自动在zk上注销</span></span><br><span class="line">		System.out.println(create + <span class="string">" is registered!"</span>);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 通过sleep模拟服务器在线</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">sleep</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">try</span> &#123;</span><br><span class="line">			Thread.sleep(<span class="number">20000</span>);</span><br><span class="line">		&#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">			System.out.println(e.toString());</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line"></span><br><span class="line">		<span class="comment">//连接至zk</span></span><br><span class="line">		Server server = <span class="keyword">new</span> Server();</span><br><span class="line">		server.connect();</span><br><span class="line"></span><br><span class="line">		<span class="comment">//向zk注册服务器信息</span></span><br><span class="line">		String data = args[<span class="number">0</span>];</span><br><span class="line">		server.register(data);</span><br><span class="line"></span><br><span class="line">		server.sleep();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>服务器端的重点在于，程序启动时向ZooKeeper的指定节点下注册服务器信息，相当于通知ZooKeeper这个第三方：“服务器已上线”。其次，注册的节点类型必须是<strong>ephemeral</strong>节点，为了实现节点id自增(auto-increment)还可以使用<strong>ephemeral_sequential</strong>节点。</p>
 <ul>
-<li><p><strong><em>Client.java (客户端代码)</em></strong></p>
-<p>package my.bigdata.zk;</p>
-<p>import org.apache.zookeeper.WatchedEvent;<br>import org.apache.zookeeper.Watcher;<br>import org.apache.zookeeper.ZooKeeper;</p>
-<p>import java.util.ArrayList;<br>import java.util.Arrays;<br>import java.util.List;</p>
-<p>public class Client {</p>
-<pre><code>private static final String HOST_ADDRESS = &quot;localhost:2181&quot;;
-private static final int DEFAULT_TIMEOUT = 2000;
-private static final String DEFAULT_SERVER_PARENT = &quot;/servers&quot;;
-
-private ZooKeeper zkConnect = null;
-private List&lt;String&gt; availableServers;
-
-/**
- * 连接至ZooKeeper
- * @throws Exception
- */
-public void connect() throws Exception {
-    zkConnect = new ZooKeeper(HOST_ADDRESS, DEFAULT_TIMEOUT, new Watcher() {
-        @Override
-        public void process(WatchedEvent watchedEvent) {
-            try {
-                updateServerCondition();    // 重复注册
-            } catch (Exception e) {
-                System.out.println(e.toString());
-            }
-        }
-    });
-}
-
-/**
- * 向zk查询服务器情况, 并update本地服务器列表
- * @throws Exception
- */
-public void updateServerCondition() throws Exception {
-    List&lt;String&gt; children = zkConnect.getChildren(DEFAULT_SERVER_PARENT, true);
-    List&lt;String&gt; servers = new ArrayList&lt;&gt;();
-    for(String child : children) {
-        byte[] data = zkConnect.getData(DEFAULT_SERVER_PARENT + &quot;/&quot; + child,
-                                    false,
-                                    null);
-        servers.add(new String(data));
-    }
-    availableServers = servers;
-    System.out.println(Arrays.toString(servers.toArray(new String[0])));
-}
-
-/**
- * 通过sleep让客户端持续运行，模拟&quot;监听&quot;
- */
-public void sleep() throws Exception{
-    System.out.println(&quot;client is working&quot;);
-    Thread.sleep(Long.MAX_VALUE);
-}
-
-public static void main(String[] args) throws Exception {
-
-    // 连接zk
-    Client client = new Client();
-    client.connect();
-
-    // 获取servers节点信息（并监听），从中获取服务器信息列表
-    client.updateServerCondition();
-
-    client.sleep();
-}
-</code></pre><p>}</p>
-</li>
+<li><strong><em>Client.java (客户端代码)</em></strong></li>
 </ul>
-<p>客户端的重点在于，它不断地向ZooKeeper某个特定节点（此处是servers节点）注册了一个<strong>Watcher</strong>，那么一旦该节点下的结构发生改变，ZooKeeper会向注册了<strong>Watcher</strong>的客户端发送“状态变化”的消息，那么客户端即可动态地从ZooKeeper中获取最新的服务器节点信息，甚至无需“主动”询问。 当然，ZooKeeper的应用场景还有很多，考虑到它本身也可拓展为一个分布式应用，在这种高可用性保证下它简直就是多个分布式应用的万能管家和协调者😊。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> my.bigdata.zk;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.apache.zookeeper.WatchedEvent;</span><br><span class="line"><span class="keyword">import</span> org.apache.zookeeper.Watcher;</span><br><span class="line"><span class="keyword">import</span> org.apache.zookeeper.ZooKeeper;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.ArrayList;</span><br><span class="line"><span class="keyword">import</span> java.util.Arrays;</span><br><span class="line"><span class="keyword">import</span> java.util.List;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Client</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String HOST_ADDRESS = <span class="string">"localhost:2181"</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> DEFAULT_TIMEOUT = <span class="number">2000</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String DEFAULT_SERVER_PARENT = <span class="string">"/servers"</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> ZooKeeper zkConnect = <span class="keyword">null</span>;</span><br><span class="line">	<span class="keyword">private</span> List&lt;String&gt; availableServers;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 连接至ZooKeeper</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> Exception</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">connect</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">		zkConnect = <span class="keyword">new</span> ZooKeeper(HOST_ADDRESS, DEFAULT_TIMEOUT, <span class="keyword">new</span> Watcher() &#123;</span><br><span class="line">			<span class="meta">@Override</span></span><br><span class="line">			<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">process</span><span class="params">(WatchedEvent watchedEvent)</span> </span>&#123;</span><br><span class="line">				<span class="keyword">try</span> &#123;</span><br><span class="line">					updateServerCondition();	<span class="comment">// 重复注册</span></span><br><span class="line">				&#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">					System.out.println(e.toString());</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 向zk查询服务器情况, 并update本地服务器列表</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> Exception</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">updateServerCondition</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">		List&lt;String&gt; children = zkConnect.getChildren(DEFAULT_SERVER_PARENT, <span class="keyword">true</span>);</span><br><span class="line">		List&lt;String&gt; servers = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line">		<span class="keyword">for</span>(String child : children) &#123;</span><br><span class="line">			<span class="keyword">byte</span>[] data = zkConnect.getData(DEFAULT_SERVER_PARENT + <span class="string">"/"</span> + child,</span><br><span class="line">										<span class="keyword">false</span>,</span><br><span class="line">										<span class="keyword">null</span>);</span><br><span class="line">			servers.add(<span class="keyword">new</span> String(data));</span><br><span class="line">		&#125;</span><br><span class="line">		availableServers = servers;</span><br><span class="line">		System.out.println(Arrays.toString(servers.toArray(<span class="keyword">new</span> String[<span class="number">0</span>])));</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 通过sleep让客户端持续运行，模拟"监听"</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">sleep</span><span class="params">()</span> <span class="keyword">throws</span> Exception</span>&#123;</span><br><span class="line">		System.out.println(<span class="string">"client is working"</span>);</span><br><span class="line">		Thread.sleep(Long.MAX_VALUE);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 连接zk</span></span><br><span class="line">		Client client = <span class="keyword">new</span> Client();</span><br><span class="line">		client.connect();</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 获取servers节点信息（并监听），从中获取服务器信息列表</span></span><br><span class="line">		client.updateServerCondition();</span><br><span class="line"></span><br><span class="line">		client.sleep();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>客户端的重点在于，它不断地向ZooKeeper某个特定节点（此处是servers节点）注册了一个<strong>Watcher</strong>，那么一旦该节点下的结构发生改变，ZooKeeper会向注册了<strong>Watcher</strong>的客户端发送“状态变化”的消息，那么客户端即可动态地从ZooKeeper中获取最新的服务器节点信息，甚至无需“主动”询问。</p>
+<p>当然，ZooKeeper的应用场景还有很多，考虑到它本身也可拓展为一个分布式应用，在这种高可用性保证下它简直就是多个分布式应用的万能管家和协调者😊。</p>
 
   </div>
 </article>

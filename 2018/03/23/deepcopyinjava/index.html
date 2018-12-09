@@ -16,7 +16,7 @@
 <meta property="og:locale" content="default">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/shallow.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/deep.png">
-<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta property="og:updated_time" content="2018-12-09T22:29:19.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Java中的深复制&amp;浅复制">
 <meta name="twitter:description" content="本文内容均为本人（Haoxiang Ma）原创，如需转载请注明出处。  问题背景在程序中，出于特定的需求，往往要对一些对象进行复制，然后对复制后的对象进行操作，且不想让这些操作影响到原对象的数据。在这种情况下，搞清楚深复制（Deep Copy）和浅复制（Shallow Copy）是非常有必要的。 何谓浅复制？简单来说，就是对一个对象进行复制，得到一个新对象，然后“照搬”原对象中的数据来填充新对象">
@@ -146,174 +146,64 @@
     <blockquote>
 <p>本文内容均为本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
 </blockquote>
-<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>在程序中，出于特定的需求，往往要对一些对象进行复制，然后对复制后的对象进行操作，<strong>且不想让这些操作影响到原对象的数据</strong>。在这种情况下，搞清楚<code>深复制（Deep Copy）</code>和<code>浅复制（Shallow Copy）</code>是非常有必要的。 何谓<code>浅复制</code>？简单来说，就是对一个对象进行复制，得到一个新对象，然后“照搬”原对象中的数据来填充新对象的数据域。虽然新旧对象是两个不同的对象（在内存中的地址不同），但是它们内部的数据是一样的。 这样看来，<code>浅复制</code>不正是我们所需的<code>复制</code>嘛，可以得到一个新的对象，且新对象中的数据跟原对象一样，已经是非常完美的复制啊，为什么还要加一个<code>浅</code>字呢？ <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/shallow.png" alt=""> 原因在于，<strong>在Java中</strong>，一个对象里可能有<code>primitive</code>类型的数据如<code>int</code>,<code>long</code>等，更可能包含了<code>referrence（引用）</code>类型的数据如指向自定义类实例的引用。众所周知，<strong>引用的值仅仅是其所指向对象的内存地址</strong>。通过<code>浅复制</code>，我们会把这个内存地址“照搬”过去新对象中，那么新对象和旧对象中的一个成员引用就会指向同一块内存，操作的时候将会互相影响，与我们理想状态下的<code>复制</code>相差甚远。如上图所示，从<code>Building1</code>对象复制出来<code>Building2</code>对象后，它们本身所处的内存地址不一样，已经成为了两个独立的对象，但由于<code>Building</code>中包含了一个引用类型的数据<code>Floor</code>，而<code>浅复制</code>只将引用的值照搬过去新对象中，导致两个不同的<code>Building</code>中的<code>Floor</code>指向了内存里的同一个<code>Floor</code>。 <strong>所谓的<code>浅</code>指的就是对于<code>referrence（引用）</code>类型的数据只是“浅显”地“照搬”其值，没有深度地“复制”出一个新的对象。</strong> 所以对应<code>浅复制</code>，为了解决它的问题，我们自然就有<code>深复制</code>的概念。所谓<code>深复制</code>就是为了完完全全、彻彻底底地对一个对象进行<strong>深度</strong>的复制，避免新旧对象中的引用仍指向同一块内存区域，互相影响。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/deep.png" alt=""> 如上图所示，从<code>Building1</code>对象复制出来<code>Building2</code>对象，两者的<code>Floor</code>引用指向的已是内存区域中不同的<code>Floor</code>对象，无论对<code>Building1</code>再怎么折腾，也不会对<code>Building2</code>产生影响，完成真正理想状态下的<code>复制</code>。 <strong>本文将探讨在<code>Java</code>中如何实现对象的<code>深复制</code>。</strong></p>
+<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>在程序中，出于特定的需求，往往要对一些对象进行复制，然后对复制后的对象进行操作，<strong>且不想让这些操作影响到原对象的数据</strong>。在这种情况下，搞清楚<code>深复制（Deep Copy）</code>和<code>浅复制（Shallow Copy）</code>是非常有必要的。</p>
+<p>何谓<code>浅复制</code>？简单来说，就是对一个对象进行复制，得到一个新对象，然后“照搬”原对象中的数据来填充新对象的数据域。虽然新旧对象是两个不同的对象（在内存中的地址不同），但是它们内部的数据是一样的。</p>
+<p>这样看来，<code>浅复制</code>不正是我们所需的<code>复制</code>嘛，可以得到一个新的对象，且新对象中的数据跟原对象一样，已经是非常完美的复制啊，为什么还要加一个<code>浅</code>字呢？</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/shallow.png" alt=""></p>
+<p>原因在于，<strong>在Java中</strong>，一个对象里可能有<code>primitive</code>类型的数据如<code>int</code>,<code>long</code>等，更可能包含了<code>referrence（引用）</code>类型的数据如指向自定义类实例的引用。众所周知，<strong>引用的值仅仅是其所指向对象的内存地址</strong>。通过<code>浅复制</code>，我们会把这个内存地址“照搬”过去新对象中，那么新对象和旧对象中的一个成员引用就会指向同一块内存，操作的时候将会互相影响，与我们理想状态下的<code>复制</code>相差甚远。如上图所示，从<code>Building1</code>对象复制出来<code>Building2</code>对象后，它们本身所处的内存地址不一样，已经成为了两个独立的对象，但由于<code>Building</code>中包含了一个引用类型的数据<code>Floor</code>，而<code>浅复制</code>只将引用的值照搬过去新对象中，导致两个不同的<code>Building</code>中的<code>Floor</code>指向了内存里的同一个<code>Floor</code>。</p>
+<p><strong>所谓的<code>浅</code>指的就是对于<code>referrence（引用）</code>类型的数据只是“浅显”地“照搬”其值，没有深度地“复制”出一个新的对象。</strong></p>
+<p>所以对应<code>浅复制</code>，为了解决它的问题，我们自然就有<code>深复制</code>的概念。所谓<code>深复制</code>就是为了完完全全、彻彻底底地对一个对象进行<strong>深度</strong>的复制，避免新旧对象中的引用仍指向同一块内存区域，互相影响。</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/deep.png" alt=""></p>
+<p>如上图所示，从<code>Building1</code>对象复制出来<code>Building2</code>对象，两者的<code>Floor</code>引用指向的已是内存区域中不同的<code>Floor</code>对象，无论对<code>Building1</code>再怎么折腾，也不会对<code>Building2</code>产生影响，完成真正理想状态下的<code>复制</code>。</p>
+<p><strong>本文将探讨在<code>Java</code>中如何实现对象的<code>深复制</code>。</strong></p>
 <h2 id="具体实现"><a href="#具体实现" class="headerlink" title="具体实现"></a>具体实现</h2><p>首先来看看我们的自定义类<code>Building</code>和<code>Floor</code></p>
-<pre><code>// Building 类
-class Building{
-    public Floor floor;
-
-    public Building() {
-        this.floor = new Floor();
-    }
-
-    public Building(Floor floor) {
-        this.floor = floor;
-    }
-}
-
-// Floor类
-class Floor implements Cloneable {
-    public int count;
-
-    public Floor() {
-
-    }
-
-    public Floor(int count) {
-        this.count = count;
-    }
-}
-</code></pre><p>可以看到一个<code>Building</code>中包含一个<code>Floor</code>成员变量。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// Building 类</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Building</span></span>&#123;</span><br><span class="line">	<span class="keyword">public</span> Floor floor;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">Building</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.floor = <span class="keyword">new</span> Floor();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">Building</span><span class="params">(Floor floor)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.floor = floor;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Floor类</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Floor</span> <span class="keyword">implements</span> <span class="title">Cloneable</span> </span>&#123;</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">int</span> count;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">Floor</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">Floor</span><span class="params">(<span class="keyword">int</span> count)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.count = count;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到一个<code>Building</code>中包含一个<code>Floor</code>成员变量。</p>
 <ol>
-<li><p><code>clone</code>方法与<code>Cloneable</code>接口 <strong>实现<code>深复制</code>的第一种方法，需要复制的类实现<code>Cloneable</code>接口，并重写<code>clone</code>方法。</strong>在<code>Java</code>的上帝类<code>Object</code>中，有一个纯天然的<code>clone</code>方法，但是其中并没有具体的代码逻辑，仅仅是声明了一个<code>CloneNotSupportedException</code>异常，所以必须对其进行重写。</p>
-<pre><code>protected native Object clone() throws CloneNotSupportedException;
-</code></pre></li>
+<li><p><code>clone</code>方法与<code>Cloneable</code>接口</p>
+<p> <strong>实现<code>深复制</code>的第一种方法，需要复制的类实现<code>Cloneable</code>接口，并重写<code>clone</code>方法。</strong>在<code>Java</code>的上帝类<code>Object</code>中，有一个纯天然的<code>clone</code>方法，但是其中并没有具体的代码逻辑，仅仅是声明了一个<code>CloneNotSupportedException</code>异常，所以必须对其进行重写。</p>
+ <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">native</span> Object <span class="title">clone</span><span class="params">()</span> <span class="keyword">throws</span> CloneNotSupportedException</span>;</span><br></pre></td></tr></table></figure>
+</li>
 </ol>
 <pre><code>而`Cloneable`接口中也没有任何的方法声明，完全是一个标记性的空接口(`Mark-Interface`)。**实现该接口的作用仅仅是作一个`标记(mark)`，告诉JVM，我实现了这个接口，这个类的实例对象可被复制**。
 
-    public interface Cloneable {
-    }
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Cloneable</span> </span>&#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 
 &gt; ⚠️ ⚠️ ⚠️注意，如果不实现`Cloneable`接口，即使重写了`clone`方法，在调用时也会自动抛出异常，因为没有**标记**，没有**“告诉”**JVM，这是可以被复制的。
 
 所以基于`Building`类和`Floor`类的定义，我们应该让它们都实现`Cloneable`接口，且重写`clone`方法。
 
-    // Building类实现Cloneable接口
-    class Building implements Cloneable {
-        public Floor floor;
-
-        public Building() {
-            this.floor = new Floor();
-        }
-
-        public Building(Floor floor) {
-            this.floor = floor;
-        }
-
-        @Override
-        public Object clone() throws CloneNotSupportedException {
-            // 先clone出一个Building对象
-            Building newBuilding = (Building) super.clone(); 
-
-            // 然后再手动clone出一个Floor对象
-            newBuilding.floor = (Floor) floor.clone();
-
-            // 返回clone出的Building对象
-            return newBuilding;
-        }
-    }
-
-    // Floor类实现Cloneable接口
-    class Floor implements Cloneable {
-        public int count;
-
-        public Floor() {
-
-        }
-
-        public Floor(int count) {
-            this.count = count;
-        }
-
-        @Override
-        public Object clone() throws CloneNotSupportedException {
-            return super.clone();
-        }
-    }
-
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// Building类实现Cloneable接口</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Building</span> <span class="keyword">implements</span> <span class="title">Cloneable</span> </span>&#123;</span><br><span class="line">	<span class="keyword">public</span> Floor floor;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">Building</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.floor = <span class="keyword">new</span> Floor();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">Building</span><span class="params">(Floor floor)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.floor = floor;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> Object <span class="title">clone</span><span class="params">()</span> <span class="keyword">throws</span> CloneNotSupportedException </span>&#123;</span><br><span class="line">		<span class="comment">// 先clone出一个Building对象</span></span><br><span class="line">		Building newBuilding = (Building) <span class="keyword">super</span>.clone(); </span><br><span class="line">		</span><br><span class="line">		<span class="comment">// 然后再手动clone出一个Floor对象</span></span><br><span class="line">		newBuilding.floor = (Floor) floor.clone();</span><br><span class="line">		</span><br><span class="line">		<span class="comment">// 返回clone出的Building对象</span></span><br><span class="line">		<span class="keyword">return</span> newBuilding;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Floor类实现Cloneable接口</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Floor</span> <span class="keyword">implements</span> <span class="title">Cloneable</span> </span>&#123;</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">int</span> count;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">Floor</span><span class="params">()</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">Floor</span><span class="params">(<span class="keyword">int</span> count)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.count = count;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> Object <span class="title">clone</span><span class="params">()</span> <span class="keyword">throws</span> CloneNotSupportedException </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="keyword">super</span>.clone();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 为了测试是否真的进行了`深复制`，我们看看新旧`Building`对象的内存地址是否相同，再看看它们内部的`Floor`引用所指向的对象内存地址是否相同。
 
-    public static void main(String[] args) throws Exception{
-        Building b1 = new Building();
-        Building b2 = b1;
-        System.out.println(b2 == b1);   // true
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception</span>&#123;</span><br><span class="line">	Building b1 = <span class="keyword">new</span> Building();</span><br><span class="line">	Building b2 = b1;</span><br><span class="line">	System.out.println(b2 == b1); 	<span class="comment">// true</span></span><br><span class="line"></span><br><span class="line">	Building b3 = (Building) b1.clone(); </span><br><span class="line">	System.out.println(b3 == b1);		<span class="comment">// false</span></span><br><span class="line">	System.out.println(b3.floor == b1.floor); <span class="comment">// false</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-        Building b3 = (Building) b1.clone(); 
-        System.out.println(b3 == b1);       // false
-        System.out.println(b3.floor == b1.floor); // false
-    }
+通过实现`Cloneable`接口，重写`clone`方法，成功进行了`深复制`。
 
-
-通过实现`Cloneable`接口，重写`clone`方法，成功进行了`深复制`。 **⚠️然而，如下图所示，使用这种方法实现`深复制`，有着巨大的缺陷。** ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/chain.png) 在以上例子中，我们只有2个自定义类，`Building`包含`Floor`。但是当这种包含关系变得更加复杂，有无数多个自定义类，一层又一层地包含下去时，我们需要为每个自定义类都实现`Cloneable`接口，重写`clone`方法。（例如`Building`包含`Floor`，`Floor`包含`Room`）。更麻烦的是，处于高层次的类的`clone`方法会很复杂，要一个一个地对低层次的类调用`clone`方法，一旦其中有几个类的结构发生了变化，又要重新改写多个`clone`方法，一点也不科学。
+**⚠️然而，如下图所示，使用这种方法实现`深复制`，有着巨大的缺陷。**
+![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/chain.png)
+在以上例子中，我们只有2个自定义类，`Building`包含`Floor`。但是当这种包含关系变得更加复杂，有无数多个自定义类，一层又一层地包含下去时，我们需要为每个自定义类都实现`Cloneable`接口，重写`clone`方法。（例如`Building`包含`Floor`，`Floor`包含`Room`）。更麻烦的是，处于高层次的类的`clone`方法会很复杂，要一个一个地对低层次的类调用`clone`方法，一旦其中有几个类的结构发生了变化，又要重新改写多个`clone`方法，一点也不科学。
 </code></pre><ol start="2">
-<li><p>利用<code>Serializable</code>接口 首先说说什么是<code>Serialize（序列化）</code>和<code>Deserialize(反序列化）</code>。</p>
+<li><p>利用<code>Serializable</code>接口</p>
+<p> 首先说说什么是<code>Serialize（序列化）</code>和<code>Deserialize(反序列化）</code>。</p>
 <ul>
 <li><strong><code>Serialize（序列化）</code>指的是将内存中的对象转化为二进制数据，进而将对象数据存储到磁盘文件里</strong>。</li>
 <li><p><strong><code>Deserialize(反序列化）</code>指的是从磁盘文件中读取二进制数据，根据一定的规则转化为内存中的对象</strong>。</p>
-<p>public interface Serializable {<br>}</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Serializable</span> </span>&#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在<code>Java</code>中，如果想将一个对象序列化，首先得标记其为“可序列化”，即实现<code>Serializable</code>接口。<strong>跟<code>Cloneable</code>接口一样，<code>Serializable</code>接口也是一个空荡荡的<code>Mark-Interface</code>，它的唯一作用是用于标记该类可被序列化。</strong></p>
+<p>为了便于区分，不再使用<code>Building</code>和<code>Floor</code>进行说明。以下使用<code>Human</code>类和<code>Head</code>类。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Human</span> <span class="keyword">implements</span> <span class="title">Serializable</span> </span>&#123;</span><br><span class="line">	<span class="keyword">public</span> Head head;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">Human</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.head = <span class="keyword">new</span> Head();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">Human</span><span class="params">(Head head)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.head = head;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 深复制</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@return</span> 复制得到的Human对象</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> Exception</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> Human <span class="title">deepClone</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">		ByteArrayOutputStream baos = <span class="keyword">new</span> ByteArrayOutputStream();</span><br><span class="line">		ObjectOutputStream objectOutputStream = <span class="keyword">new</span> ObjectOutputStream(baos);</span><br><span class="line">		objectOutputStream.writeObject(<span class="keyword">this</span>);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">		ByteArrayInputStream bais = <span class="keyword">new</span> ByteArrayInputStream(baos.toByteArray());</span><br><span class="line">		ObjectInputStream objectInputStream = <span class="keyword">new</span> ObjectInputStream(bais);</span><br><span class="line">		<span class="keyword">return</span> (Human) objectInputStream.readObject();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Head</span> <span class="keyword">implements</span> <span class="title">Serializable</span> </span>&#123;</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">int</span> val;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">Head</span><span class="params">()</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">Head</span><span class="params">(<span class="keyword">int</span> val)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.val = val;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>核心代码为<code>Human</code>类中的<code>deepClone()</code>方法。首先先将当前对象(<code>this</code>)写到一个<code>ObjectOutputStream</code>中，然后再新建一个<code>ObjectInputStream</code>，并利用该<code>ObjectInputStream</code>的<code>readObject()</code>方法从流中获得一个<strong>新构建</strong>的Java对象。</p>
+<p>接下来，我们检测一下是否真正完成了<code>深复制</code>。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception</span>&#123;</span><br><span class="line"></span><br><span class="line">	Human h1 = <span class="keyword">new</span> Human();</span><br><span class="line">	Human h2 = h1.deepClone();</span><br><span class="line">	System.out.println(h1 == h2);		<span class="comment">// false</span></span><br><span class="line">	System.out.println(h1.head == h2.head);  <span class="comment">// false</span></span><br><span class="line">	</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>⚠️通过实现<code>Serializable</code>接口，可以避免重写多个<code>clone()</code>方法，也可实现深复制。</p>
 </li>
 </ul>
 </li>
 </ol>
-<pre><code>在`Java`中，如果想将一个对象序列化，首先得标记其为“可序列化”，即实现`Serializable`接口。**跟`Cloneable`接口一样，`Serializable`接口也是一个空荡荡的`Mark-Interface`，它的唯一作用是用于标记该类可被序列化。** 为了便于区分，不再使用`Building`和`Floor`进行说明。以下使用`Human`类和`Head`类。
-
-    class Human implements Serializable {
-        public Head head;
-
-        public Human() {
-            this.head = new Head();
-        }
-
-        public Human(Head head) {
-            this.head = head;
-        }
-
-        /**
-         * 深复制
-         * @return 复制得到的Human对象
-         * @throws Exception
-         */
-        public Human deepClone() throws Exception {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ObjectOutputStream objectOutputStream = new ObjectOutputStream(baos);
-            objectOutputStream.writeObject(this);
-
-
-            ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-            ObjectInputStream objectInputStream = new ObjectInputStream(bais);
-            return (Human) objectInputStream.readObject();
-        }
-    }
-
-    class Head implements Serializable {
-        public int val;
-
-        public Head() {
-
-        }
-
-        public Head(int val) {
-            this.val = val;
-        }
-    }
-
-
-核心代码为`Human`类中的`deepClone()`方法。首先先将当前对象(`this`)写到一个`ObjectOutputStream`中，然后再新建一个`ObjectInputStream`，并利用该`ObjectInputStream`的`readObject()`方法从流中获得一个**新构建**的Java对象。 接下来，我们检测一下是否真正完成了`深复制`。
-
-    public static void main(String[] args) throws Exception{
-
-        Human h1 = new Human();
-        Human h2 = h1.deepClone();
-        System.out.println(h1 == h2);       // false
-        System.out.println(h1.head == h2.head);  // false
-
-    }
-
-
-⚠️通过实现`Serializable`接口，可以避免重写多个`clone()`方法，也可实现深复制。
-</code></pre><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>在<code>Java</code>中，想要实现真正的<code>深复制</code>，有以下两种方法</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>在<code>Java</code>中，想要实现真正的<code>深复制</code>，有以下两种方法</p>
 <ol>
 <li>实现<code>Cloneable</code>接口，重写<code>clone()</code>方法。<ul>
 <li>优点：直观，容易理解，贴合人类思维。</li>

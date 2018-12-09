@@ -6,19 +6,19 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="HandheldFriendly" content="True">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <meta name="description" content="本文100%为本人（Haoxiang Ma）原创内容，如需转载请注明出处。  问题背景join操作在传统的关系型数据库中特别常见，往往用来连接两张或多张在某些键上有关联的表。但当我们的数据并没有被结构化存储到数据库中，手上仅有大量的raw data —— 成千上万个磁盘数据文件（如.dat或.txt）时，又或者当大量的数据文件存放在分布式的文件系统（HDFS）里，难以将其高效导入MySQL中时，">
+    <meta name="description" content="浅谈join与数据倾斜解决方案 本文100%为本人（Haoxiang Ma）原创内容，如需转载请注明出处。  问题背景join操作在传统的关系型数据库中特别常见，往往用来连接两张或多张在某些键上有关联的表。但当我们的数据并没有被结构化存储到数据库中，手上仅有大量的raw data —— 成千上万个磁盘数据文件（如.dat或.txt）时，又或者当大量的数据文件存放在分布式的文件系统（HDFS）里，难">
 <meta name="keywords" content="hadoop,mapreduce">
 <meta property="og:type" content="article">
 <meta property="og:title" content="浅谈join与数据倾斜解决方案">
 <meta property="og:url" content="http://yoursite.com/2018/03/04/join-di/index.html">
 <meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
-<meta property="og:description" content="本文100%为本人（Haoxiang Ma）原创内容，如需转载请注明出处。  问题背景join操作在传统的关系型数据库中特别常见，往往用来连接两张或多张在某些键上有关联的表。但当我们的数据并没有被结构化存储到数据库中，手上仅有大量的raw data —— 成千上万个磁盘数据文件（如.dat或.txt）时，又或者当大量的数据文件存放在分布式的文件系统（HDFS）里，难以将其高效导入MySQL中时，">
+<meta property="og:description" content="浅谈join与数据倾斜解决方案 本文100%为本人（Haoxiang Ma）原创内容，如需转载请注明出处。  问题背景join操作在传统的关系型数据库中特别常见，往往用来连接两张或多张在某些键上有关联的表。但当我们的数据并没有被结构化存储到数据库中，手上仅有大量的raw data —— 成千上万个磁盘数据文件（如.dat或.txt）时，又或者当大量的数据文件存放在分布式的文件系统（HDFS）里，难">
 <meta property="og:locale" content="default">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/dataIncline.png">
-<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta property="og:updated_time" content="2018-12-09T22:37:54.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="浅谈join与数据倾斜解决方案">
-<meta name="twitter:description" content="本文100%为本人（Haoxiang Ma）原创内容，如需转载请注明出处。  问题背景join操作在传统的关系型数据库中特别常见，往往用来连接两张或多张在某些键上有关联的表。但当我们的数据并没有被结构化存储到数据库中，手上仅有大量的raw data —— 成千上万个磁盘数据文件（如.dat或.txt）时，又或者当大量的数据文件存放在分布式的文件系统（HDFS）里，难以将其高效导入MySQL中时，">
+<meta name="twitter:description" content="浅谈join与数据倾斜解决方案 本文100%为本人（Haoxiang Ma）原创内容，如需转载请注明出处。  问题背景join操作在传统的关系型数据库中特别常见，往往用来连接两张或多张在某些键上有关联的表。但当我们的数据并没有被结构化存储到数据库中，手上仅有大量的raw data —— 成千上万个磁盘数据文件（如.dat或.txt）时，又或者当大量的数据文件存放在分布式的文件系统（HDFS）里，难">
 <meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/dataIncline.png">
     
     
@@ -103,7 +103,7 @@
 
     </div>
     <div id="toc">
-      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#问题背景"><span class="toc-number">1.</span> <span class="toc-text">问题背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#问题分析"><span class="toc-number">2.</span> <span class="toc-text">问题分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#具体实现"><span class="toc-number">3.</span> <span class="toc-text">具体实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#极端情况——“数据倾斜”"><span class="toc-number">4.</span> <span class="toc-text">极端情况——“数据倾斜”</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#总结"><span class="toc-number">5.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#代码"><span class="toc-number">6.</span> <span class="toc-text">代码</span></a></li></ol>
+      <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#浅谈join与数据倾斜解决方案"><span class="toc-number">1.</span> <span class="toc-text">浅谈join与数据倾斜解决方案</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#问题背景"><span class="toc-number">1.1.</span> <span class="toc-text">问题背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#问题分析"><span class="toc-number">1.2.</span> <span class="toc-text">问题分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#具体实现"><span class="toc-number">1.3.</span> <span class="toc-text">具体实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#极端情况——“数据倾斜”"><span class="toc-number">1.4.</span> <span class="toc-text">极端情况——“数据倾斜”</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#总结"><span class="toc-number">1.5.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#代码"><span class="toc-number">1.6.</span> <span class="toc-text">代码</span></a></li></ol></li></ol>
     </div>
   </span>
 </div>
@@ -142,472 +142,73 @@
   
 
   <div class="content" itemprop="articleBody">
-    <blockquote>
+    <h1 id="浅谈join与数据倾斜解决方案"><a href="#浅谈join与数据倾斜解决方案" class="headerlink" title="浅谈join与数据倾斜解决方案"></a>浅谈join与数据倾斜解决方案</h1><blockquote>
 <p>本文100%为本人（Haoxiang Ma）原创内容，如需转载请注明出处。</p>
 </blockquote>
-<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p><code>join</code>操作在传统的关系型数据库中特别常见，往往用来连接两张或多张在某些键上有关联的表。但当我们的数据并没有被结构化存储到数据库中，手上仅有大量的<strong><em>raw data</em></strong> —— 成千上万个磁盘数据文件（如.dat或.txt）时，又或者当大量的数据文件存放在分布式的文件系统（HDFS）里，难以将其高效导入MySQL中时，我们很自然地就会思考：<strong>有没有不需要依靠关系型数据库而实现的join呢？对于海量文件能不能用Map-Reduce实现join操作呢？</strong> 假设现在系统中有两类数据文件：</p>
+<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p><code>join</code>操作在传统的关系型数据库中特别常见，往往用来连接两张或多张在某些键上有关联的表。但当我们的数据并没有被结构化存储到数据库中，手上仅有大量的<strong><em>raw data</em></strong> —— 成千上万个磁盘数据文件（如.dat或.txt）时，又或者当大量的数据文件存放在分布式的文件系统（HDFS）里，难以将其高效导入MySQL中时，我们很自然地就会思考：<strong>有没有不需要依靠关系型数据库而实现的join呢？对于海量文件能不能用Map-Reduce实现join操作呢？</strong></p>
+<p>假设现在系统中有两类数据文件：</p>
 <ol>
 <li><strong><em>用户数据文件（User）</em></strong></li>
-<li><p><strong><em>订单数据文件（Order）</em></strong></p>
-<p>// user文件结构<br>user_id, user_name, phone</p>
-<pre><code>1,      aa,     10086
-2,      bb,     10010
-......
-</code></pre><p>// order文件结构<br>order_id, user_id,  price,  date</p>
-<pre><code>1,      1,      15.5    2018-01-01
-2,      1,      3.9     2018-01-01
-3,      1,      26.0    2018-01-03
-4,      2,      2.2     2018-01-04
-......
-</code></pre></li>
+<li><strong><em>订单数据文件（Order）</em></strong></li>
 </ol>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">// user文件结构</span><br><span class="line">user_id, user_name, phone</span><br><span class="line">	1,		aa,		10086</span><br><span class="line">	2,		bb,		10010</span><br><span class="line">	......</span><br><span class="line"></span><br><span class="line">// order文件结构</span><br><span class="line">order_id, user_id, 	price, 	date</span><br><span class="line">	1,		1,		15.5	2018-01-01</span><br><span class="line">	2,		1,		3.9		2018-01-01</span><br><span class="line">	3,		1,		26.0	2018-01-03</span><br><span class="line">	4,		2,		2.2		2018-01-04</span><br><span class="line">	......</span><br></pre></td></tr></table></figure>
 <p>需求是将<strong><em>用户数据文件（User）</em></strong>和<strong><em>订单数据文件（Order）</em></strong>通过<code>user_id</code>键相关联，得到总的用户信息+用户订单信息的总“表”（一个数据文件的内容可看作表的一部分）。</p>
-<pre><code>// 期望得到的总表结构
-user_id, user_name, phone, order_id, price, date
-    1,      aa,     10086,      1,    15.5, 2018-01-01
-    ......  
-</code></pre><p>本文将基于以上需求，对Map-Reduce实现两表关联（join）进行探讨。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">// 期望得到的总表结构</span><br><span class="line">user_id, user_name, phone, order_id, price, date</span><br><span class="line">	1,		aa,		10086,		1,	  15.5,	2018-01-01</span><br><span class="line">	......</span><br></pre></td></tr></table></figure>
+<p>本文将基于以上需求，对Map-Reduce实现两表关联（join）进行探讨。</p>
 <h2 id="问题分析"><a href="#问题分析" class="headerlink" title="问题分析"></a>问题分析</h2><p>要利用Map-Reduce实现两表关联，关键点有以下几个：</p>
 <ol>
-<li><p>如何辨别当前处理的数据来自于<strong><em>User表</em></strong>还是<strong><em>Order表</em></strong> 因为两种文件有不同的数据格式，我们在Mapper里对数据逐行进行处理时，必须要知道当前这行数据来自于<strong><em>User表</em></strong>还是<strong><em>Order表</em></strong>， 不然根本没有办法编写进一步的处理逻辑。其实看过我之前文章的同学应该见过在Mapper里获取当前数据所属文件名的方法。简单来说，就是<strong><em>map方法</em></strong>的<code>Context</code>参数其实带有了很多本次Job的运行信息，其中就包括了当前数据来自于哪个<code>FileSplit</code>，进一步可以获得该<code>FileSplit</code>所属的文件名。</p>
-<pre><code>FileSplit fileSplit = (FileSplit)context.getInputSplit();
-String fileName = fileSplit.getPath().getName();
-</code></pre></li>
+<li><p>如何辨别当前处理的数据来自于<strong><em>User表</em></strong>还是<strong><em>Order表</em></strong></p>
+<p> 因为两种文件有不同的数据格式，我们在Mapper里对数据逐行进行处理时，必须要知道当前这行数据来自于<strong><em>User表</em></strong>还是<strong><em>Order表</em></strong>， 不然根本没有办法编写进一步的处理逻辑。其实看过我之前文章的同学应该见过在Mapper里获取当前数据所属文件名的方法。简单来说，就是<strong><em>map方法</em></strong>的<code>Context</code>参数其实带有了很多本次Job的运行信息，其中就包括了当前数据来自于哪个<code>FileSplit</code>，进一步可以获得该<code>FileSplit</code>所属的文件名。</p>
+ <figure class="highlight java"><table><tr><td class="code"><pre><span class="line">FileSplit fileSplit = (FileSplit)context.getInputSplit();</span><br><span class="line">String fileName = fileSplit.getPath().getName();</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>有两种不同的数据文件，可是一个MR任务里只有一种K-V对定义</p>
+<p> 两种文件格式，一种K-V对定义，那很自然我们就要想想如何将两种“合并”成一种，同时还能随时将这个合并的产物分开成两种。其实之前的文章已经多次提及一种在Map-Reduce里常用的概念——<strong>自定义JavaBean</strong>，作为一个自定义类，它的复合性质可以帮助我们“集成”很多原生数据类型。在当前问题里，我们可以定义一个<code>JavaBean</code>，<strong>集成User表与Order表的所有字段</strong>，并额外添加一个<code>flag</code>字段用以表明实例对象是<code>User</code>数据还是<code>Order</code>数据。通过这个<code>JavaBean</code>就可以实现“合并且随时可分离”的需求了。</p>
+ <figure class="highlight java"><table><tr><td class="code"><pre><span class="line">JavaBean = &#123;user_id, order_id, user_name, phone, price, date&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong><em>“join”</em></strong>的逻辑具体怎么写</p>
+<p> 基于第2点，实现了一个集成的JavaBean后，我们可以在map中将数据封装成JavaBean实例对象，然后用flag字段指明数据类型。为了实现join功能，我们必须确保同一个<code>User</code>的所有数据都到达同一个Reducer处，那样才能将该用户的所有订单与其用户信息关联起来，避免遗漏。为了让同一个User的数据都到达同一个Reducer，我们要让Map端输出的K-V对为<code>&lt;UserID, JavaBean&gt;</code>，那么在Partition的时候，同一个UserID的数据自然会被分配到同一个Reducer。</p>
+<p> 当Reducer拿到一批<code>&lt;UserID, JavaBean&gt;</code>数据后，将其整合为<code>&lt;UserID, Iterable&lt;JavaBean&gt;&gt;</code>。我们可以在<code>Iterable&lt;JavaBean&gt;&gt;</code>里通过判断<code>flag</code>的值找出<code>User</code>的JavaBean，称为<strong><em>U</em></strong>。然后对于每个<code>Order</code>的JavaBean（称为<strong><em>O</em></strong>），从<strong><em>O</em></strong>中取出<code>order_id</code>, <code>price</code>, <code>date</code>，从<strong><em>U</em></strong>中取出<code>user_id</code>, <code>user_name</code>, <code>phone</code>，组成结果数据<strong><em>R</em></strong>。</p>
+ <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">R = (order_id, price, date，user_id, user_name, phone)</span><br></pre></td></tr></table></figure>
+<p> Reducer循环将多个<code>&lt;R, NullWritable&gt;</code>写到最终Context中，便完成了join逻辑。</p>
+</li>
 </ol>
-<ol start="2">
-<li><p>有两种不同的数据文件，可是一个MR任务里只有一种K-V对定义 两种文件格式，一种K-V对定义，那很自然我们就要想想如何将两种“合并”成一种，同时还能随时将这个合并的产物分开成两种。其实之前的文章已经多次提及一种在Map-Reduce里常用的概念——<strong>自定义JavaBean</strong>，作为一个自定义类，它的复合性质可以帮助我们“集成”很多原生数据类型。在当前问题里，我们可以定义一个<code>JavaBean</code>，<strong>集成User表与Order表的所有字段</strong>，并额外添加一个<code>flag</code>字段用以表明实例对象是<code>User</code>数据还是<code>Order</code>数据。通过这个<code>JavaBean</code>就可以实现“合并且随时可分离”的需求了。</p>
-<pre><code>JavaBean = {user_id, order_id, user_name, phone, price, date}
-</code></pre></li>
-</ol>
-<ol start="3">
-<li><p><strong><em>“join”</em></strong>的逻辑具体怎么写 基于第2点，实现了一个集成的JavaBean后，我们可以在map中将数据封装成JavaBean实例对象，然后用flag字段指明数据类型。为了实现join功能，我们必须确保同一个<code>User</code>的所有数据都到达同一个Reducer处，那样才能将该用户的所有订单与其用户信息关联起来，避免遗漏。为了让同一个User的数据都到达同一个Reducer，我们要让Map端输出的K-V对为<code>&lt;UserID, JavaBean&gt;</code>，那么在Partition的时候，同一个UserID的数据自然会被分配到同一个Reducer。 当Reducer拿到一批<code>&lt;UserID, JavaBean&gt;</code>数据后，将其整合为<code>&lt;UserID, Iterable&lt;JavaBean&gt;&gt;</code>。我们可以在<code>Iterable&lt;JavaBean&gt;&gt;</code>里通过判断<code>flag</code>的值找出<code>User</code>的JavaBean，称为<strong>_U_</strong>。然后对于每个<code>Order</code>的JavaBean（称为<strong>_O_</strong>），从<strong>_O_</strong>中取出<code>order_id</code>, <code>price</code>, <code>date</code>，从<strong>_U_</strong>中取出<code>user_id</code>, <code>user_name</code>, <code>phone</code>，组成结果数据<strong>_R_</strong>。</p>
-<pre><code>R = (order_id, price, date，user_id, user_name, phone)
-</code></pre></li>
-</ol>
-<pre><code>Reducer循环将多个`&lt;R, NullWritable&gt;`写到最终Context中，便完成了join逻辑。
-</code></pre><h2 id="具体实现"><a href="#具体实现" class="headerlink" title="具体实现"></a>具体实现</h2><ol>
+<h2 id="具体实现"><a href="#具体实现" class="headerlink" title="具体实现"></a>具体实现</h2><ol>
 <li><p>自定义JavaBean</p>
-<pre><code>/**
- * 自定义JavaBean, 实现Writable接口, 因本任务不存在&quot;比较&quot;, 无需实现WritableComparable
- */
-public class JoinBean implements Writable{
-    public String userID;
-    public String uName;
-    public String phone;
-    public String orderID;
-    public String price;
-    public String date;
-    public String flag;     // 用于标识User还是Order
-
-    public JoinBean() {
-
-    }
-
-    public JoinBean(String userID, String uName, String phone, String orderID, String price, String date, String flag) {
-        this.userID = userID;
-        this.uName = uName;
-        this.phone = phone;
-        this.orderID = orderID;
-        this.price = price;
-        this.date = date;
-        this.flag = flag;
-    }
-
-    public void set(String userID, String uName, String phone, String orderID, String price, String date, String flag) {
-        this.userID = userID;
-        this.uName = uName;
-        this.phone = phone;
-        this.orderID = orderID;
-        this.price = price;
-        this.date = date;
-        this.flag = flag;
-    }
-
-    @Override
-    public String toString() {
-        return &quot;uName=&apos;&quot; + uName + &apos;\&apos;&apos; +
-                &quot;, phone=&apos;&quot; + phone + &apos;\&apos;&apos; +
-                &quot;, orderID=&apos;&quot; + orderID + &apos;\&apos;&apos; +
-                &quot;, price=&apos;&quot; + price + &apos;\&apos;&apos; +
-                &quot;, date=&apos;&quot; + date + &apos;\&apos;&apos;;
-    }
-
-    public String getUserID() {
-        return userID;
-    }
-
-    public void setUserID(String userID) {
-        this.userID = userID;
-    }
-
-    public String getFlag() {
-        return flag;
-    }
-
-    public void setFlag(String flag) {
-        this.flag = flag;
-    }
-
-    public String getuName() {
-        return uName;
-    }
-
-    public void setuName(String uName) {
-        this.uName = uName;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    public String getOrderID() {
-        return orderID;
-    }
-
-    public void setOrderID(String orderID) {
-        this.orderID = orderID;
-    }
-
-    public String getPrice() {
-        return price;
-    }
-
-    public void setPrice(String price) {
-        this.price = price;
-    }
-
-    public String getDate() {
-        return date;
-    }
-
-    public void setDate(String date) {
-        this.date = date;
-    }
-
-    @Override
-    public void write(DataOutput dataOutput) throws IOException {
-        dataOutput.writeUTF(userID);
-        dataOutput.writeUTF(uName);
-        dataOutput.writeUTF(phone);
-        dataOutput.writeUTF(orderID);
-        dataOutput.writeUTF(price);
-        dataOutput.writeUTF(date);
-        dataOutput.writeUTF(flag);
-    }
-
-    @Override
-    public void readFields(DataInput dataInput) throws IOException      {
-        userID = dataInput.readUTF();
-        uName = dataInput.readUTF();
-        phone = dataInput.readUTF();
-        orderID = dataInput.readUTF();
-        price = dataInput.readUTF();
-        date = dataInput.readUTF();
-        flag = dataInput.readUTF();
-    }
-}
-</code></pre></li>
-</ol>
-<ol start="2">
+ <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 自定义JavaBean, 实现Writable接口, 因本任务不存在"比较", 无需实现WritableComparable</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">JoinBean</span> <span class="keyword">implements</span> <span class="title">Writable</span></span>&#123;</span><br><span class="line">	<span class="keyword">public</span> String userID;</span><br><span class="line">	<span class="keyword">public</span> String uName;</span><br><span class="line">	<span class="keyword">public</span> String phone;</span><br><span class="line">	<span class="keyword">public</span> String orderID;</span><br><span class="line">	<span class="keyword">public</span> String price;</span><br><span class="line">	<span class="keyword">public</span> String date;</span><br><span class="line">	<span class="keyword">public</span> String flag;		<span class="comment">// 用于标识User还是Order</span></span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">JoinBean</span><span class="params">()</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">JoinBean</span><span class="params">(String userID, String uName, String phone, String orderID, String price, String date, String flag)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.userID = userID;</span><br><span class="line">		<span class="keyword">this</span>.uName = uName;</span><br><span class="line">		<span class="keyword">this</span>.phone = phone;</span><br><span class="line">		<span class="keyword">this</span>.orderID = orderID;</span><br><span class="line">		<span class="keyword">this</span>.price = price;</span><br><span class="line">		<span class="keyword">this</span>.date = date;</span><br><span class="line">		<span class="keyword">this</span>.flag = flag;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">set</span><span class="params">(String userID, String uName, String phone, String orderID, String price, String date, String flag)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.userID = userID;</span><br><span class="line">		<span class="keyword">this</span>.uName = uName;</span><br><span class="line">		<span class="keyword">this</span>.phone = phone;</span><br><span class="line">		<span class="keyword">this</span>.orderID = orderID;</span><br><span class="line">		<span class="keyword">this</span>.price = price;</span><br><span class="line">		<span class="keyword">this</span>.date = date;</span><br><span class="line">		<span class="keyword">this</span>.flag = flag;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">toString</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="string">"uName='"</span> + uName + <span class="string">'\''</span> +</span><br><span class="line">				<span class="string">", phone='"</span> + phone + <span class="string">'\''</span> +</span><br><span class="line">				<span class="string">", orderID='"</span> + orderID + <span class="string">'\''</span> +</span><br><span class="line">				<span class="string">", price='"</span> + price + <span class="string">'\''</span> +</span><br><span class="line">				<span class="string">", date='"</span> + date + <span class="string">'\''</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getUserID</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> userID;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setUserID</span><span class="params">(String userID)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.userID = userID;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getFlag</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> flag;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setFlag</span><span class="params">(String flag)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.flag = flag;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getuName</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> uName;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setuName</span><span class="params">(String uName)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.uName = uName;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getPhone</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> phone;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setPhone</span><span class="params">(String phone)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.phone = phone;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getOrderID</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> orderID;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setOrderID</span><span class="params">(String orderID)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.orderID = orderID;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getPrice</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> price;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setPrice</span><span class="params">(String price)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.price = price;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getDate</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> date;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setDate</span><span class="params">(String date)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.date = date;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">write</span><span class="params">(DataOutput dataOutput)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">		dataOutput.writeUTF(userID);</span><br><span class="line">		dataOutput.writeUTF(uName);</span><br><span class="line">		dataOutput.writeUTF(phone);</span><br><span class="line">		dataOutput.writeUTF(orderID);</span><br><span class="line">		dataOutput.writeUTF(price);</span><br><span class="line">		dataOutput.writeUTF(date);</span><br><span class="line">		dataOutput.writeUTF(flag);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">readFields</span><span class="params">(DataInput dataInput)</span> <span class="keyword">throws</span> IOException 		</span>&#123;</span><br><span class="line">		userID = dataInput.readUTF();</span><br><span class="line">		uName = dataInput.readUTF();</span><br><span class="line">		phone = dataInput.readUTF();</span><br><span class="line">		orderID = dataInput.readUTF();</span><br><span class="line">		price = dataInput.readUTF();</span><br><span class="line">		date = dataInput.readUTF();</span><br><span class="line">		flag = dataInput.readUTF();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
 <li><p>Mapper</p>
-<pre><code>/**
- * Mapper类
- */
-public class JoinMapper extends Mapper&lt;LongWritable, Text, Text, JoinBean&gt; {
-
-    public static final String USER = &quot;user&quot;;
-    public static final String ORDER = &quot;order&quot;;
-
-    public JoinBean info = new JoinBean();
-    @Override
-    protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-
-        FileSplit fileSplit = (FileSplit)context.getInputSplit();
-        String fileName = fileSplit.getPath().getName();    // 获取数据所属文件名
-
-        String line = value.toString();
-        String[] data = line.split(&quot;,&quot;);
-        String userID = data[0];
-
-        // 通过flag标识实例对象是User还是Order
-        if(fileName.startsWith(&quot;user&quot;)) {
-            info.set(&quot;&quot;, data[1], data[2], &quot;&quot;, &quot;&quot;, &quot;&quot;, USER);
-        } else {
-            info.set(&quot;&quot;, &quot;&quot;, &quot;&quot;, data[1], data[2], data[3], ORDER);
-        }
-        context.write(new Text(userID), info);
-    }
-}
-</code></pre></li>
-</ol>
-<ol start="3">
+ <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Mapper类</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">JoinMapper</span> <span class="keyword">extends</span> <span class="title">Mapper</span>&lt;<span class="title">LongWritable</span>, <span class="title">Text</span>, <span class="title">Text</span>, <span class="title">JoinBean</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> String USER = <span class="string">"user"</span>;</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> String ORDER = <span class="string">"order"</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">public</span> JoinBean info = <span class="keyword">new</span> JoinBean();</span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">map</span><span class="params">(LongWritable key, Text value, Context context)</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line"></span><br><span class="line">		FileSplit fileSplit = (FileSplit)context.getInputSplit();</span><br><span class="line">		String fileName = fileSplit.getPath().getName();	<span class="comment">// 获取数据所属文件名</span></span><br><span class="line"></span><br><span class="line">		String line = value.toString();</span><br><span class="line">		String[] data = line.split(<span class="string">","</span>);</span><br><span class="line">		String userID = data[<span class="number">0</span>];</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 通过flag标识实例对象是User还是Order</span></span><br><span class="line">		<span class="keyword">if</span>(fileName.startsWith(<span class="string">"user"</span>)) &#123;</span><br><span class="line">			info.set(<span class="string">""</span>, data[<span class="number">1</span>], data[<span class="number">2</span>], <span class="string">""</span>, <span class="string">""</span>, <span class="string">""</span>, USER);</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			info.set(<span class="string">""</span>, <span class="string">""</span>, <span class="string">""</span>, data[<span class="number">1</span>], data[<span class="number">2</span>], data[<span class="number">3</span>], ORDER);</span><br><span class="line">		&#125;</span><br><span class="line">		context.write(<span class="keyword">new</span> Text(userID), info);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
 <li><p>Reducer</p>
-<pre><code>/**
- * Reducer类
- */
-public class JoinReducer extends Reducer&lt;Text, JoinBean, JoinBean, NullWritable&gt; {
-    @Override
-    protected void reduce(Text key, Iterable&lt;JoinBean&gt; values, Context context) throws IOException, InterruptedException {
-        JoinBean userInfo = new JoinBean();
-        List&lt;JoinBean&gt; orders = new ArrayList&lt;&gt;();
-
-        for(JoinBean info : values) {
-            // 同一个UserID，有且仅有1个User对象，其他均为该User的Order对象
-            if(info.getFlag().equals(&quot;user&quot;)) {
-                try {
-                    BeanUtils.copyProperties(userInfo, info);
-                } catch (Exception e) {
-                    System.out.println(e.toString());
-                }
-            } else if(info.getFlag().equals(&quot;order&quot;)){
-                JoinBean order = new JoinBean();
-                try {
-                    BeanUtils.copyProperties(order, info);
-                } catch (Exception e) {
-                    System.out.println(e.toString());
-                }
-                orders.add(order);
-            }
-        }
-
-        // 提取所需属性, 合并, 输出
-        for(JoinBean order : orders) {
-            JoinBean record = new JoinBean();
-            record.set(key.toString(), userInfo.getuName(), userInfo.getPhone(), order.getOrderID(), order.getPrice(), order.getDate(), order.getFlag());
-            context.write(record, NullWritable.get());
-        }
-    }
-}
-</code></pre></li>
-</ol>
-<ol start="4">
+ <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Reducer类</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">JoinReducer</span> <span class="keyword">extends</span> <span class="title">Reducer</span>&lt;<span class="title">Text</span>, <span class="title">JoinBean</span>, <span class="title">JoinBean</span>, <span class="title">NullWritable</span>&gt; </span>&#123;</span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">reduce</span><span class="params">(Text key, Iterable&lt;JoinBean&gt; values, Context context)</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line">		JoinBean userInfo = <span class="keyword">new</span> JoinBean();</span><br><span class="line">		List&lt;JoinBean&gt; orders = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line"></span><br><span class="line">		<span class="keyword">for</span>(JoinBean info : values) &#123;</span><br><span class="line">			<span class="comment">// 同一个UserID，有且仅有1个User对象，其他均为该User的Order对象</span></span><br><span class="line">			<span class="keyword">if</span>(info.getFlag().equals(<span class="string">"user"</span>)) &#123;</span><br><span class="line">				<span class="keyword">try</span> &#123;</span><br><span class="line">					BeanUtils.copyProperties(userInfo, info);</span><br><span class="line">				&#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">					System.out.println(e.toString());</span><br><span class="line">				&#125;</span><br><span class="line">			&#125; <span class="keyword">else</span> <span class="keyword">if</span>(info.getFlag().equals(<span class="string">"order"</span>))&#123;</span><br><span class="line">				JoinBean order = <span class="keyword">new</span> JoinBean();</span><br><span class="line">				<span class="keyword">try</span> &#123;</span><br><span class="line">					BeanUtils.copyProperties(order, info);</span><br><span class="line">				&#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">					System.out.println(e.toString());</span><br><span class="line">				&#125;</span><br><span class="line">				orders.add(order);</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 提取所需属性, 合并, 输出</span></span><br><span class="line">		<span class="keyword">for</span>(JoinBean order : orders) &#123;</span><br><span class="line">			JoinBean record = <span class="keyword">new</span> JoinBean();</span><br><span class="line">			record.set(key.toString(), userInfo.getuName(), userInfo.getPhone(), order.getOrderID(), order.getPrice(), order.getDate(), order.getFlag());</span><br><span class="line">			context.write(record, NullWritable.get());</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
 <li><p>Driver（程序入口）</p>
-<pre><code>public class JoinDriver {
-    public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
-        Configuration conf = new Configuration();
-        conf.set(&quot;fs.defaultFS&quot;, &quot;hdfs://localhost:9000&quot;);
-        Job joinJob = Job.getInstance(conf);
-
-        joinJob.setMapperClass(JoinMapper.class);
-        joinJob.setReducerClass(JoinReducer.class);
-
-        joinJob.setJarByClass(JoinDriver.class);
-
-        joinJob.setMapOutputKeyClass(Text.class);
-        joinJob.setMapOutputValueClass(JoinBean.class);
-        joinJob.setOutputKeyClass(JoinBean.class);
-        joinJob.setOutputValueClass(NullWritable.class);
-
-        FileInputFormat.setInputPaths(joinJob, new Path(&quot;/join/input&quot;));
-        FileOutputFormat.setOutputPath(joinJob, new Path(&quot;/join/output&quot;));
-
-        System.exit(joinJob.waitForCompletion(true) ? 0 : 1);
-    }
-}
-</code></pre></li>
+ <figure class="highlight java"><table><tr><td class="code"><pre><span class="line">	<span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">JoinDriver</span> </span>&#123;</span><br><span class="line">		<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException, ClassNotFoundException, InterruptedException </span>&#123;</span><br><span class="line">			Configuration conf = <span class="keyword">new</span> Configuration();</span><br><span class="line">			conf.set(<span class="string">"fs.defaultFS"</span>, <span class="string">"hdfs://localhost:9000"</span>);</span><br><span class="line">			Job joinJob = Job.getInstance(conf);</span><br><span class="line">	</span><br><span class="line">			joinJob.setMapperClass(JoinMapper.class);</span><br><span class="line">			joinJob.setReducerClass(JoinReducer.class);</span><br><span class="line">	</span><br><span class="line">			joinJob.setJarByClass(JoinDriver.class);</span><br><span class="line">	</span><br><span class="line">			joinJob.setMapOutputKeyClass(Text.class);</span><br><span class="line">			joinJob.setMapOutputValueClass(JoinBean.class);</span><br><span class="line">			joinJob.setOutputKeyClass(JoinBean.class);</span><br><span class="line">			joinJob.setOutputValueClass(NullWritable.class);</span><br><span class="line">	</span><br><span class="line">			FileInputFormat.setInputPaths(joinJob, <span class="keyword">new</span> Path(<span class="string">"/join/input"</span>));</span><br><span class="line">			FileOutputFormat.setOutputPath(joinJob, <span class="keyword">new</span> Path(<span class="string">"/join/output"</span>));</span><br><span class="line">	</span><br><span class="line">			System.exit(joinJob.waitForCompletion(<span class="keyword">true</span>) ? <span class="number">0</span> : <span class="number">1</span>);</span><br><span class="line">		&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
 </ol>
-<h2 id="极端情况——“数据倾斜”"><a href="#极端情况——“数据倾斜”" class="headerlink" title="极端情况——“数据倾斜”"></a>极端情况——“数据倾斜”</h2><p>在这个问题里，我们的数据分为<code>User</code>和<code>Order</code>两类，其中明显<code>User</code>的数据会比<code>Order</code>少得多。一位用户只可能有一行<code>User</code>记录（在系统不出错的情况下），而一位用户却可以有N行<code>Order</code>记录，因为他可以“疯狂购物”产生了成千上万条的订单数据。 极端情况下，有一位<code>User</code>：<code>user_1</code>对应了<code>1000000</code>条<code>Order</code>数据，另一位<code>User</code>：<code>user_2</code>对应了<code>2</code>条<code>Order</code>数据。那么必然有一个负责处理<code>user_1</code>的Reducer<code>reducer_1</code>的负载过高，因为要处理<code>1000000</code>条数据，其他负载极少的Reducer干完活之后就得白白浪费时间等着<code>reducer_1</code>完成任务（<strong><em>往往表现为Job进度卡在99%</em></strong>），才能汇报整个Job已完成。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/dataIncline.png" alt=""> 如图所示，因为大量的数据涌向少数的节点，像是一个倾斜的天平，一端重一端轻，所以以上的情况便称为<code>数据倾斜</code>。 为了解决当前问题引起的数据倾斜，我们可以采用一种<strong>”map端join“</strong>的方式进行关联操作，代替之前在Reducer端收集数据进行join的逻辑。相比<code>Order</code>表，<code>User</code>表无疑小得多，甚至可能是几百倍的量级差距，所以完全可能把这个小表分发给各个Mapper，让每个Mapper都拥有一份<strong><em>完整的User表</em></strong>，进而将其加载入内存构造一个<code>&lt;user_id, user_info&gt;</code>的哈希表。这么一来，在Mapper内只需要处理<code>Order</code>的数据，然后根据<code>Order</code>里的<code>user_id</code>查到哈希表里该id对应的<code>user_info</code>，连接起来，即可完成join操作。</p>
+<h2 id="极端情况——“数据倾斜”"><a href="#极端情况——“数据倾斜”" class="headerlink" title="极端情况——“数据倾斜”"></a>极端情况——“数据倾斜”</h2><p>在这个问题里，我们的数据分为<code>User</code>和<code>Order</code>两类，其中明显<code>User</code>的数据会比<code>Order</code>少得多。一位用户只可能有一行<code>User</code>记录（在系统不出错的情况下），而一位用户却可以有N行<code>Order</code>记录，因为他可以“疯狂购物”产生了成千上万条的订单数据。</p>
+<p>极端情况下，有一位<code>User</code>：<code>user_1</code>对应了<code>1000000</code>条<code>Order</code>数据，另一位<code>User</code>：<code>user_2</code>对应了<code>2</code>条<code>Order</code>数据。那么必然有一个负责处理<code>user_1</code>的Reducer<code>reducer_1</code>的负载过高，因为要处理<code>1000000</code>条数据，其他负载极少的Reducer干完活之后就得白白浪费时间等着<code>reducer_1</code>完成任务（<strong><em>往往表现为Job进度卡在99%</em></strong>），才能汇报整个Job已完成。</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/dataIncline.png" alt=""></p>
+<p>如图所示，因为大量的数据涌向少数的节点，像是一个倾斜的天平，一端重一端轻，所以以上的情况便称为<code>数据倾斜</code>。</p>
+<p>为了解决当前问题引起的数据倾斜，我们可以采用一种<strong>”map端join“</strong>的方式进行关联操作，代替之前在Reducer端收集数据进行join的逻辑。相比<code>Order</code>表，<code>User</code>表无疑小得多，甚至可能是几百倍的量级差距，所以完全可能把这个小表分发给各个Mapper，让每个Mapper都拥有一份<strong><em>完整的User表</em></strong>，进而将其加载入内存构造一个<code>&lt;user_id, user_info&gt;</code>的哈希表。这么一来，在Mapper内只需要处理<code>Order</code>的数据，然后根据<code>Order</code>里的<code>user_id</code>查到哈希表里该id对应的<code>user_info</code>，连接起来，即可完成join操作。</p>
 <ul>
-<li><p>MapJoinMapper</p>
-<p>/**</p>
+<li>MapJoinMapper</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 实现Map端join的Mapper</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MapJoinMapper</span> <span class="keyword">extends</span> <span class="title">Mapper</span>&lt;<span class="title">LongWritable</span>, <span class="title">Text</span>, <span class="title">MapJoinBean</span>, <span class="title">NullWritable</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> Map&lt;String, List&lt;String&gt;&gt; userTable = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br><span class="line">	<span class="keyword">private</span> MapJoinBean outputKey = <span class="keyword">new</span> MapJoinBean();</span><br><span class="line"></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> String ORDER_FILE = <span class="string">"order.txt"</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * Mapper会自行调用的一个初始化方法</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@param</span> context Job信息</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> IOException</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@throws</span> InterruptedException</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">setup</span><span class="params">(Context context)</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 获取系统"投放"到本地的cache文件, 本问题中只有1个，即user.txt</span></span><br><span class="line">		URI[] uris = context.getCacheFiles();</span><br><span class="line">		FileSystem fs = FileSystem.get(context.getConfiguration());</span><br><span class="line">		FSDataInputStream inputStream = fs.open(<span class="keyword">new</span> Path(uris[<span class="number">0</span>]));</span><br><span class="line">		BufferedReader reader = <span class="keyword">new</span> BufferedReader(<span class="keyword">new</span> InputStreamReader(inputStream));</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 逐行读取user.txt中的数据, 构建userTable</span></span><br><span class="line">		String line = <span class="keyword">null</span>;</span><br><span class="line">		<span class="keyword">while</span>((line = reader.readLine()) != <span class="keyword">null</span>) &#123;</span><br><span class="line">			String[] terms = line.split(<span class="string">","</span>);</span><br><span class="line">			<span class="keyword">if</span>(!userTable.containsKey(terms[<span class="number">0</span>])) &#123;</span><br><span class="line">				userTable.put(terms[<span class="number">0</span>], <span class="keyword">new</span> ArrayList&lt;&gt;());</span><br><span class="line">			&#125;</span><br><span class="line">			userTable.get(terms[<span class="number">0</span>]).add(terms[<span class="number">1</span>]);</span><br><span class="line">			userTable.get(terms[<span class="number">0</span>]).add(terms[<span class="number">2</span>]);</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		reader.close();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">map</span><span class="params">(LongWritable key, Text value, Context context)</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line"></span><br><span class="line">		FileSplit fileSplit = (FileSplit) context.getInputSplit();</span><br><span class="line">		String fileName = fileSplit.getPath().getName();</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 不需要再处理User数据文件了, 因为已经通过setup把其数据加载到内存中的userTable</span></span><br><span class="line">		<span class="keyword">if</span>(fileName.equals(ORDER_FILE)) &#123;</span><br><span class="line">			String line = value.toString();</span><br><span class="line">			String[] terms = line.split(<span class="string">","</span>);</span><br><span class="line"></span><br><span class="line">			<span class="comment">// 从本地的"小表" —— userTable处获得userID对应的数据</span></span><br><span class="line">			String userName = userTable.get(terms[<span class="number">0</span>]).get(<span class="number">0</span>);</span><br><span class="line">			String phone = userTable.get(terms[<span class="number">0</span>]).get(<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">			<span class="comment">// 不再需要flag字段, 简单置为空串</span></span><br><span class="line">			outputKey.set(terms[<span class="number">0</span>], userName, phone, terms[<span class="number">1</span>], terms[<span class="number">2</span>], terms[<span class="number">3</span>], <span class="string">""</span>);</span><br><span class="line">			context.write(outputKey, NullWritable.get());</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <ul>
-<li><p>实现Map端join的Mapper<br>*/<br>public class MapJoinMapper extends Mapper&lt;LongWritable, Text, MapJoinBean, NullWritable&gt; {</p>
-<p> private Map&lt;String, List<string>&gt; userTable = new HashMap&lt;&gt;();<br> private MapJoinBean outputKey = new MapJoinBean();</string></p>
-<p> public static final String ORDER_FILE = “order.txt”;</p>
-<p> /**</p>
+<li>MapJoinReducer</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Map端Join的Reducer</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MapJoinReducer</span> <span class="keyword">extends</span> <span class="title">Reducer</span>&lt;<span class="title">MapJoinBean</span>, <span class="title">NullWritable</span>, <span class="title">MapJoinBean</span>, <span class="title">NullWritable</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">reduce</span><span class="params">(MapJoinBean key, Iterable&lt;NullWritable&gt; values, Context context)</span> <span class="keyword">throws</span> IOException, InterruptedException </span>&#123;</span><br><span class="line">		context.write(key, NullWritable.get());</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line">``` </span><br><span class="line">+ MapJoinBean</span><br><span class="line"></span><br><span class="line">``` java</span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 自定义JavaBean, 实现WritableComparable接口</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MapJoinBean</span> <span class="keyword">implements</span> <span class="title">WritableComparable</span>&lt;<span class="title">MapJoinBean</span>&gt; </span>&#123;</span><br><span class="line">	<span class="keyword">public</span> String userID;</span><br><span class="line">	<span class="keyword">public</span> String uName;</span><br><span class="line">	<span class="keyword">public</span> String phone;</span><br><span class="line">	<span class="keyword">public</span> String orderID;</span><br><span class="line">	<span class="keyword">public</span> String price;</span><br><span class="line">	<span class="keyword">public</span> String date;</span><br><span class="line">	<span class="keyword">public</span> String flag;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">MapJoinBean</span><span class="params">()</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">MapJoinBean</span><span class="params">(String userID, String uName, String phone, String orderID, String price, String date, String flag)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.userID = userID;</span><br><span class="line">		<span class="keyword">this</span>.uName = uName;</span><br><span class="line">		<span class="keyword">this</span>.phone = phone;</span><br><span class="line">		<span class="keyword">this</span>.orderID = orderID;</span><br><span class="line">		<span class="keyword">this</span>.price = price;</span><br><span class="line">		<span class="keyword">this</span>.date = date;</span><br><span class="line">		<span class="keyword">this</span>.flag = flag;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">set</span><span class="params">(String userID, String uName, String phone, String orderID, String price, String date, String flag)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.userID = userID;</span><br><span class="line">		<span class="keyword">this</span>.uName = uName;</span><br><span class="line">		<span class="keyword">this</span>.phone = phone;</span><br><span class="line">		<span class="keyword">this</span>.orderID = orderID;</span><br><span class="line">		<span class="keyword">this</span>.price = price;</span><br><span class="line">		<span class="keyword">this</span>.date = date;</span><br><span class="line">		<span class="keyword">this</span>.flag = flag;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">toString</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="string">"uName='"</span> + uName + <span class="string">'\''</span> +</span><br><span class="line">				<span class="string">", phone='"</span> + phone + <span class="string">'\''</span> +</span><br><span class="line">				<span class="string">", orderID='"</span> + orderID + <span class="string">'\''</span> +</span><br><span class="line">				<span class="string">", price='"</span> + price + <span class="string">'\''</span> +</span><br><span class="line">				<span class="string">", date='"</span> + date + <span class="string">'\''</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getUserID</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> userID;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setUserID</span><span class="params">(String userID)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.userID = userID;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getFlag</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> flag;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setFlag</span><span class="params">(String flag)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.flag = flag;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getuName</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> uName;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setuName</span><span class="params">(String uName)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.uName = uName;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getPhone</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> phone;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setPhone</span><span class="params">(String phone)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.phone = phone;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getOrderID</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> orderID;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setOrderID</span><span class="params">(String orderID)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.orderID = orderID;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getPrice</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> price;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setPrice</span><span class="params">(String price)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.price = price;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getDate</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> date;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setDate</span><span class="params">(String date)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">this</span>.date = date;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">write</span><span class="params">(DataOutput dataOutput)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">		dataOutput.writeUTF(userID);</span><br><span class="line">		dataOutput.writeUTF(uName);</span><br><span class="line">		dataOutput.writeUTF(phone);</span><br><span class="line">		dataOutput.writeUTF(orderID);</span><br><span class="line">		dataOutput.writeUTF(price);</span><br><span class="line">		dataOutput.writeUTF(date);</span><br><span class="line">		dataOutput.writeUTF(flag);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">readFields</span><span class="params">(DataInput dataInput)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">		userID = dataInput.readUTF();</span><br><span class="line">		uName = dataInput.readUTF();</span><br><span class="line">		phone = dataInput.readUTF();</span><br><span class="line">		orderID = dataInput.readUTF();</span><br><span class="line">		price = dataInput.readUTF();</span><br><span class="line">		date = dataInput.readUTF();</span><br><span class="line">		flag = dataInput.readUTF();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">compareTo</span><span class="params">(MapJoinBean o)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">if</span>(o == <span class="keyword">null</span>) &#123;</span><br><span class="line">			<span class="keyword">throw</span> <span class="keyword">new</span> RuntimeException();</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span>(userID.compareTo(o.getUserID()) == <span class="number">0</span>) &#123;</span><br><span class="line">			<span class="keyword">return</span> orderID.compareTo(o.getOrderID());</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">return</span> userID.compareTo(o.getUserID());</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <ul>
-<li>Mapper会自行调用的一个初始化方法</li>
-<li>@param context Job信息</li>
-<li>@throws IOException</li>
-<li><p>@throws InterruptedException<br>*/<br>@Override<br>protected void setup(Context context) throws IOException, InterruptedException {</p>
-<p> // 获取系统”投放”到本地的cache文件, 本问题中只有1个，即user.txt<br> URI[] uris = context.getCacheFiles();<br> FileSystem fs = FileSystem.get(context.getConfiguration());<br> FSDataInputStream inputStream = fs.open(new Path(uris[0]));<br> BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));</p>
-<p> // 逐行读取user.txt中的数据, 构建userTable<br> String line = null;<br> while((line = reader.readLine()) != null) {</p>
-<pre><code>String[] terms = line.split(&quot;,&quot;);
-if(!userTable.containsKey(terms[0])) {
-    userTable.put(terms[0], new ArrayList&lt;&gt;());
-}
-userTable.get(terms[0]).add(terms[1]);
-userTable.get(terms[0]).add(terms[2]);
-</code></pre><p> }</p>
-<p> reader.close();<br>}</p>
-<p>@Override<br>protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {</p>
-<p> FileSplit fileSplit = (FileSplit) context.getInputSplit();<br> String fileName = fileSplit.getPath().getName();</p>
-<p> // 不需要再处理User数据文件了, 因为已经通过setup把其数据加载到内存中的userTable<br> if(fileName.equals(ORDER_FILE)) {</p>
-<pre><code>String line = value.toString();
-String[] terms = line.split(&quot;,&quot;);
-
-// 从本地的&quot;小表&quot; —— userTable处获得userID对应的数据
-String userName = userTable.get(terms[0]).get(0);
-String phone = userTable.get(terms[0]).get(1);
-
-// 不再需要flag字段, 简单置为空串
-outputKey.set(terms[0], userName, phone, terms[1], terms[2], terms[3], &quot;&quot;);
-context.write(outputKey, NullWritable.get());
-</code></pre><p> }<br>}<br>}</p>
-</li>
+<li>MapJoinDriver</li>
 </ul>
-</li>
-</ul>
-</li>
-</ul>
-<ul>
-<li><p>MapJoinReducer</p>
-<p>/**</p>
-<ul>
-<li><p>Map端Join的Reducer<br>*/<br>public class MapJoinReducer extends Reducer&lt;MapJoinBean, NullWritable, MapJoinBean, NullWritable&gt; {</p>
-<p> @Override<br> protected void reduce(MapJoinBean key, Iterable<nullwritable> values, Context context) throws IOException, InterruptedException {</nullwritable></p>
-<pre><code>context.write(key, NullWritable.get());
-</code></pre><p> }<br>}</p>
-</li>
-</ul>
-</li>
-</ul>
-<ul>
-<li><p>MapJoinBean</p>
-<p>/**</p>
-<ul>
-<li><p>自定义JavaBean, 实现WritableComparable接口<br>*/<br>public class MapJoinBean implements WritableComparable<mapjoinbean> {<br> public String userID;<br> public String uName;<br> public String phone;<br> public String orderID;<br> public String price;<br> public String date;<br> public String flag;</mapjoinbean></p>
-<p> public MapJoinBean() {</p>
-<p> }</p>
-<p> public MapJoinBean(String userID, String uName, String phone, String orderID, String price, String date, String flag) {</p>
-<pre><code>this.userID = userID;
-this.uName = uName;
-this.phone = phone;
-this.orderID = orderID;
-this.price = price;
-this.date = date;
-this.flag = flag;
-</code></pre><p> }</p>
-<p> public void set(String userID, String uName, String phone, String orderID, String price, String date, String flag) {</p>
-<pre><code>this.userID = userID;
-this.uName = uName;
-this.phone = phone;
-this.orderID = orderID;
-this.price = price;
-this.date = date;
-this.flag = flag;
-</code></pre><p> }</p>
-<p> @Override<br> public String toString() {</p>
-<pre><code>return &quot;uName=&apos;&quot; + uName + &apos;\&apos;&apos; +
-        &quot;, phone=&apos;&quot; + phone + &apos;\&apos;&apos; +
-        &quot;, orderID=&apos;&quot; + orderID + &apos;\&apos;&apos; +
-        &quot;, price=&apos;&quot; + price + &apos;\&apos;&apos; +
-        &quot;, date=&apos;&quot; + date + &apos;\&apos;&apos;;
-</code></pre><p> }</p>
-<p> public String getUserID() {</p>
-<pre><code>return userID;
-</code></pre><p> }</p>
-<p> public void setUserID(String userID) {</p>
-<pre><code>this.userID = userID;
-</code></pre><p> }</p>
-<p> public String getFlag() {</p>
-<pre><code>return flag;
-</code></pre><p> }</p>
-<p> public void setFlag(String flag) {</p>
-<pre><code>this.flag = flag;
-</code></pre><p> }</p>
-<p> public String getuName() {</p>
-<pre><code>return uName;
-</code></pre><p> }</p>
-<p> public void setuName(String uName) {</p>
-<pre><code>this.uName = uName;
-</code></pre><p> }</p>
-<p> public String getPhone() {</p>
-<pre><code>return phone;
-</code></pre><p> }</p>
-<p> public void setPhone(String phone) {</p>
-<pre><code>this.phone = phone;
-</code></pre><p> }</p>
-<p> public String getOrderID() {</p>
-<pre><code>return orderID;
-</code></pre><p> }</p>
-<p> public void setOrderID(String orderID) {</p>
-<pre><code>this.orderID = orderID;
-</code></pre><p> }</p>
-<p> public String getPrice() {</p>
-<pre><code>return price;
-</code></pre><p> }</p>
-<p> public void setPrice(String price) {</p>
-<pre><code>this.price = price;
-</code></pre><p> }</p>
-<p> public String getDate() {</p>
-<pre><code>return date;
-</code></pre><p> }</p>
-<p> public void setDate(String date) {</p>
-<pre><code>this.date = date;
-</code></pre><p> }</p>
-<p> @Override<br> public void write(DataOutput dataOutput) throws IOException {</p>
-<pre><code>dataOutput.writeUTF(userID);
-dataOutput.writeUTF(uName);
-dataOutput.writeUTF(phone);
-dataOutput.writeUTF(orderID);
-dataOutput.writeUTF(price);
-dataOutput.writeUTF(date);
-dataOutput.writeUTF(flag);
-</code></pre><p> }</p>
-<p> @Override<br> public void readFields(DataInput dataInput) throws IOException {</p>
-<pre><code>userID = dataInput.readUTF();
-uName = dataInput.readUTF();
-phone = dataInput.readUTF();
-orderID = dataInput.readUTF();
-price = dataInput.readUTF();
-date = dataInput.readUTF();
-flag = dataInput.readUTF();
-</code></pre><p> }</p>
-<p> @Override<br> public int compareTo(MapJoinBean o) {</p>
-<pre><code>if(o == null) {
-    throw new RuntimeException();
-}
-if(userID.compareTo(o.getUserID()) == 0) {
-    return orderID.compareTo(o.getOrderID());
-}
-return userID.compareTo(o.getUserID());
-</code></pre><p> }<br>}</p>
-</li>
-</ul>
-</li>
-</ul>
-<ul>
-<li><p>MapJoinDriver</p>
-<p>public class MapJoinDriver {</p>
-<pre><code>public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException, URISyntaxException {
-
-    Configuration conf = new Configuration();
-    conf.set(&quot;fs.defaultFS&quot;, &quot;hdfs://localhost:9000&quot;);
-    Job joinJob = Job.getInstance(conf);
-
-    // 使用Map端join的Mapper和Reducer
-    joinJob.setMapperClass(MapJoinMapper.class);
-    joinJob.setReducerClass(MapJoinReducer.class);
-
-    joinJob.setJarByClass(MapJoinDriver.class);
-
-    joinJob.setMapOutputKeyClass(MapJoinBean.class);
-    joinJob.setMapOutputValueClass(NullWritable.class);
-    joinJob.setOutputKeyClass(MapJoinBean.class);
-    joinJob.setOutputValueClass(NullWritable.class);
-
-    // 向各节点&quot;投放&quot;User数据文件
-    joinJob.addCacheFile(new URI(&quot;/join/input/user.txt&quot;));
-
-    FileInputFormat.setInputPaths(joinJob, new Path(&quot;/join/input&quot;));
-    FileOutputFormat.setOutputPath(joinJob, new Path(&quot;/join/output&quot;));
-
-    System.exit(joinJob.waitForCompletion(true) ? 0 : 1);
-}
-</code></pre><p>}</p>
-</li>
-</ul>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MapJoinDriver</span> </span>&#123;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException, ClassNotFoundException, InterruptedException, URISyntaxException </span>&#123;</span><br><span class="line"></span><br><span class="line">		Configuration conf = <span class="keyword">new</span> Configuration();</span><br><span class="line">		conf.set(<span class="string">"fs.defaultFS"</span>, <span class="string">"hdfs://localhost:9000"</span>);</span><br><span class="line">		Job joinJob = Job.getInstance(conf);</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 使用Map端join的Mapper和Reducer</span></span><br><span class="line">		joinJob.setMapperClass(MapJoinMapper.class);</span><br><span class="line">		joinJob.setReducerClass(MapJoinReducer.class);</span><br><span class="line"></span><br><span class="line">		joinJob.setJarByClass(MapJoinDriver.class);</span><br><span class="line"></span><br><span class="line">		joinJob.setMapOutputKeyClass(MapJoinBean.class);</span><br><span class="line">		joinJob.setMapOutputValueClass(NullWritable.class);</span><br><span class="line">		joinJob.setOutputKeyClass(MapJoinBean.class);</span><br><span class="line">		joinJob.setOutputValueClass(NullWritable.class);</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 向各节点"投放"User数据文件</span></span><br><span class="line">		joinJob.addCacheFile(<span class="keyword">new</span> URI(<span class="string">"/join/input/user.txt"</span>));</span><br><span class="line"></span><br><span class="line">		FileInputFormat.setInputPaths(joinJob, <span class="keyword">new</span> Path(<span class="string">"/join/input"</span>));</span><br><span class="line">		FileOutputFormat.setOutputPath(joinJob, <span class="keyword">new</span> Path(<span class="string">"/join/output"</span>));</span><br><span class="line"></span><br><span class="line">		System.exit(joinJob.waitForCompletion(<span class="keyword">true</span>) ? <span class="number">0</span> : <span class="number">1</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ol>
 <li>利用Map-Reduce可以完成数据文件的join操作。不需要先将数据结构化，导入MySQL。</li>
 <li>自定义<code>JavaBean</code>类，用于集成多个属性的思路仍然很有用。</li>
 <li>当join的双方是一张<strong>大表</strong>和一张<strong>小表</strong>时，可考虑将小表分发到所有map端，在本地将小表加载到内存，从而实现<strong>map端join</strong>。</li>
 </ol>
-<h2 id="代码"><a href="#代码" class="headerlink" title="代码"></a>代码</h2><p>具体代码请点击 <a href="https://github.com/AcepcsMa/hadoop_examples/tree/master/src/join" target="_blank" rel="noopener">Join操作与Map端join操作代码</a></p>
+<h2 id="代码"><a href="#代码" class="headerlink" title="代码"></a>代码</h2><p>具体代码请点击<br><a href="https://github.com/AcepcsMa/hadoop_examples/tree/master/src/join" target="_blank" rel="noopener">Join操作与Map端join操作代码</a></p>
 
   </div>
 </article>
@@ -636,7 +237,7 @@ return userID.compareTo(o.getUserID());
     </div>
 
     <div id="toc-footer" style="display: none">
-      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#问题背景"><span class="toc-number">1.</span> <span class="toc-text">问题背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#问题分析"><span class="toc-number">2.</span> <span class="toc-text">问题分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#具体实现"><span class="toc-number">3.</span> <span class="toc-text">具体实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#极端情况——“数据倾斜”"><span class="toc-number">4.</span> <span class="toc-text">极端情况——“数据倾斜”</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#总结"><span class="toc-number">5.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#代码"><span class="toc-number">6.</span> <span class="toc-text">代码</span></a></li></ol>
+      <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#浅谈join与数据倾斜解决方案"><span class="toc-number">1.</span> <span class="toc-text">浅谈join与数据倾斜解决方案</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#问题背景"><span class="toc-number">1.1.</span> <span class="toc-text">问题背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#问题分析"><span class="toc-number">1.2.</span> <span class="toc-text">问题分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#具体实现"><span class="toc-number">1.3.</span> <span class="toc-text">具体实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#极端情况——“数据倾斜”"><span class="toc-number">1.4.</span> <span class="toc-text">极端情况——“数据倾斜”</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#总结"><span class="toc-number">1.5.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#代码"><span class="toc-number">1.6.</span> <span class="toc-text">代码</span></a></li></ol></li></ol>
     </div>
 
     <div id="share-footer" style="display: none">
