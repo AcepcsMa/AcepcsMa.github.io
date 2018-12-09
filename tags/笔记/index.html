@@ -40,44 +40,6 @@
   <article class="post">
     <header class="post-header">
       <span class="post-meta">
-      <time datetime="2018-12-09T16:42:51.000Z" itemprop="datePublished">
-          2018-12-09
-      </time>
-    
-    
-    | 
-    <a href="/tags/笔记/">笔记</a>,
-    
-    <a href="/tags/算法/">算法</a>,
-    
-    <a href="/tags/分布式/">分布式</a>
-    
-    
-</span>
-      <h2 class="post-title"><a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
-      
-        
-Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。
-
-为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。
-
-选主过程最重要的限制是： Leader必须存有所有已经commit过的log entry，这样才
-      
-      </p>
-      
-      <p>
-          <a href="/2018/12/09/raft-leader-election-trashed/" class="excerpt-link">Read More...</a>
-      </p>
-      
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
       <time datetime="2018-12-09T16:12:35.000Z" itemprop="datePublished">
           2018-12-09
       </time>
@@ -424,6 +386,59 @@ input: 3-5-7, 5-1-9, 7-1, 1-9, 5-7
       
       <p>
           <a href="/2018/05/24/recsys-note3/" class="excerpt-link">Read More...</a>
+      </p>
+      
+    </section>
+  </article>
+  
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-05-19T20:33:43.000Z" itemprop="datePublished">
+          2018-05-19
+      </time>
+    
+    
+    | 
+    <a href="/tags/笔记/">笔记</a>,
+    
+    <a href="/tags/推荐/">推荐</a>
+    
+    
+</span>
+      <h2 class="post-title"><a href="/2018/05/19/recsys-note2/">《推荐系统实践》笔记 #2</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
+        
+本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。
+
+利用用户行为数据
+用户行为数据类别
+session log
+impression log
+click log
+
+
+用户行为类型
+显性反馈 => 明确选择喜欢 or 不喜欢，数量较少
+隐性反馈 => 没有明确选择，多数为浏览 or 点击，数据极多
+
+
+用户行为记录的数据结构
+item
+remark
+user_id
+用户id
+item_id
+物品id
+behavio
+      
+      </p>
+      
+      <p>
+          <a href="/2018/05/19/recsys-note2/" class="excerpt-link">Read More...</a>
       </p>
       
     </section>
