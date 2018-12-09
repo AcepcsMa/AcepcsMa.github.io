@@ -40,83 +40,6 @@
   <article class="post">
     <header class="post-header">
       <span class="post-meta">
-      <time datetime="2018-11-10T18:33:59.000Z" itemprop="datePublished">
-          2018-11-10
-      </time>
-    
-    
-    | 
-    <a href="/tags/Go/">Go</a>,
-    
-    <a href="/tags/笔记/">笔记</a>,
-    
-    <a href="/tags/数据结构/">数据结构</a>
-    
-    
-</span>
-      <h2 class="post-title"><a href="/2018/11/10/go-slice/">[Golang]奇葩数据结构之Slice（切片）</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
-      
-        [Golang]奇葩数据结构之Slice（切片）
-本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。
-
-Introduction最近新接触Golang，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学Java时，就抠了不少JDK7和JDK8里面的集合类源码（特
-      
-      </p>
-      
-      <p>
-          <a href="/2018/11/10/go-slice/" class="excerpt-link">Read More...</a>
-      </p>
-      
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
-      <time datetime="2018-09-28T16:54:07.000Z" itemprop="datePublished">
-          2018-09-28
-      </time>
-    
-    
-    | 
-    <a href="/tags/笔记/">笔记</a>,
-    
-    <a href="/tags/Java/">Java</a>,
-    
-    <a href="/tags/算法/">算法</a>
-    
-    
-</span>
-      <h2 class="post-title"><a href="/2018/09/28/google-interview0/">[Google]记一道不错的电面题</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
-      
-        [Google]记一道不错的电面题
-最近一位朋友跟我分享了一道Ta在google电面中被问到的算法题，一阵研究后觉得题目出得很不错，不是那种傻X的tricky题目，故分享之，并附上我实现的Java代码。
-
-题目根据输入的有序字符串，构造出目标字符串，保证每个输入的串均服从目标串的原顺序。
-
-target: 3-5-7-1-9
-input: 3-5-7, 5-1-9, 7-1, 1-9, 5-7
-
-可以看到输入的每个字符串均服从目标串的顺
-      
-      </p>
-      
-      <p>
-          <a href="/2018/09/28/google-interview0/" class="excerpt-link">Read More...</a>
-      </p>
-      
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
       <time datetime="2018-06-01T23:15:03.000Z" itemprop="datePublished">
           2018-06-01
       </time>
@@ -445,6 +368,79 @@ For example,Given n
       
       <p>
           <a href="/2018/03/23/deepcopyinjava/" class="excerpt-link">Read More...</a>
+      </p>
+      
+    </section>
+  </article>
+  
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-03-17T20:30:01.000Z" itemprop="datePublished">
+          2018-03-17
+      </time>
+    
+    
+    | 
+    <a href="/tags/算法/">算法</a>,
+    
+    <a href="/tags/数据结构/">数据结构</a>,
+    
+    <a href="/tags/分布式/">分布式</a>
+    
+    
+</span>
+      <h2 class="post-title"><a href="/2018/03/17/consistent-hash/">一致性Hash算法——分析与模拟</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
+        
+如需转载请注明出处。
+
+问题背景假设现在有一个存储集群——Cluster_A，Cluster_A包含了N个存储节点，每个存储节点上存储了大量数据。那么在一般情况下，新进入集群的数据会被计算出其对应的Hash值，然后按照一定的规则被分配到某个存储节点上。最常见的分配策略如下：
+// sha256或者md5均为常见的hash函数
+node_id = hash(data) % N
+在正常情况下，这种数据分配策略的性能取决于hash算法的性能
+      
+      </p>
+      
+      <p>
+          <a href="/2018/03/17/consistent-hash/" class="excerpt-link">Read More...</a>
+      </p>
+      
+    </section>
+  </article>
+  
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-03-04T23:08:53.000Z" itemprop="datePublished">
+          2018-03-04
+      </time>
+    
+    
+    | 
+    <a href="/tags/hadoop/">hadoop</a>,
+    
+    <a href="/tags/mapreduce/">mapreduce</a>
+    
+    
+</span>
+      <h2 class="post-title"><a href="/2018/03/04/join-di/">浅谈join与数据倾斜解决方案</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
+        
+本文100%为本人（Haoxiang Ma）原创内容，如需转载请注明出处。
+
+问题背景join操作在传统的关系型数据库中特别常见，往往用来连接两张或多张在某些键上有关联的表。但当我们的数据并没有被结构化存储到数据库中，手上仅有大量的raw data —— 成千上万个磁盘数据文件（如.dat或.txt）时，又或者当大量的数据文件存放在分布式的文件系统（HDFS）里，难以将其高效导入MySQL中时，我们很自然地就会思考：有没有不需要依靠关
+      
+      </p>
+      
+      <p>
+          <a href="/2018/03/04/join-di/" class="excerpt-link">Read More...</a>
       </p>
       
     </section>

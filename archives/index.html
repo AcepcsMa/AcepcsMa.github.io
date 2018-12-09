@@ -78,64 +78,6 @@ Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调�
   <article class="post">
     <header class="post-header">
       <span class="post-meta">
-      <time datetime="2018-12-09T16:42:10.000Z" itemprop="datePublished">
-          2018-12-09
-      </time>
-    
-</span>
-      <h2 class="post-title"><a href="/2018/12/09/trashed/">__trashed</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
-      
-        yhhhhjr3ju32
-
-      
-      </p>
-      
-      <p>
-          <a href="/2018/12/09/trashed/" class="excerpt-link">Read More...</a>
-      </p>
-      
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
-      <time datetime="2018-12-09T16:42:10.000Z" itemprop="datePublished">
-          2018-12-09
-      </time>
-    
-</span>
-      <h2 class="post-title"><a href="/2018/12/09/trashed-2/">[Raft]</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
-      
-        ##[Raft]Leader Election（选主）笔记
-
-Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。
-
-为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。
-
-选主过程最重要的限制是：
-
-
-Lea
-      
-      </p>
-      
-      <p>
-          <a href="/2018/12/09/trashed-2/" class="excerpt-link">Read More...</a>
-      </p>
-      
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
       <time datetime="2018-12-09T16:12:35.000Z" itemprop="datePublished">
           2018-12-09
       </time>
@@ -378,6 +320,83 @@ Introduction多态这个词语每个开发者都一定不会感到陌生。因�
       
       <p>
           <a href="/2018/11/15/polymorphism/" class="excerpt-link">Read More...</a>
+      </p>
+      
+    </section>
+  </article>
+  
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-11-10T18:33:59.000Z" itemprop="datePublished">
+          2018-11-10
+      </time>
+    
+    
+    | 
+    <a href="/tags/Go/">Go</a>,
+    
+    <a href="/tags/笔记/">笔记</a>,
+    
+    <a href="/tags/数据结构/">数据结构</a>
+    
+    
+</span>
+      <h2 class="post-title"><a href="/2018/11/10/go-slice/">[Golang]奇葩数据结构之Slice（切片）</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
+        [Golang]奇葩数据结构之Slice（切片）
+本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。
+
+Introduction最近新接触Golang，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学Java时，就抠了不少JDK7和JDK8里面的集合类源码（特
+      
+      </p>
+      
+      <p>
+          <a href="/2018/11/10/go-slice/" class="excerpt-link">Read More...</a>
+      </p>
+      
+    </section>
+  </article>
+  
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-09-28T16:54:07.000Z" itemprop="datePublished">
+          2018-09-28
+      </time>
+    
+    
+    | 
+    <a href="/tags/笔记/">笔记</a>,
+    
+    <a href="/tags/Java/">Java</a>,
+    
+    <a href="/tags/算法/">算法</a>
+    
+    
+</span>
+      <h2 class="post-title"><a href="/2018/09/28/google-interview0/">[Google]记一道不错的电面题</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
+        [Google]记一道不错的电面题
+最近一位朋友跟我分享了一道Ta在google电面中被问到的算法题，一阵研究后觉得题目出得很不错，不是那种傻X的tricky题目，故分享之，并附上我实现的Java代码。
+
+题目根据输入的有序字符串，构造出目标字符串，保证每个输入的串均服从目标串的原顺序。
+
+target: 3-5-7-1-9
+input: 3-5-7, 5-1-9, 7-1, 1-9, 5-7
+
+可以看到输入的每个字符串均服从目标串的顺
+      
+      </p>
+      
+      <p>
+          <a href="/2018/09/28/google-interview0/" class="excerpt-link">Read More...</a>
       </p>
       
     </section>
