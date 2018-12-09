@@ -1,61 +1,148 @@
 <!DOCTYPE html>
 <html>
-
-<head>
-  <meta http-equiv="Content-Type" content="text/html" charset="UTF-8" >
-  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
-  <title>如何在Map-Reduce中实现二次排序（对Value排序） | casper</title>
-  <meta name="description" content="" />
-  <meta name="HandheldFriendly" content="True" />
-  <meta name="MobileOptimized" content="320" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <link rel="stylesheet" type="text/css" href="/css/screen.css" />
-  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
-
-  <meta name="generator" content="casper">
-
-  
-  
-  
-
-  
+<head><meta name="generator" content="Hexo 3.8.0">
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  问题背景众所周知，Map-Reduce任务完成后，输出的结果文件总是按照Key进行升序排列（shuffle阶段完成）。 例如Hadoop里经典的word count程序： // File1原始数据 hello world hello apple apple apple baby  // 输出结果文件，已按Key进行升序排序 app">
+<meta name="keywords" content="bigdata,hadoop,mapreduce">
+<meta property="og:type" content="article">
+<meta property="og:title" content="如何在Map-Reduce中实现二次排序（对Value排序）">
+<meta property="og:url" content="http://yoursite.com/2018/02/13/ssort/index.html">
+<meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
+<meta property="og:description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  问题背景众所周知，Map-Reduce任务完成后，输出的结果文件总是按照Key进行升序排列（shuffle阶段完成）。 例如Hadoop里经典的word count程序： // File1原始数据 hello world hello apple apple apple baby  // 输出结果文件，已按Key进行升序排序 app">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="http://yoursite.com/Users/marco/Desktop/ss.png">
+<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="如何在Map-Reduce中实现二次排序（对Value排序）">
+<meta name="twitter:description" content="全文为本人（Haoxiang Ma）原创内容，转载请标明出处。  问题背景众所周知，Map-Reduce任务完成后，输出的结果文件总是按照Key进行升序排列（shuffle阶段完成）。 例如Hadoop里经典的word count程序： // File1原始数据 hello world hello apple apple apple baby  // 输出结果文件，已按Key进行升序排序 app">
+<meta name="twitter:image" content="http://yoursite.com/Users/marco/Desktop/ss.png">
+    
+    
+        
+          
+              <link rel="shortcut icon" href="/images/favicon.ico">
+          
+        
+        
+          
+            <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+          
+        
+        
+          
+            <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+          
+        
+    
+    <!-- title -->
+    <title>如何在Map-Reduce中实现二次排序（对Value排序）</title>
+    <!-- styles -->
+    <link rel="stylesheet" href="/css/style.css">
+    <!-- rss -->
+    
+    
 </head>
 
+<body>
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#"><i class="fa fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#"><i class="fa fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fa fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="http://github.com/probberechts">Projects</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </span>
+    <br>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" href="/2018/02/13/osxmr/"><i class="fa fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" href="/2018/02/13/zkserver/"><i class="fa fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" href="#"><i class="fa fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" href="http://www.facebook.com/sharer.php?u=http://yoursite.com/2018/02/13/ssort/"><i class="fa fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2018/02/13/ssort/&text=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2018/02/13/ssort/&title=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2018/02/13/ssort/&is_video=false&description=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=如何在Map-Reduce中实现二次排序（对Value排序）&body=Check out this article: http://yoursite.com/2018/02/13/ssort/"><i class="fa fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2018/02/13/ssort/&title=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2018/02/13/ssort/&title=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2018/02/13/ssort/&title=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2018/02/13/ssort/&title=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2018/02/13/ssort/&name=如何在Map-Reduce中实现二次排序（对Value排序）&description="><i class="fa fa-tumblr " aria-hidden="true"></i></a></li>
+</ul>
 
-<body class="post-template">
-
-  <header class="site-head" style="background-image: url(//blog.ghost.org/content/images/2013/Nov/cover.png)">
-    <div class="vertical">
-        <div class="site-head-content inner">
-             <a class="blog-logo" href="/"><img src="//blog.ghost.org/content/images/2013/Nov/bloglogo_1-1.png" alt="Blog Logo"></a> 
-            <h1 class="blog-title">casper</h1>
-            <h2 class="blog-description"></h2>
-        </div>
     </div>
-</header>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#问题背景"><span class="toc-number">1.</span> <span class="toc-text">问题背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#解决方案"><span class="toc-number">2.</span> <span class="toc-text">解决方案</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#作业提交"><span class="toc-number">3.</span> <span class="toc-text">作业提交</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#总结"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#代码地址"><span class="toc-number">5.</span> <span class="toc-text">代码地址</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index width mx-auto px2 my4">
+        
+        <article class="post" itemscope="" itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        如何在Map-Reduce中实现二次排序（对Value排序）
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+        <span itemprop="name">Haoxiang Ma's Tech Blog</span>
+      </span>
+      
+    <div class="postdate">
+        <time datetime="2018-02-13T14:54:02.000Z" itemprop="datePublished">2018-02-13</time>
+    </div>
+
+
+      
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/bigdata/">bigdata</a>, <a class="tag-link" href="/tags/hadoop/">hadoop</a>, <a class="tag-link" href="/tags/mapreduce/">mapreduce</a>
+    </div>
+
+
+    </div>
+  </header>
   
 
-<main class="content" role="main">
-  <article class="post">
-    <span class="post-meta">
-      <time datetime="2018-02-13T14:54:02.000Z" itemprop="datePublished">
-          2018-02-13
-      </time>
-    
-    
-    | 
-    <a href="/tags/bigdata/">bigdata</a>,
-    
-    <a href="/tags/hadoop/">hadoop</a>,
-    
-    <a href="/tags/mapreduce/">mapreduce</a>
-    
-    
-</span>
-    <h1 class="post-title">如何在Map-Reduce中实现二次排序（对Value排序）</h1>
-    <section class="post-content">
-      <blockquote>
+  <div class="content" itemprop="articleBody">
+    <blockquote>
 <p>全文为本人（Haoxiang Ma）原创内容，转载请标明出处。</p>
 </blockquote>
 <h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>众所周知，Map-Reduce任务完成后，输出的结果文件总是按照Key进行升序排列（shuffle阶段完成）。 例如Hadoop里经典的word count程序：</p>
@@ -261,65 +348,112 @@ movieJob.setNumReduceTasks(NUM_REDUCE_TASK);
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>使用SecondarySort可以使我们在Map-Reduce框架内完成自定义排序。依托Map-Reduce会对Key进行排序的特性，可以将需要排序的字段（Value）与原始Key合成为自定义的Bean作为新的Key，原Value保持不动。有了SecondarySort，我们就不必在框架外做额外的工作进行排序，干扰程序的可读性；也不必将原始Key和Value对换，影响输出格式。</p>
 <h2 id="代码地址"><a href="#代码地址" class="headerlink" title="代码地址"></a>代码地址</h2><p><a href="https://github.com/AcepcsMa/hadoop_examples/tree/master/src/sort" target="_blank" rel="noopener">Github-Secondary Sort</a></p>
 
-    </section>
-    <footer class="post-footer">
-      <section class="author">
-    <h4>John Doe</h4>
-    <p>A designer, developer and entrepreneur. Spends his time travelling the world with a bag of kites. Likes journalism and publishing platforms.</p>
-</section>
-      <section class="share">
-    <h4>Share this post</h4>
-    <a class="icon-twitter" href="http://twitter.com/share?url=http://yoursite.com/2018/02/13/ssort/" onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
-        <span class="hidden">Twitter</span>
-    </a>
-    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://yoursite.com/2018/02/13/ssort/" onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
-        <span class="hidden">Facebook</span>
-    </a>
-    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://yoursite.com/2018/02/13/ssort/" onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
-        <span class="hidden">Google+</span>
-    </a>
-</section>
-    </footer>
-  </article>
-  <nav class="pagination" role="pagination">
-    
-    <a class="newer-posts" href="/2018/02/13/osxmr/">
-        ← OS X下MapReduce程序运行的几种模式
-    </a>
-    
-    <span class="page-number">•</span>
-    
-    <a class="older-posts" href="/2018/02/13/zkserver/">
-        利用ZooKeeper开发服务器上下线感知程序 →
-    </a>
-    
-</nav>
-  <div id="comment" class="comments-area">
-    <h1 class="title"><a href="#disqus_comments" name="disqus_comments">Comments</a></h1>
+  </div>
+</article>
 
+
+
+    </div>
     
+      <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="http://github.com/probberechts">Projects</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#问题背景"><span class="toc-number">1.</span> <span class="toc-text">问题背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#解决方案"><span class="toc-number">2.</span> <span class="toc-text">解决方案</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#作业提交"><span class="toc-number">3.</span> <span class="toc-text">作业提交</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#总结"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#代码地址"><span class="toc-number">5.</span> <span class="toc-text">代码地址</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" href="http://www.facebook.com/sharer.php?u=http://yoursite.com/2018/02/13/ssort/"><i class="fa fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2018/02/13/ssort/&text=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2018/02/13/ssort/&title=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2018/02/13/ssort/&is_video=false&description=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=如何在Map-Reduce中实现二次排序（对Value排序）&body=Check out this article: http://yoursite.com/2018/02/13/ssort/"><i class="fa fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2018/02/13/ssort/&title=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2018/02/13/ssort/&title=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2018/02/13/ssort/&title=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2018/02/13/ssort/&title=如何在Map-Reduce中实现二次排序（对Value排序）"><i class="fa fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2018/02/13/ssort/&name=如何在Map-Reduce中实现二次排序（对Value排序）&description="><i class="fa fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+      <ul>
+        <li id="toc"><a class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fa fa-list fa-lg" aria-hidden="true"></i> TOC</a></li>
+        <li id="share"><a class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fa fa-share-alt fa-lg" aria-hidden="true"></i> Share</a></li>
+        <li id="top" style="display:none"><a class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a></li>
+        <li id="menu"><a class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fa fa-bars fa-lg" aria-hidden="true"></i> Menu</a></li>
+      </ul>
+    </div>
+
+  </div>
 </div>
-</main>
 
-
-  
-<footer class="site-footer">
-  
-  <div class="inner">
-     <section class="copyright">All content copyright <a href="/">casper</a> &copy; 2014 &bull; All rights reserved.</section>
-     <section class="poweredby">Proudly published with <a class="icon-ghost" href="http://zespia.tw/hexo/">Hexo</a></section>
+    
+    <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy; 2018 Haoxiang Ma
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="http://github.com/probberechts">Projects</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </nav>
   </div>
 </footer>
 
-  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
-
-<script type="text/javascript" src="/js/jquery.fitvids.js"></script>
-<script type="text/javascript" src="/js/index.js"></script>
-
-
-
-
-
-
 </body>
 </html>
+<!-- styles -->
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+<link rel="stylesheet" href="/lib/meslo-LG/styles.css">
+<link rel="stylesheet" href="/lib/justified-gallery/justifiedGallery.min.css">
+
+<!-- jquery -->
+<script src="/lib/jquery/jquery.min.js"></script>
+<script src="/lib/justified-gallery/jquery.justifiedGallery.min.js"></script>
+<script src="/js/main.js"></script>
+<!-- search -->
+
+<!-- Google Analytics -->
+
+    <script type="text/javascript">
+        (function(i,s,o,g,r,a,m) {i['GoogleAnalyticsObject']=r;i[r]=i[r]||function() {
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+        ga('create', 'UA-86660611-1', 'auto');
+        ga('send', 'pageview');
+    </script>
+
+<!-- Disqus Comments -->
+
+

@@ -1,462 +1,354 @@
 <!DOCTYPE html>
 <html>
-
-<head>
-  <meta http-equiv="Content-Type" content="text/html" charset="UTF-8" >
-  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
-  <title>Archives: 2018 | casper</title>
-  <meta name="description" content="" />
-  <meta name="HandheldFriendly" content="True" />
-  <meta name="MobileOptimized" content="320" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <link rel="stylesheet" type="text/css" href="/css/screen.css" />
-  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
-
-  <meta name="generator" content="casper">
-
-  
-  
-  
-
-  
+<head><meta name="generator" content="Hexo 3.8.0">
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="hhh I&apos;m Haoxiang Ma.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Haoxiang Ma&#39;s Tech Blog">
+<meta property="og:url" content="http://yoursite.com/archives/2018/index.html">
+<meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
+<meta property="og:description" content="hhh I&apos;m Haoxiang Ma.">
+<meta property="og:locale" content="default">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Haoxiang Ma&#39;s Tech Blog">
+<meta name="twitter:description" content="hhh I&apos;m Haoxiang Ma.">
+    
+    
+        
+          
+              <link rel="shortcut icon" href="/images/favicon.ico">
+          
+        
+        
+          
+            <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+          
+        
+        
+          
+            <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+          
+        
+    
+    <!-- title -->
+    <title>Haoxiang Ma&#39;s Tech Blog</title>
+    <!-- styles -->
+    <link rel="stylesheet" href="/css/style.css">
+    <!-- rss -->
+    
+    
 </head>
 
-
-<body class="home-template">
-
-  <header class="site-head" style="background-image: url(//blog.ghost.org/content/images/2013/Nov/cover.png)">
-    <div class="vertical">
-        <div class="site-head-content inner">
-             <a class="blog-logo" href="/"><img src="//blog.ghost.org/content/images/2013/Nov/bloglogo_1-1.png" alt="Blog Logo"></a> 
-            <h1 class="blog-title">casper</h1>
-            <h2 class="blog-description"></h2>
-        </div>
+<body>
+    
+    <div class="content index width mx-auto px2 my4">
+        
+          <header id="header">
+  <a href="/">
+  
+    
+      <div id="logo" style="background-image: url(/images/logo.png);"></div>
+    
+  
+    <div id="title">
+      <h1>Haoxiang Ma&#39;s Tech Blog</h1>
     </div>
+  </a>
+  <div id="nav">
+    <ul>
+      <li class="icon">
+        <a href="#"><i class="fa fa-bars fa-2x"></i></a>
+      </li>
+       
+        <li><a href="/">Home</a></li>
+       
+        <li><a href="/about/">About</a></li>
+       
+        <li><a href="/archives/">Writing</a></li>
+       
+        <li><a href="http://github.com/probberechts">Projects</a></li>
+       
+        <li><a href="/search/">Search</a></li>
+      
+    </ul>
+  </div>
 </header>
-  
-<main class="content" role="main">
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
-      <time datetime="2018-12-09T16:12:35.000Z" itemprop="datePublished">
-          2018-12-09
-      </time>
-    
-    
-    | 
-    <a href="/tags/笔记/">笔记</a>,
-    
-    <a href="/tags/算法/">算法</a>,
-    
-    <a href="/tags/分布式/">分布式</a>
-    
-    
-</span>
-      <h2 class="post-title"><a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
-      
+
         
-Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。
-
-为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。
-
-选主过程最重要的限制是：
-
-
-Leader必须存有所有已经commit过的log entry，这
+        <div id="archive">
+  <ul class="post-list">
+    
+    
+    
       
-      </p>
       
-      <p>
-          <a href="/2018/12/09/raft-leader-election/" class="excerpt-link">Read More...</a>
-      </p>
       
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
-      <time datetime="2018-12-07T00:11:19.000Z" itemprop="datePublished">
-          2018-12-06
-      </time>
-    
-    
-    | 
-    <a href="/tags/Go/">Go</a>,
-    
-    <a href="/tags/笔记/">笔记</a>,
-    
-    <a href="/tags/源码/">源码</a>
-    
-    
-</span>
-      <h2 class="post-title"><a href="/2018/12/06/groupcache-part2/">[Golang]groupcache项目解析——Part2</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
       
+        <h2>2018</h2>
+      
+      <li class="post-item">
         
-本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/12/05，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。
+    <div class="meta">
+        <time datetime="2018-12-09T16:12:35.000Z" itemprop="datePublished">2018-12-09</time>
+    </div>
 
-Introduction本文是《GroupCache项目解析》系列文章的第二篇，在上一篇([Golang]groupcache项目解析——Part1)中已经对GroupCache的背景、架构、代码结构作了介绍，也提供了一个简单的用例。现在来到了第二篇，主
+
+        <span>
+    
+        <a class="" href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
+    
+
+
+<span>
+      </span></span></li>
+    
       
-      </p>
       
-      <p>
-          <a href="/2018/12/06/groupcache-part2/" class="excerpt-link">Read More...</a>
-      </p>
       
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
-      <time datetime="2018-11-30T12:33:36.000Z" itemprop="datePublished">
-          2018-11-30
-      </time>
-    
-    
-    | 
-    <a href="/tags/Go/">Go</a>,
-    
-    <a href="/tags/源码/">源码</a>
-    
-    
-</span>
-      <h2 class="post-title"><a href="/2018/11/30/groupcache-part1/">[Golang]groupcache项目解析——Part1</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
       
+      <li class="post-item">
         
-本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/29，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。
+    <div class="meta">
+        <time datetime="2018-12-07T00:11:19.000Z" itemprop="datePublished">2018-12-06</time>
+    </div>
 
-Introduction本文是《groupcache项目解析》系列文章的第一篇，在本文中主要是对groupcache这个项目作简单的介绍，包括其
 
-架构
-代码文件结构
-简单用例
+        <span>
+    
+        <a class="" href="/2018/12/06/groupcache-part2/">[Golang]groupcache项目解析——Part2</a>
+    
 
-groupcache简介groupcache(on Github)是一个用
+
+<span>
+      </span></span></li>
+    
       
-      </p>
       
-      <p>
-          <a href="/2018/11/30/groupcache-part1/" class="excerpt-link">Read More...</a>
-      </p>
       
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
-      <time datetime="2018-11-25T14:47:28.000Z" itemprop="datePublished">
-          2018-11-25
-      </time>
-    
-    
-    | 
-    <a href="/tags/Go/">Go</a>,
-    
-    <a href="/tags/笔记/">笔记</a>
-    
-    
-</span>
-      <h2 class="post-title"><a href="/2018/11/25/go-concurrency-pattern/">[Golang]浅析几种并发模式</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
       
+      <li class="post-item">
         
-本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/24，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。
+    <div class="meta">
+        <time datetime="2018-11-30T12:33:36.000Z" itemprop="datePublished">2018-11-30</time>
+    </div>
 
-Introduction最近读完了整本《Go in Action》，给我印象最深的几章是讲
 
-多态
-高级并发模式
-常用工具包（http, json, log……）
+        <span>
+    
+        <a class="" href="/2018/11/30/groupcache-part1/">[Golang]groupcache项目解析——Part1</a>
+    
 
-本文基于《Go in Action》里介绍的3种高级并发模式进行浅析，主要起到解释和笔记
+
+<span>
+      </span></span></li>
+    
       
-      </p>
       
-      <p>
-          <a href="/2018/11/25/go-concurrency-pattern/" class="excerpt-link">Read More...</a>
-      </p>
       
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
-      <time datetime="2018-11-20T17:48:26.000Z" itemprop="datePublished">
-          2018-11-20
-      </time>
-    
-    
-    | 
-    <a href="/tags/Go/">Go</a>,
-    
-    <a href="/tags/笔记/">笔记</a>
-    
-    
-</span>
-      <h2 class="post-title"><a href="/2018/11/20/close-channel/">[Golang]更正“神贴”《如何优雅地关闭Go Channel》</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
       
+      <li class="post-item">
         
-本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。
+    <div class="meta">
+        <time datetime="2018-11-25T14:47:28.000Z" itemprop="datePublished">2018-11-25</time>
+    </div>
 
-Introduction现在在网上搜索Go，Channel，关闭等关键词时，一定会搜到一篇好几年前的“神贴”《How To Gracefully Close Channels》（原文链接请点击），或者各种国人执笔的中文直译版《如何优雅地关闭Go Chan
+
+        <span>
+    
+        <a class="" href="/2018/11/25/go-concurrency-pattern/">[Golang]浅析几种并发模式</a>
+    
+
+
+<span>
+      </span></span></li>
+    
       
-      </p>
       
-      <p>
-          <a href="/2018/11/20/close-channel/" class="excerpt-link">Read More...</a>
-      </p>
       
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
-      <time datetime="2018-11-15T21:08:21.000Z" itemprop="datePublished">
-          2018-11-15
-      </time>
-    
-    
-    | 
-    <a href="/tags/Go/">Go</a>,
-    
-    <a href="/tags/笔记/">笔记</a>
-    
-    
-</span>
-      <h2 class="post-title"><a href="/2018/11/15/polymorphism/">[Golang]奇怪的“类”和多态（Polymorphism）</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
       
+      <li class="post-item">
         
-本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/14，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。
+    <div class="meta">
+        <time datetime="2018-11-20T17:48:26.000Z" itemprop="datePublished">2018-11-20</time>
+    </div>
 
-Introduction多态这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可以指向子类的对象，在Java里面虽然没有指针这样的概念，但是我们一般会说，如果某个子类实现了一个
-      
-      </p>
-      
-      <p>
-          <a href="/2018/11/15/polymorphism/" class="excerpt-link">Read More...</a>
-      </p>
-      
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
-      <time datetime="2018-11-10T18:33:59.000Z" itemprop="datePublished">
-          2018-11-10
-      </time>
-    
-    
-    | 
-    <a href="/tags/Go/">Go</a>,
-    
-    <a href="/tags/笔记/">笔记</a>,
-    
-    <a href="/tags/数据结构/">数据结构</a>
-    
-    
-</span>
-      <h2 class="post-title"><a href="/2018/11/10/go-slice/">[Golang]奇葩数据结构之Slice（切片）</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
-      
-        [Golang]奇葩数据结构之Slice（切片）
-本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。
 
-Introduction最近新接触Golang，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学Java时，就抠了不少JDK7和JDK8里面的集合类源码（特
-      
-      </p>
-      
-      <p>
-          <a href="/2018/11/10/go-slice/" class="excerpt-link">Read More...</a>
-      </p>
-      
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
-      <time datetime="2018-09-28T16:54:07.000Z" itemprop="datePublished">
-          2018-09-28
-      </time>
+        <span>
     
+        <a class="" href="/2018/11/20/close-channel/">[Golang]更正“神贴”《如何优雅地关闭Go Channel》</a>
     
-    | 
-    <a href="/tags/笔记/">笔记</a>,
-    
-    <a href="/tags/Java/">Java</a>,
-    
-    <a href="/tags/算法/">算法</a>
-    
-    
-</span>
-      <h2 class="post-title"><a href="/2018/09/28/google-interview0/">[Google]记一道不错的电面题</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
-      
-        [Google]记一道不错的电面题
-最近一位朋友跟我分享了一道Ta在google电面中被问到的算法题，一阵研究后觉得题目出得很不错，不是那种傻X的tricky题目，故分享之，并附上我实现的Java代码。
 
-题目根据输入的有序字符串，构造出目标字符串，保证每个输入的串均服从目标串的原顺序。
 
-target: 3-5-7-1-9
-input: 3-5-7, 5-1-9, 7-1, 1-9, 5-7
-
-可以看到输入的每个字符串均服从目标串的顺
+<span>
+      </span></span></li>
+    
       
-      </p>
       
-      <p>
-          <a href="/2018/09/28/google-interview0/" class="excerpt-link">Read More...</a>
-      </p>
       
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
-      <time datetime="2018-06-01T23:15:03.000Z" itemprop="datePublished">
-          2018-06-01
-      </time>
-    
-    
-    | 
-    <a href="/tags/笔记/">笔记</a>,
-    
-    <a href="/tags/推荐/">推荐</a>
-    
-    
-</span>
-      <h2 class="post-title"><a href="/2018/06/01/recsys-note4/">《推荐系统实践》笔记 #4</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
       
+      <li class="post-item">
         
-本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。
-
-利用上下文信息进行推荐在推荐时，应该考虑时间，地点，心情……
-
-时间上下文信息
-
-时间效应
-用户兴趣持续变化
-物品本身有生命周期
-季节／节日效应（圣诞节，奥斯卡……）
+    <div class="meta">
+        <time datetime="2018-11-15T21:08:21.000Z" itemprop="datePublished">2018-11-15</time>
+    </div>
 
 
-时间上下文推荐算法
+        <span>
+    
+        <a class="" href="/2018/11/15/polymorphism/">[Golang]奇怪的“类”和多态（Polymorphism）</a>
+    
 
-最近最热门算法 
 
-结合时间上下文的Item-based CF 用户在相隔时间很短内喜欢的物品具有更高相似度，近期行为相比很久之前的行为更能体现用户现在的兴趣，应加强用户
+<span>
+      </span></span></li>
+    
       
-      </p>
       
-      <p>
-          <a href="/2018/06/01/recsys-note4/" class="excerpt-link">Read More...</a>
-      </p>
       
-    </section>
-  </article>
-  
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta">
-      <time datetime="2018-05-25T04:05:24.000Z" itemprop="datePublished">
-          2018-05-24
-      </time>
-    
-    
-    | 
-    <a href="/tags/笔记/">笔记</a>,
-    
-    <a href="/tags/推荐/">推荐</a>
-    
-    
-</span>
-      <h2 class="post-title"><a href="/2018/05/24/recsys-note3/">《推荐系统实践》笔记 #3</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>
       
+      <li class="post-item">
         
-本文100%由本人（Haoxiang Ma)原创，如需转载请注明出处。
-
-推荐系统冷启动问题如何在没有大量用户数据的情况下设计推荐系统 => 冷启动问题
-
-冷启动问题
-用户冷启动 => 如何给全新的用户作推荐
-物品冷启动 => 如何把新加入的物品推荐给用户
-系统冷启动 => 如何在一个新开发的网站上设计开发个性化推荐系统
+    <div class="meta">
+        <time datetime="2018-11-10T18:33:59.000Z" itemprop="datePublished">2018-11-10</time>
+    </div>
 
 
-常见的冷启动解决方案
-作非个性化的推荐：直接按热门排行榜进行推荐
-利用用户注册时提供的个人信息：age, se
-      
-      </p>
-      
-      <p>
-          <a href="/2018/05/24/recsys-note3/" class="excerpt-link">Read More...</a>
-      </p>
-      
-    </section>
-  </article>
-  
-  <nav class="pagination" role="pagination">
+        <span>
     
-    <span class="page-number">Page 1 of 3</span>
-    <a class="older-posts" href="/archives/2018/page/2/">Older Posts →</a>
-  </nav>
-</main>
+        <a class="" href="/2018/11/10/go-slice/">[Golang]奇葩数据结构之Slice（切片）</a>
+    
 
 
+<span>
+      </span></span></li>
+    
+      
+      
+      
+      
+      <li class="post-item">
+        
+    <div class="meta">
+        <time datetime="2018-09-28T16:54:07.000Z" itemprop="datePublished">2018-09-28</time>
+    </div>
+
+
+        <span>
+    
+        <a class="" href="/2018/09/28/google-interview0/">[Google]记一道不错的电面题</a>
+    
+
+
+<span>
+      </span></span></li>
+    
+      
+      
+      
+      
+      <li class="post-item">
+        
+    <div class="meta">
+        <time datetime="2018-06-01T23:15:03.000Z" itemprop="datePublished">2018-06-01</time>
+    </div>
+
+
+        <span>
+    
+        <a class="" href="/2018/06/01/recsys-note4/">《推荐系统实践》笔记 #4</a>
+    
+
+
+<span>
+      </span></span></li>
+    
+      
+      
+      
+      
+      <li class="post-item">
+        
+    <div class="meta">
+        <time datetime="2018-05-25T04:05:24.000Z" itemprop="datePublished">2018-05-24</time>
+    </div>
+
+
+        <span>
+    
+        <a class="" href="/2018/05/24/recsys-note3/">《推荐系统实践》笔记 #3</a>
+    
+
+
+<span>
+      </span></span></li>
+    
+  </ul>
   
-<footer class="site-footer">
-  
-  <div class="inner">
-     <section class="copyright">All content copyright <a href="/">casper</a> &copy; 2014 &bull; All rights reserved.</section>
-     <section class="poweredby">Proudly published with <a class="icon-ghost" href="http://zespia.tw/hexo/">Hexo</a></section>
+    <div class="pagination">
+        
+        <span class="page-number">Page 1 of 3</span>
+        
+            <a href="/archives/2018/page/2/"><i class="fa fa-angle-right"></i>
+            </a>
+        
+    </div>
+
+
+</div>
+
+    </div>
+    
+    <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy; 2018 Haoxiang Ma
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="http://github.com/probberechts">Projects</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </nav>
   </div>
 </footer>
 
-  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
-
-<script type="text/javascript" src="/js/jquery.fitvids.js"></script>
-<script type="text/javascript" src="/js/index.js"></script>
-
-
-
-
-
-
 </body>
 </html>
+<!-- styles -->
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+<link rel="stylesheet" href="/lib/meslo-LG/styles.css">
+<link rel="stylesheet" href="/lib/justified-gallery/justifiedGallery.min.css">
+
+<!-- jquery -->
+<script src="/lib/jquery/jquery.min.js"></script>
+<script src="/lib/justified-gallery/jquery.justifiedGallery.min.js"></script>
+<script src="/js/main.js"></script>
+<!-- search -->
+
+<!-- Google Analytics -->
+
+    <script type="text/javascript">
+        (function(i,s,o,g,r,a,m) {i['GoogleAnalyticsObject']=r;i[r]=i[r]||function() {
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+        ga('create', 'UA-86660611-1', 'auto');
+        ga('send', 'pageview');
+    </script>
+
+<!-- Disqus Comments -->
+
+

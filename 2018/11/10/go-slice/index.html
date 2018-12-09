@@ -1,61 +1,149 @@
 <!DOCTYPE html>
 <html>
-
-<head>
-  <meta http-equiv="Content-Type" content="text/html" charset="UTF-8" >
-  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
-  <title>[Golang]奇葩数据结构之Slice（切片） | casper</title>
-  <meta name="description" content="" />
-  <meta name="HandheldFriendly" content="True" />
-  <meta name="MobileOptimized" content="320" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <link rel="stylesheet" type="text/css" href="/css/screen.css" />
-  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
-
-  <meta name="generator" content="casper">
-
-  
-  
-  
-
-  
+<head><meta name="generator" content="Hexo 3.8.0">
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="[Golang]奇葩数据结构之Slice（切片） 本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近新接触Golang，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学Java时，就抠了不">
+<meta name="keywords" content="Go,笔记,数据结构">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Golang]奇葩数据结构之Slice（切片）">
+<meta property="og:url" content="http://yoursite.com/2018/11/10/go-slice/index.html">
+<meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
+<meta property="og:description" content="[Golang]奇葩数据结构之Slice（切片） 本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近新接触Golang，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学Java时，就抠了不">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic3.png">
+<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Golang]奇葩数据结构之Slice（切片）">
+<meta name="twitter:description" content="[Golang]奇葩数据结构之Slice（切片） 本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。  Introduction最近新接触Golang，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学Java时，就抠了不">
+<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic.png">
+    
+    
+        
+          
+              <link rel="shortcut icon" href="/images/favicon.ico">
+          
+        
+        
+          
+            <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+          
+        
+        
+          
+            <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+          
+        
+    
+    <!-- title -->
+    <title>[Golang]奇葩数据结构之Slice（切片）</title>
+    <!-- styles -->
+    <link rel="stylesheet" href="/css/style.css">
+    <!-- rss -->
+    
+    
 </head>
 
+<body>
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#"><i class="fa fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#"><i class="fa fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fa fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="http://github.com/probberechts">Projects</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </span>
+    <br>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" href="/2018/11/15/polymorphism/"><i class="fa fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" href="/2018/09/28/google-interview0/"><i class="fa fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" href="#"><i class="fa fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" href="http://www.facebook.com/sharer.php?u=http://yoursite.com/2018/11/10/go-slice/"><i class="fa fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2018/11/10/go-slice/&text=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2018/11/10/go-slice/&title=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2018/11/10/go-slice/&is_video=false&description=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[Golang]奇葩数据结构之Slice（切片）&body=Check out this article: http://yoursite.com/2018/11/10/go-slice/"><i class="fa fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2018/11/10/go-slice/&title=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2018/11/10/go-slice/&title=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2018/11/10/go-slice/&title=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2018/11/10/go-slice/&title=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2018/11/10/go-slice/&name=[Golang]奇葩数据结构之Slice（切片）&description="><i class="fa fa-tumblr " aria-hidden="true"></i></a></li>
+</ul>
 
-<body class="post-template">
-
-  <header class="site-head" style="background-image: url(//blog.ghost.org/content/images/2013/Nov/cover.png)">
-    <div class="vertical">
-        <div class="site-head-content inner">
-             <a class="blog-logo" href="/"><img src="//blog.ghost.org/content/images/2013/Nov/bloglogo_1-1.png" alt="Blog Logo"></a> 
-            <h1 class="blog-title">casper</h1>
-            <h2 class="blog-description"></h2>
-        </div>
     </div>
-</header>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Golang-奇葩数据结构之Slice（切片）"><span class="toc-number">1.</span> <span class="toc-text">[Golang]奇葩数据结构之Slice（切片）</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Introduction"><span class="toc-number">1.0.1.</span> <span class="toc-text">Introduction</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#底层实现"><span class="toc-number">1.0.2.</span> <span class="toc-text">底层实现</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#对slice的操作，以及其中的坑"><span class="toc-number">1.0.3.</span> <span class="toc-text">对slice的操作，以及其中的坑</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">1.0.4.</span> <span class="toc-text">总结</span></a></li></ol></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index width mx-auto px2 my4">
+        
+        <article class="post" itemscope="" itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        [Golang]奇葩数据结构之Slice（切片）
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+        <span itemprop="name">Haoxiang Ma's Tech Blog</span>
+      </span>
+      
+    <div class="postdate">
+        <time datetime="2018-11-10T18:33:59.000Z" itemprop="datePublished">2018-11-10</time>
+    </div>
+
+
+      
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/Go/">Go</a>, <a class="tag-link" href="/tags/数据结构/">数据结构</a>, <a class="tag-link" href="/tags/笔记/">笔记</a>
+    </div>
+
+
+    </div>
+  </header>
   
 
-<main class="content" role="main">
-  <article class="post">
-    <span class="post-meta">
-      <time datetime="2018-11-10T18:33:59.000Z" itemprop="datePublished">
-          2018-11-10
-      </time>
-    
-    
-    | 
-    <a href="/tags/Go/">Go</a>,
-    
-    <a href="/tags/笔记/">笔记</a>,
-    
-    <a href="/tags/数据结构/">数据结构</a>
-    
-    
-</span>
-    <h1 class="post-title">[Golang]奇葩数据结构之Slice（切片）</h1>
-    <section class="post-content">
-      <h2 id="Golang-奇葩数据结构之Slice（切片）"><a href="#Golang-奇葩数据结构之Slice（切片）" class="headerlink" title="[Golang]奇葩数据结构之Slice（切片）"></a>[Golang]奇葩数据结构之Slice（切片）</h2><blockquote>
+  <div class="content" itemprop="articleBody">
+    <h2 id="Golang-奇葩数据结构之Slice（切片）"><a href="#Golang-奇葩数据结构之Slice（切片）" class="headerlink" title="[Golang]奇葩数据结构之Slice（切片）"></a>[Golang]奇葩数据结构之Slice（切片）</h2><blockquote>
 <p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/09，基于<code>Go 1.11</code>。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
 </blockquote>
 <h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p>最近新接触<code>Golang</code>，个人有一种习惯，在粗略过完基础语法后就开始深入研究一番语言内部built-in的数据结构。想当年学<code>Java</code>时，就抠了不少<code>JDK7</code>和<code>JDK8</code>里面的集合类源码（<strong>特别是Map相关和List相关的实现</strong>）。 类似的，在<code>Golang</code>里面，built-in类型的几种经典数据结构（或者说是容器／集合）有</p>
@@ -148,65 +236,112 @@ fmt.Println(slice1) // [a]
 <pre><code>当执行了`slice2[0] = &quot;hello&quot;`后，`slice1`居然还是`[a]`而不是`[hello]`，说好的**基于同一个底层数组的多个slice会共享该数组呢？？？**在这里怎么出问题了？？？ **其实关键就在于我们append时，`slice1`的`len` == `cap`**，在原`slice1`中没有空间可以允许插入新元素了。**此时就会触发slice扩容，然而此扩容并不是对原底层数组进行操作，而是新开辟一段更长的数组空间，把原数组的值copy过来，再让slice中的指针指向新开辟的长数组！**详细流程请参考下图。 ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/basic5.png) 由图可见，原本`slice1`里的指针指向的数组是位于`0x34`处的。当尝试`append()`并触发扩容时，**底层直接在另外的地址(`0x88`）处开辟了（或者称之为`deep clone`吧）一段全新的数组。**并把值都copy过去，然后才真正把需要append的`&quot;hh&quot;`塞进去。 很自然，**之后我们执行的`slice2[0] = &quot;hello&quot;`，只是对`0x88`起始的那个数组进行了修改，完全没有影响到`slice1`指向的那个从`0x34`起始的数组。**把`slice1`打印出来，自然也就还是`[a]`了。 所以在很多Go项目的代码里，或者官方教程里，**最常见的append用法都是`slice = append(slice, value)`，而不是`newSlice := append(slice, value)`。**当把append完成后的结果再一次赋给原slice，无论发生了什么(无论`len`和`cap`是什么关系都无所谓），总不会造成runtime时的歧义。 如果在一些特定的场景下，必须要使用`newSlice := append(slice, value)`的写法，那就要格外小心！**如果在append过程中触发了扩容，`newSlice`和原`slice`将不再指向同一段数组空间，在这种情况下对`newSlice`的修改也丝毫不会影响`slice`**（也有可能这恰好就是你的逻辑需要的）。
 </code></pre><h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p><code>Golang</code>中的<code>slice</code>兼顾了传统数组的优点（连续内存空间），也支持动态扩容／截断，确实是在实际开发中非常有用的容器。<strong>但建议每个Go开发者都详细了解其底层实现，因为为了支持其动态性，append和append相关的操作会带来很多奇奇怪怪的坑</strong></p>
 
-    </section>
-    <footer class="post-footer">
-      <section class="author">
-    <h4>John Doe</h4>
-    <p>A designer, developer and entrepreneur. Spends his time travelling the world with a bag of kites. Likes journalism and publishing platforms.</p>
-</section>
-      <section class="share">
-    <h4>Share this post</h4>
-    <a class="icon-twitter" href="http://twitter.com/share?url=http://yoursite.com/2018/11/10/go-slice/" onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
-        <span class="hidden">Twitter</span>
-    </a>
-    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://yoursite.com/2018/11/10/go-slice/" onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
-        <span class="hidden">Facebook</span>
-    </a>
-    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://yoursite.com/2018/11/10/go-slice/" onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
-        <span class="hidden">Google+</span>
-    </a>
-</section>
-    </footer>
-  </article>
-  <nav class="pagination" role="pagination">
-    
-    <a class="newer-posts" href="/2018/11/15/polymorphism/">
-        ← [Golang]奇怪的“类”和多态（Polymorphism）
-    </a>
-    
-    <span class="page-number">•</span>
-    
-    <a class="older-posts" href="/2018/09/28/google-interview0/">
-        [Google]记一道不错的电面题 →
-    </a>
-    
-</nav>
-  <div id="comment" class="comments-area">
-    <h1 class="title"><a href="#disqus_comments" name="disqus_comments">Comments</a></h1>
+  </div>
+</article>
 
+
+
+    </div>
     
+      <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="http://github.com/probberechts">Projects</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Golang-奇葩数据结构之Slice（切片）"><span class="toc-number">1.</span> <span class="toc-text">[Golang]奇葩数据结构之Slice（切片）</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Introduction"><span class="toc-number">1.0.1.</span> <span class="toc-text">Introduction</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#底层实现"><span class="toc-number">1.0.2.</span> <span class="toc-text">底层实现</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#对slice的操作，以及其中的坑"><span class="toc-number">1.0.3.</span> <span class="toc-text">对slice的操作，以及其中的坑</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#总结"><span class="toc-number">1.0.4.</span> <span class="toc-text">总结</span></a></li></ol></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" href="http://www.facebook.com/sharer.php?u=http://yoursite.com/2018/11/10/go-slice/"><i class="fa fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2018/11/10/go-slice/&text=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2018/11/10/go-slice/&title=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2018/11/10/go-slice/&is_video=false&description=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[Golang]奇葩数据结构之Slice（切片）&body=Check out this article: http://yoursite.com/2018/11/10/go-slice/"><i class="fa fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2018/11/10/go-slice/&title=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2018/11/10/go-slice/&title=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2018/11/10/go-slice/&title=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2018/11/10/go-slice/&title=[Golang]奇葩数据结构之Slice（切片）"><i class="fa fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2018/11/10/go-slice/&name=[Golang]奇葩数据结构之Slice（切片）&description="><i class="fa fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+      <ul>
+        <li id="toc"><a class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fa fa-list fa-lg" aria-hidden="true"></i> TOC</a></li>
+        <li id="share"><a class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fa fa-share-alt fa-lg" aria-hidden="true"></i> Share</a></li>
+        <li id="top" style="display:none"><a class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a></li>
+        <li id="menu"><a class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fa fa-bars fa-lg" aria-hidden="true"></i> Menu</a></li>
+      </ul>
+    </div>
+
+  </div>
 </div>
-</main>
 
-
-  
-<footer class="site-footer">
-  
-  <div class="inner">
-     <section class="copyright">All content copyright <a href="/">casper</a> &copy; 2014 &bull; All rights reserved.</section>
-     <section class="poweredby">Proudly published with <a class="icon-ghost" href="http://zespia.tw/hexo/">Hexo</a></section>
+    
+    <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy; 2018 Haoxiang Ma
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="http://github.com/probberechts">Projects</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </nav>
   </div>
 </footer>
 
-  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
-
-<script type="text/javascript" src="/js/jquery.fitvids.js"></script>
-<script type="text/javascript" src="/js/index.js"></script>
-
-
-
-
-
-
 </body>
 </html>
+<!-- styles -->
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+<link rel="stylesheet" href="/lib/meslo-LG/styles.css">
+<link rel="stylesheet" href="/lib/justified-gallery/justifiedGallery.min.css">
+
+<!-- jquery -->
+<script src="/lib/jquery/jquery.min.js"></script>
+<script src="/lib/justified-gallery/jquery.justifiedGallery.min.js"></script>
+<script src="/js/main.js"></script>
+<!-- search -->
+
+<!-- Google Analytics -->
+
+    <script type="text/javascript">
+        (function(i,s,o,g,r,a,m) {i['GoogleAnalyticsObject']=r;i[r]=i[r]||function() {
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+        ga('create', 'UA-86660611-1', 'auto');
+        ga('send', 'pageview');
+    </script>
+
+<!-- Disqus Comments -->
+
+
