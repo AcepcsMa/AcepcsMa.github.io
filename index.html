@@ -1,1606 +1,414 @@
 <!DOCTYPE html>
 <html>
-<head><meta name="generator" content="Hexo 3.8.0">
-  <meta charset="utf-8">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html" charset="UTF-8" >
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+  <title>casper</title>
+  <meta name="description" content="" />
+  <meta name="HandheldFriendly" content="True" />
+  <meta name="MobileOptimized" content="320" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" type="text/css" href="/css/screen.css" />
+  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+  <meta name="generator" content="casper">
+
+  
+  
   
 
   
-  <title>Hexo</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta property="og:type" content="website">
-<meta property="og:title" content="Hexo">
-<meta property="og:url" content="http://yoursite.com/index.html">
-<meta property="og:site_name" content="Hexo">
-<meta property="og:locale" content="default">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Hexo">
-  
-    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
-  
-  
-    <link rel="icon" href="/favicon.png">
-  
-  
-    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
-  
-  <link rel="stylesheet" href="/css/style.css">
 </head>
-</html>
-<body>
-  <div id="container">
-    <div id="wrap">
-      <header id="header">
-  <div id="banner"></div>
-  <div id="header-outer" class="outer">
-    <div id="header-title" class="inner">
-      <h1 id="logo-wrap">
-        <a href="/" id="logo">Hexo</a>
-      </h1>
-      
+
+
+<body class="home-template">
+
+  <header class="site-head" style="background-image: url(//blog.ghost.org/content/images/2013/Nov/cover.png)">
+    <div class="vertical">
+        <div class="site-head-content inner">
+             <a class="blog-logo" href="/"><img src="//blog.ghost.org/content/images/2013/Nov/bloglogo_1-1.png" alt="Blog Logo"></a> 
+            <h1 class="blog-title">casper</h1>
+            <h2 class="blog-description"></h2>
+        </div>
     </div>
-    <div id="header-inner" class="inner">
-      <nav id="main-nav">
-        <a id="main-nav-toggle" class="nav-icon"></a>
-        
-          <a class="main-nav-link" href="/">Home</a>
-        
-          <a class="main-nav-link" href="/archives">Archives</a>
-        
-      </nav>
-      <nav id="sub-nav">
-        
-          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
-        
-        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
-      </nav>
-      <div id="search-form-wrap">
-        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
-      </div>
-    </div>
-  </div>
 </header>
-      <div class="outer">
-        <section id="main">
   
-    <article id="post-raft-leader-election-trashed" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/12/09/raft-leader-election-trashed/" class="article-date">
-  <time datetime="2018-12-09T16:42:51.000Z" itemprop="datePublished">2018-12-09</time>
-</a>
-    
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/分布式/">分布式</a>►<a class="article-category-link" href="/categories/分布式/算法/">算法</a>
-  </div>
-
-  </div>
-  <div class="article-inner">
+<main class="content" role="main">
+  
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-12-09T16:42:51.000Z" itemprop="datePublished">
+          2018-12-09
+      </time>
     
     
-      <header class="article-header">
+    | 
+    <a href="/tags/笔记/">笔记</a>,
+    
+    <a href="/tags/算法/">算法</a>,
+    
+    <a href="/tags/分布式/">分布式</a>
+    
+    
+</span>
+      <h2 class="post-title"><a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
         
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
-    </h1>
-  
+Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。
 
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
+为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。
+
+选主过程最重要的限制是： Leader必须存有所有已经commit过的log entry，这样才
       
-        <ol>
-<li><p>Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。</p>
-</li>
-<li><p>为了保证不丢数据（<strong>特指已经commit且成功通知client的数据</strong>），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。</p>
-</li>
-<li><p>选主过程最重要的限制是： <strong><em>Leader必须存有所有已经commit过的log entry，这样才能保证整个分布式系统的一致性。</em></strong> <strong>在外部用户看来，已经commit成功的就必然是100%正常存储好了的。</strong>如果选出一个Leader，结果它上面缺了几条已经comm<a href="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/it过的数据，那这个分布式系统就没有任何意义了。几分钟前跟用户说“我已经commit了，你放心吧”，过一会用户想查一查数据却发现“尼玛，怎么丢数据了，说好的已经commit了呢？！”" target="_blank" rel="noopener">https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/it过的数据，那这个分布式系统就没有任何意义了。几分钟前跟用户说“我已经commit了，你放心吧”，过一会用户想查一查数据却发现“尼玛，怎么丢数据了，说好的已经commit了呢？！”</a></p>
-</li>
-<li><p>为了满足这个条件（Leader上必须存有所有已经commit过的数据），Raft中提出了两个限制条件，<strong>如果严格遵守以下两个条件，是能保证选出合法Leader的</strong>。</p>
-<ul>
-<li>在选主过程中，每台服务器只会投票给拥有比自己更新的log entry的服务器。</li>
-<li><p>Leader在commit log entry的时候，只允许<strong>直接</strong>commit当前term（任期）的log entry，决不允许<strong>直接</strong>commit“历史”log entry。（历史log entry只能<strong>间接被动</strong>commit） （1）先来看看第一个条件：每台server只会投票给拥有比自己更新的log entry的server。这句话里最关键的是如何定义<strong><em>“更新的log entry”</em></strong>。按照Raft论文里给出的定义：</p>
-<blockquote>
-<p>Raft determines which of two logs is more up-to-date by comparing the index and term of the last entries in the logs. If the logs have last entries with different terms, then the log with the later term is more up-to-date. If the logs end with the same term, then whichever log is longer is more up-to-date.</p>
-</blockquote>
-<ul>
-<li>两台服务器上的<strong>最后一条</strong>log entry，如果它们的term不同，则term更大者是“更新”的。</li>
-<li>两台服务器上的<strong>最后一条</strong>log entry，如果它们的term相同，则index更大者是“更新”的。</li>
-</ul>
-<p>（这里我觉得论文里漏了一个小细节，如果两条log entry的term和index都相同，<strong>应该会默认把发起投票的服务器当成更新的</strong>，term和index都一样的情况下不存在所谓的“更新”，一切为了选主的顺利进行，能快速有效选出leader才是最重要的。） <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_1.png" alt=""> 如上图所示，根据Raft的判断标准，<strong>下者的记录比上者更新，因为下者最后一条log entry的term为5，5比4大</strong>。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_2.png" alt=""> 如上图所示，根据Raft的判断标准，<strong>上者的记录比上者更新，因为上者最后一条log entry的index为4，下者最后一条log entry的index为3，4比3大</strong>。 （2）再研究第二个条件：Leader只允许<strong>直接</strong>commit当前term（任期）的log entry，决不允许<strong>直接</strong>commit“历史”log entry。这条前提一看上去有点云里雾里的，感觉并没有什么必要性。<strong>实则不然，这条前提非常重要，是用来避免异常情况下频繁换Leader可能造成的commited log entry被覆盖的问题。</strong> Raft原版论文里也给出了一个经典场景： <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_election.png" alt=""></p>
-<ul>
-<li>在(a)阶段，已经处于<code>term:2</code>了，<code>S1</code>是本轮（<code>term:2</code>）的leader。在<code>S1</code>上任后没多久，收到了客户端的请求，写入一条<code>{term:2, index:2}</code>的log，并将此log成功复制到<code>S2</code>这个小兄弟上。<strong>结果天不如人愿，还没来得及把log复制到其他小兄弟上，<code>S1</code>自己就宕机了。</strong></li>
-<li>到了(b)阶段，<code>S1</code>宕机后，整个集群处于无领导状态。经过了一小会，<code>S5</code>很幸运率先结束timeout，自增term号（从<code>term:2</code>自增到<code>term:3</code>），发起了选主。由于此时<code>S3</code>和<code>S4</code>上的记录都和<code>S5</code>一样新，所以都愿意投票给<code>S5</code>，<code>S5</code>成功当选，成为leader。<code>S5</code>成为leader后马上又收到了客户端的请求，于是在本机上写入一条<code>{term:3, index:2}</code>的log。<strong>然而<code>S5</code>的命运比<code>S1</code>更惨，只来得及存在本地，来不及把log entry复制给任何一个小兄弟，直接就挂了。</strong></li>
-<li>此时来到了(c)状态，<code>S5</code>挂了之后，<code>S1</code>成功重启恢复运转。<code>S1</code>自告奋勇，自增全局term号（从<code>term:3</code>自增到<code>term:4</code>），请求大家选主。<code>S2 ~ S4</code>都会投给<code>S1</code>，<code>S1</code>顺利当选leader。<code>S1</code>成了leader后做了第一件事情，发现之前<code>{term:2, index:2}</code>的log还没有成功复制给大部分兄弟，于是开始复制工作，把log复制到了<code>S3</code>上。突然<code>S1</code>又收到了客户端的请求，写入一条<code>{term:4, index:3}</code>的log到本机。</li>
-</ul>
-<p>以上3步都非常理所当然，没有任何的争议点，最大的争议点就出现在了(d)和(e)上。<strong>(d)和(e)实际上是(c)发生之后的两种互斥的可能情况，(d)是忽视第二条前提会发生的情况，(e)是满足第二条前提会发生的情况。</strong></p>
-<ul>
-<li>先看(d)。<strong>假设我们忽略第二条前提，也就是说leader可以随意commit任何term的log entry。</strong>那么在(c)结束之后，作为<code>term:4</code>的leader的<code>S1</code><strong>可以commit掉<code>{term:2, index:2}</code>的log，并且把结果返回给客户端。</strong>结果刚完成以上步骤，<code>S1</code>又倒霉地宕机了，<code>{term:4, index:3}</code>的log没来得及复制给任何一个小兄弟。过了一会，<code>S5</code>恢复正常，自增全局term号（从<code>term:4</code>自增到<code>term:5</code>），要求选主。由于此时<code>S5</code>上的最后一条log是<code>{term:3, index:2}</code>，比<code>S2 ~ S4</code>的都更新，大家都会投票给<code>S5</code>，<code>S5</code>成功当上<code>term:5</code>的leader。当上leader后，<code>S5</code>的第一件事情就是把它还没来得及复制给多个小兄弟的log复制出去，所以就造成了(d)状态，所有服务器上的log记录都被<code>S5</code>自己的log记录覆盖了。<strong>之前已经成功commit的<code>{term:2, index:2}</code>的log直接被覆盖，消失无踪⚠️！</strong></li>
-<li>再看(e)。<strong>假设我们一定要坚守第二条前提，也就是说leader只能直接commit当前term的log entry，不能直接commit历史log entry。</strong>那么在(c)结束后，<code>S1</code>也不能commit<code>{term:2, index:2}</code>的log，因为<code>S1</code>此时是<code>term:4</code>的leader，而不是<code>term:2</code>的leader。只有如(e)所示，之后<code>S1</code>有机会commit属于当前term的log entry（<code>{term:4, index:3}</code>）时，才有机会<strong>间接地</strong>把之前<code>term:2</code>的历史记录也commit掉。即使此时<code>S1</code>宕机，<code>S5</code>也绝对不可能选上下一轮的leader，因为<code>S5</code>上最新的log<code>{term:3, index:2}</code>已经不如<code>S1 ~ S3</code>的新了，他拿不到过半的选票，做不了leader，也就不会发生已经commit的记录被覆盖的错误了。</li>
-</ul>
-<p>经过这一轮例子分析，可以很清晰地看到第二条前提的重要性了。如果允许leader随便直接commit历史记录的话，极端情况下很可能会造成数据丢失的系统错误（客户端知道你commit成功了，他就应该能放心了，结果过了一会你跟客户说commit也不算数，我搞丢了。。。。。。）<strong>所以，对于历史记录的commit只能被动触发！！！在commit当前term的log entry时顺便把之前未处理的log entry给commit掉。</strong></p>
-</li>
-</ul>
-</li>
-</ol>
+      </p>
+      
+      <p>
+          <a href="/2018/12/09/raft-leader-election-trashed/" class="excerpt-link">Read More...</a>
+      </p>
+      
+    </section>
+  </article>
+  
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-12-09T16:42:10.000Z" itemprop="datePublished">
+          2018-12-09
+      </time>
+    
+</span>
+      <h2 class="post-title"><a href="/2018/12/09/trashed/">__trashed</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
+        yhhhhjr3ju32
 
       
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/12/09/raft-leader-election-trashed/" data-id="cjpg78r5t0006bxuy9mvmyr9b" class="article-share-link">Share</a>
+      </p>
       
+      <p>
+          <a href="/2018/12/09/trashed/" class="excerpt-link">Read More...</a>
+      </p>
       
-  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/分布式/">分布式</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/算法/">算法</a></li></ul>
-
-    </footer>
-  </div>
+    </section>
+  </article>
   
-</article>
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-12-09T16:42:10.000Z" itemprop="datePublished">
+          2018-12-09
+      </time>
+    
+</span>
+      <h2 class="post-title"><a href="/2018/12/09/trashed-2/">[Raft]</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
+        ##[Raft]Leader Election（选主）笔记
+
+Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。
+
+为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。
+
+选主过程最重要的限制是：
 
 
+Lea
+      
+      </p>
+      
+      <p>
+          <a href="/2018/12/09/trashed-2/" class="excerpt-link">Read More...</a>
+      </p>
+      
+    </section>
+  </article>
   
-    <article id="post-trashed" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/12/09/trashed/" class="article-date">
-  <time datetime="2018-12-09T16:42:10.000Z" itemprop="datePublished">2018-12-09</time>
-</a>
-    
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/未分类/">未分类</a>
-  </div>
-
-  </div>
-  <div class="article-inner">
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-12-09T16:12:35.000Z" itemprop="datePublished">
+          2018-12-09
+      </time>
     
     
-      <header class="article-header">
+    | 
+    <a href="/tags/笔记/">笔记</a>,
+    
+    <a href="/tags/算法/">算法</a>,
+    
+    <a href="/tags/分布式/">分布式</a>
+    
+    
+</span>
+      <h2 class="post-title"><a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
         
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/12/09/trashed/">__trashed</a>
-    </h1>
-  
+Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。
 
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
+为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。
+
+选主过程最重要的限制是：
+
+
+Leader必须存有所有已经commit过的log entry，这
       
-        <p>yhhhhjr3ju32</p>
-
+      </p>
       
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/12/09/trashed/" data-id="cjpg78r64000pbxuyiiyokntw" class="article-share-link">Share</a>
+      <p>
+          <a href="/2018/12/09/raft-leader-election/" class="excerpt-link">Read More...</a>
+      </p>
       
-      
-    </footer>
-  </div>
+    </section>
+  </article>
   
-</article>
-
-
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-12-09T01:10:37.000Z" itemprop="datePublished">
+          2018-12-08
+      </time>
+    
+</span>
+      <h2 class="post-title"><a href="/2018/12/08/hello-world/">Hello World</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
+        Welcome to Hexo! This is your very first post. Check documentation for more info. If you get any problems when using Hexo, you can find the answer in troubleshooting or you can ask me on GitHub.
+Quick StartCreate a new p
+      
+      </p>
+      
+      <p>
+          <a href="/2018/12/08/hello-world/" class="excerpt-link">Read More...</a>
+      </p>
+      
+    </section>
+  </article>
   
-    <article id="post-trashed-2" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/12/09/trashed-2/" class="article-date">
-  <time datetime="2018-12-09T16:42:10.000Z" itemprop="datePublished">2018-12-09</time>
-</a>
-    
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/未分类/">未分类</a>
-  </div>
-
-  </div>
-  <div class="article-inner">
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-12-07T00:11:19.000Z" itemprop="datePublished">
+          2018-12-06
+      </time>
     
     
-      <header class="article-header">
+    | 
+    <a href="/tags/Go/">Go</a>,
+    
+    <a href="/tags/笔记/">笔记</a>,
+    
+    <a href="/tags/源码/">源码</a>
+    
+    
+</span>
+      <h2 class="post-title"><a href="/2018/12/06/groupcache-part2/">[Golang]groupcache项目解析——Part2</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
         
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/12/09/trashed-2/">[Raft]</a>
-    </h1>
-  
+本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/12/05，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。
 
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
+Introduction本文是《GroupCache项目解析》系列文章的第二篇，在上一篇([Golang]groupcache项目解析——Part1)中已经对GroupCache的背景、架构、代码结构作了介绍，也提供了一个简单的用例。现在来到了第二篇，主
       
-        <p>##[Raft]Leader Election（选主）笔记</p>
-<ol>
-<li><p>Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。</p>
-</li>
-<li><p>为了保证不丢数据（<strong>特指已经commit且成功通知client的数据</strong>），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。</p>
-</li>
-<li><p>选主过程最重要的限制是：</p>
-</li>
-</ol>
-<p><strong><em>Leader必须存有所有已经commit过的log entry，这样才能保证整个分布式系统的一致性。</em></strong> <strong>在外部用户看来，已经commit成功的就必然是100%正常存储好了的。</strong>如果选出一个Leader，结果它上面缺了几条已经comm<a href="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/it过的数据，那这个分布式系统就没有任何意义了。几分钟前跟用户说“我已经commit了，你放心吧”，过一会用户想查一查数据却发现“尼玛，怎么丢数据了，说好的已经commit了呢？！”" target="_blank" rel="noopener">https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/it过的数据，那这个分布式系统就没有任何意义了。几分钟前跟用户说“我已经commit了，你放心吧”，过一会用户想查一查数据却发现“尼玛，怎么丢数据了，说好的已经commit了呢？！”</a></p>
-<ol start="4">
-<li>为了满足这个条件（Leader上必须存有所有已经commit过的数据），Raft中提出了两个限制条件，<strong>如果严格遵守以下两个条件，是能保证选出合法Leader的</strong>。</li>
-</ol>
-<ul>
-<li>在选主过程中，每台服务器只会投票给拥有比自己更新的log entry的服务器。</li>
-<li>Leader在commit log entry的时候，只允许<strong>直接</strong>commit当前term（任期）的log entry，决不允许<strong>直接</strong>commit“历史”log entry。（历史log entry只能<strong>间接被动</strong>commit）</li>
-</ul>
-<p>（1）先来看看第一个条件：每台server只会投票给拥有比自己更新的log entry的server。这句话里最关键的是如何定义<strong><em>“更新的log entry”</em></strong>。按照Raft论文里给出的定义：</p>
-<blockquote>
-<p>Raft determines which of two logs is more up-to-date by comparing the index and term of the last entries in the logs. If the logs have last entries with different terms, then the log with the later term is more up-to-date. If the logs end with the same term, then whichever log is longer is more up-to-date.</p>
-</blockquote>
-<ul>
-<li>两台服务器上的<strong>最后一条</strong>log entry，如果它们的term不同，则term更大者是“更新”的。</li>
-<li>两台服务器上的<strong>最后一条</strong>log entry，如果它们的term相同，则index更大者是“更新”的。</li>
-</ul>
-<p>（这里我觉得论文里漏了一个小细节，如果两条log entry的term和index都相同，<strong>应该会默认把发起投票的服务器当成更新的</strong>，term和index都一样的情况下不存在所谓的“更新”，一切为了选主的顺利进行，能快速有效选出leader才是最重要的。） <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_1.png" alt=""> 如上图所示，根据Raft的判断标准，<strong>下者的记录比上者更新，因为下者最后一条log entry的term为5，5比4大</strong>。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_2.png" alt=""> 如上图所示，根据Raft的判断标准，<strong>上者的记录比上者更新，因为上者最后一条log entry的index为4，下者最后一条log entry的index为3，4比3大</strong>。 （2）再研究第二个条件：Leader只允许<strong>直接</strong>commit当前term（任期）的log entry，决不允许<strong>直接</strong>commit“历史”log entry。这条前提一看上去有点云里雾里的，感觉并没有什么必要性。<strong>实则不然，这条前提非常重要，是用来避免异常情况下频繁换Leader可能造成的commited log entry被覆盖的问题。</strong> Raft原版论文里也给出了一个经典场景： <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_election.png" alt=""></p>
-<ul>
-<li>在(a)阶段，已经处于<code>term:2</code>了，<code>S1</code>是本轮（<code>term:2</code>）的leader。在<code>S1</code>上任后没多久，收到了客户端的请求，写入一条<code>{term:2, index:2}</code>的log，并将此log成功复制到<code>S2</code>这个小兄弟上。<strong>结果天不如人愿，还没来得及把log复制到其他小兄弟上，<code>S1</code>自己就宕机了。</strong></li>
-<li>到了(b)阶段，<code>S1</code>宕机后，整个集群处于无领导状态。经过了一小会，<code>S5</code>很幸运率先结束timeout，自增term号（从<code>term:2</code>自增到<code>term:3</code>），发起了选主。由于此时<code>S3</code>和<code>S4</code>上的记录都和<code>S5</code>一样新，所以都愿意投票给<code>S5</code>，<code>S5</code>成功当选，成为leader。<code>S5</code>成为leader后马上又收到了客户端的请求，于是在本机上写入一条<code>{term:3, index:2}</code>的log。<strong>然而<code>S5</code>的命运比<code>S1</code>更惨，只来得及存在本地，来不及把log entry复制给任何一个小兄弟，直接就挂了。</strong></li>
-<li>此时来到了(c)状态，<code>S5</code>挂了之后，<code>S1</code>成功重启恢复运转。<code>S1</code>自告奋勇，自增全局term号（从<code>term:3</code>自增到<code>term:4</code>），请求大家选主。<code>S2 ~ S4</code>都会投给<code>S1</code>，<code>S1</code>顺利当选leader。<code>S1</code>成了leader后做了第一件事情，发现之前<code>{term:2, index:2}</code>的log还没有成功复制给大部分兄弟，于是开始复制工作，把log复制到了<code>S3</code>上。突然<code>S1</code>又收到了客户端的请求，写入一条<code>{term:4, index:3}</code>的log到本机。</li>
-</ul>
-<p>以上3步都非常理所当然，没有任何的争议点，最大的争议点就出现在了(d)和(e)上。<strong>(d)和(e)实际上是(c)发生之后的两种互斥的可能情况，(d)是忽视第二条前提会发生的情况，(e)是满足第二条前提会发生的情况。</strong></p>
-<ul>
-<li>先看(d)。<strong>假设我们忽略第二条前提，也就是说leader可以随意commit任何term的log entry。</strong>那么在(c)结束之后，作为<code>term:4</code>的leader的<code>S1</code><strong>可以commit掉<code>{term:2, index:2}</code>的log，并且把结果返回给客户端。</strong>结果刚完成以上步骤，<code>S1</code>又倒霉地宕机了，<code>{term:4, index:3}</code>的log没来得及复制给任何一个小兄弟。过了一会，<code>S5</code>恢复正常，自增全局term号（从<code>term:4</code>自增到<code>term:5</code>），要求选主。由于此时<code>S5</code>上的最后一条log是<code>{term:3, index:2}</code>，比<code>S2 ~ S4</code>的都更新，大家都会投票给<code>S5</code>，<code>S5</code>成功当上<code>term:5</code>的leader。当上leader后，<code>S5</code>的第一件事情就是把它还没来得及复制给多个小兄弟的log复制出去，所以就造成了(d)状态，所有服务器上的log记录都被<code>S5</code>自己的log记录覆盖了。<strong>之前已经成功commit的<code>{term:2, index:2}</code>的log直接被覆盖，消失无踪⚠️！</strong></li>
-<li>再看(e)。<strong>假设我们一定要坚守第二条前提，也就是说leader只能直接commit当前term的log entry，不能直接commit历史log entry。</strong>那么在(c)结束后，<code>S1</code>也不能commit<code>{term:2, index:2}</code>的log，因为<code>S1</code>此时是<code>term:4</code>的leader，而不是<code>term:2</code>的leader。只有如(e)所示，之后<code>S1</code>有机会commit属于当前term的log entry（<code>{term:4, index:3}</code>）时，才有机会<strong>间接地</strong>把之前<code>term:2</code>的历史记录也commit掉。即使此时<code>S1</code>宕机，<code>S5</code>也绝对不可能选上下一轮的leader，因为<code>S5</code>上最新的log<code>{term:3, index:2}</code>已经不如<code>S1 ~ S3</code>的新了，他拿不到过半的选票，做不了leader，也就不会发生已经commit的记录被覆盖的错误了。</li>
-</ul>
-<p>经过这一轮例子分析，可以很清晰地看到第二条前提的重要性了。如果允许leader随便直接commit历史记录的话，极端情况下很可能会造成数据丢失的系统错误（客户端知道你commit成功了，他就应该能放心了，结果过了一会你跟客户说commit也不算数，我搞丢了。。。。。。）<strong>所以，对于历史记录的commit只能被动触发！！！在commit当前term的log entry时顺便把之前未处理的log entry给commit掉。</strong></p>
-
+      </p>
       
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/12/09/trashed-2/" data-id="cjpg78r62000mbxuyxj33ha76" class="article-share-link">Share</a>
+      <p>
+          <a href="/2018/12/06/groupcache-part2/" class="excerpt-link">Read More...</a>
+      </p>
       
-      
-    </footer>
-  </div>
+    </section>
+  </article>
   
-</article>
-
-
-  
-    <article id="post-raft-leader-election" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/12/09/raft-leader-election/" class="article-date">
-  <time datetime="2018-12-09T16:12:35.000Z" itemprop="datePublished">2018-12-09</time>
-</a>
-    
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/分布式/">分布式</a>►<a class="article-category-link" href="/categories/分布式/算法/">算法</a>
-  </div>
-
-  </div>
-  <div class="article-inner">
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-11-30T12:33:36.000Z" itemprop="datePublished">
+          2018-11-30
+      </time>
     
     
-      <header class="article-header">
+    | 
+    <a href="/tags/Go/">Go</a>,
+    
+    <a href="/tags/源码/">源码</a>
+    
+    
+</span>
+      <h2 class="post-title"><a href="/2018/11/30/groupcache-part1/">[Golang]groupcache项目解析——Part1</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
         
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
-    </h1>
-  
+本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/29，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。
 
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
+Introduction本文是《groupcache项目解析》系列文章的第一篇，在本文中主要是对groupcache这个项目作简单的介绍，包括其
+
+架构
+代码文件结构
+简单用例
+
+groupcache简介groupcache(on Github)是一个用
       
-        <ol>
-<li><p>Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。</p>
-</li>
-<li><p>为了保证不丢数据（<strong>特指已经commit且成功通知client的数据</strong>），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。</p>
-</li>
-<li><p>选主过程最重要的限制是：</p>
-</li>
-</ol>
-<p><strong><em>Leader必须存有所有已经commit过的log entry，这样才能保证整个分布式系统的一致性。</em></strong> <strong>在外部用户看来，已经commit成功的就必然是100%正常存储好了的。</strong>如果选出一个Leader，结果它上面缺了几条已经commit过的数据，那这个分布式系统就没有任何意义了。几分钟前跟用户说“我已经commit了，你放心吧”，过一会用户想查一查数据却发现“尼玛，怎么丢数据了，说好的已经commit了呢？！”</p>
-<ol start="4">
-<li>为了满足这个条件（Leader上必须存有所有已经commit过的数据），Raft中提出了两个限制条件，<strong>如果严格遵守以下两个条件，是能保证选出合法Leader的</strong>。</li>
-</ol>
-<ul>
-<li>在选主过程中，每台服务器只会投票给拥有比自己更新的log entry的服务器。</li>
-<li>Leader在commit log entry的时候，只允许<strong>直接</strong>commit当前term（任期）的log entry，决不允许<strong>直接</strong>commit“历史”log entry。（历史log entry只能<strong>间接被动</strong>commit）</li>
-</ul>
-<p>（1）先来看看第一个条件：每台server只会投票给拥有比自己更新的log entry的server。这句话里最关键的是如何定义<strong><em>“更新的log entry”</em></strong>。按照Raft论文里给出的定义：</p>
-<blockquote>
-<p>Raft determines which of two logs is more up-to-date by comparing the index and term of the last entries in the logs. If the logs have last entries with different terms, then the log with the later term is more up-to-date. If the logs end with the same term, then whichever log is longer is more up-to-date.</p>
-</blockquote>
-<ul>
-<li>两台服务器上的<strong>最后一条</strong>log entry，如果它们的term不同，则term更大者是“更新”的。</li>
-<li>两台服务器上的<strong>最后一条</strong>log entry，如果它们的term相同，则index更大者是“更新”的。</li>
-</ul>
-<p>（这里我觉得论文里漏了一个小细节，如果两条log entry的term和index都相同，<strong>应该会默认把发起投票的服务器当成更新的</strong>，term和index都一样的情况下不存在所谓的“更新”，一切为了选主的顺利进行，能快速有效选出leader才是最重要的。） <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_1.png" alt=""> 如上图所示，根据Raft的判断标准，<strong>下者的记录比上者更新，因为下者最后一条log entry的term为5，5比4大</strong>。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_2.png" alt=""> 如上图所示，根据Raft的判断标准，<strong>上者的记录比上者更新，因为上者最后一条log entry的index为4，下者最后一条log entry的index为3，4比3大</strong>。 （2）再研究第二个条件：Leader只允许<strong>直接</strong>commit当前term（任期）的log entry，决不允许<strong>直接</strong>commit“历史”log entry。这条前提一看上去有点云里雾里的，感觉并没有什么必要性。<strong>实则不然，这条前提非常重要，是用来避免异常情况下频繁换Leader可能造成的commited log entry被覆盖的问题。</strong> Raft原版论文里也给出了一个经典场景： <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_election.png" alt=""></p>
-<ul>
-<li>在(a)阶段，已经处于<code>term:2</code>了，<code>S1</code>是本轮（<code>term:2</code>）的leader。在<code>S1</code>上任后没多久，收到了客户端的请求，写入一条<code>{term:2, index:2}</code>的log，并将此log成功复制到<code>S2</code>这个小兄弟上。<strong>结果天不如人愿，还没来得及把log复制到其他小兄弟上，<code>S1</code>自己就宕机了。</strong></li>
-<li>到了(b)阶段，<code>S1</code>宕机后，整个集群处于无领导状态。经过了一小会，<code>S5</code>很幸运率先结束timeout，自增term号（从<code>term:2</code>自增到<code>term:3</code>），发起了选主。由于此时<code>S3</code>和<code>S4</code>上的记录都和<code>S5</code>一样新，所以都愿意投票给<code>S5</code>，<code>S5</code>成功当选，成为leader。<code>S5</code>成为leader后马上又收到了客户端的请求，于是在本机上写入一条<code>{term:3, index:2}</code>的log。<strong>然而<code>S5</code>的命运比<code>S1</code>更惨，只来得及存在本地，来不及把log entry复制给任何一个小兄弟，直接就挂了。</strong></li>
-<li>此时来到了(c)状态，<code>S5</code>挂了之后，<code>S1</code>成功重启恢复运转。<code>S1</code>自告奋勇，自增全局term号（从<code>term:3</code>自增到<code>term:4</code>），请求大家选主。<code>S2 ~ S4</code>都会投给<code>S1</code>，<code>S1</code>顺利当选leader。<code>S1</code>成了leader后做了第一件事情，发现之前<code>{term:2, index:2}</code>的log还没有成功复制给大部分兄弟，于是开始复制工作，把log复制到了<code>S3</code>上。突然<code>S1</code>又收到了客户端的请求，写入一条<code>{term:4, index:3}</code>的log到本机。</li>
-</ul>
-<p>以上3步都非常理所当然，没有任何的争议点，最大的争议点就出现在了(d)和(e)上。<strong>(d)和(e)实际上是(c)发生之后的两种互斥的可能情况，(d)是忽视第二条前提会发生的情况，(e)是满足第二条前提会发生的情况。</strong></p>
-<ul>
-<li>先看(d)。<strong>假设我们忽略第二条前提，也就是说leader可以随意commit任何term的log entry。</strong>那么在(c)结束之后，作为<code>term:4</code>的leader的<code>S1</code><strong>可以commit掉<code>{term:2, index:2}</code>的log，并且把结果返回给客户端。</strong>结果刚完成以上步骤，<code>S1</code>又倒霉地宕机了，<code>{term:4, index:3}</code>的log没来得及复制给任何一个小兄弟。过了一会，<code>S5</code>恢复正常，自增全局term号（从<code>term:4</code>自增到<code>term:5</code>），要求选主。由于此时<code>S5</code>上的最后一条log是<code>{term:3, index:2}</code>，比<code>S2 ~ S4</code>的都更新，大家都会投票给<code>S5</code>，<code>S5</code>成功当上<code>term:5</code>的leader。当上leader后，<code>S5</code>的第一件事情就是把它还没来得及复制给多个小兄弟的log复制出去，所以就造成了(d)状态，所有服务器上的log记录都被<code>S5</code>自己的log记录覆盖了。<strong>之前已经成功commit的<code>{term:2, index:2}</code>的log直接被覆盖，消失无踪⚠️！</strong></li>
-<li>再看(e)。<strong>假设我们一定要坚守第二条前提，也就是说leader只能直接commit当前term的log entry，不能直接commit历史log entry。</strong>那么在(c)结束后，<code>S1</code>也不能commit<code>{term:2, index:2}</code>的log，因为<code>S1</code>此时是<code>term:4</code>的leader，而不是<code>term:2</code>的leader。只有如(e)所示，之后<code>S1</code>有机会commit属于当前term的log entry（<code>{term:4, index:3}</code>）时，才有机会<strong>间接地</strong>把之前<code>term:2</code>的历史记录也commit掉。即使此时<code>S1</code>宕机，<code>S5</code>也绝对不可能选上下一轮的leader，因为<code>S5</code>上最新的log<code>{term:3, index:2}</code>已经不如<code>S1 ~ S3</code>的新了，他拿不到过半的选票，做不了leader，也就不会发生已经commit的记录被覆盖的错误了。</li>
-</ul>
-<p>经过这一轮例子分析，可以很清晰地看到第二条前提的重要性了。如果允许leader随便直接commit历史记录的话，极端情况下很可能会造成数据丢失的系统错误（客户端知道你commit成功了，他就应该能放心了，结果过了一会你跟客户说commit也不算数，我搞丢了。。。。。。）<strong>所以，对于历史记录的commit只能被动触发！！！在commit当前term的log entry时顺便把之前未处理的log entry给commit掉。</strong></p>
-
+      </p>
       
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/12/09/raft-leader-election/" data-id="cjpg78r5u0009bxuyqy7k4o3h" class="article-share-link">Share</a>
+      <p>
+          <a href="/2018/11/30/groupcache-part1/" class="excerpt-link">Read More...</a>
+      </p>
       
-      
-  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/分布式/">分布式</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/算法/">算法</a></li></ul>
-
-    </footer>
-  </div>
+    </section>
+  </article>
   
-</article>
-
-
-  
-    <article id="post-hello-world" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/12/08/hello-world/" class="article-date">
-  <time datetime="2018-12-09T01:10:37.000Z" itemprop="datePublished">2018-12-08</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-11-25T14:47:28.000Z" itemprop="datePublished">
+          2018-11-25
+      </time>
     
     
-      <header class="article-header">
+    | 
+    <a href="/tags/Go/">Go</a>,
+    
+    <a href="/tags/笔记/">笔记</a>
+    
+    
+</span>
+      <h2 class="post-title"><a href="/2018/11/25/go-concurrency-pattern/">[Golang]浅析几种并发模式</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
         
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/12/08/hello-world/">Hello World</a>
-    </h1>
-  
+本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/24，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。
 
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
+Introduction最近读完了整本《Go in Action》，给我印象最深的几章是讲
+
+多态
+高级并发模式
+常用工具包（http, json, log……）
+
+本文基于《Go in Action》里介绍的3种高级并发模式进行浅析，主要起到解释和笔记
       
-        <p>Welcome to <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="noopener">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="noopener">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="noopener">GitHub</a>.</p>
-<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">"My New Post"</span></span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="noopener">Writing</a></p>
-<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="noopener">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="noopener">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/deployment.html" target="_blank" rel="noopener">Deployment</a></p>
-
+      </p>
       
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/12/08/hello-world/" data-id="cjpg78r5v000abxuy8vxm4hzg" class="article-share-link">Share</a>
+      <p>
+          <a href="/2018/11/25/go-concurrency-pattern/" class="excerpt-link">Read More...</a>
+      </p>
       
-      
-    </footer>
-  </div>
+    </section>
+  </article>
   
-</article>
-
-
-  
-    <article id="post-groupcache-part2" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/12/06/groupcache-part2/" class="article-date">
-  <time datetime="2018-12-07T00:11:19.000Z" itemprop="datePublished">2018-12-06</time>
-</a>
-    
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/Go/">Go</a>
-  </div>
-
-  </div>
-  <div class="article-inner">
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-11-20T17:48:26.000Z" itemprop="datePublished">
+          2018-11-20
+      </time>
     
     
-      <header class="article-header">
+    | 
+    <a href="/tags/Go/">Go</a>,
+    
+    <a href="/tags/笔记/">笔记</a>
+    
+    
+</span>
+      <h2 class="post-title"><a href="/2018/11/20/close-channel/">[Golang]更正“神贴”《如何优雅地关闭Go Channel》</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
         
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/12/06/groupcache-part2/">[Golang]groupcache项目解析——Part2</a>
-    </h1>
-  
+本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。
 
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
+Introduction现在在网上搜索Go，Channel，关闭等关键词时，一定会搜到一篇好几年前的“神贴”《How To Gracefully Close Channels》（原文链接请点击），或者各种国人执笔的中文直译版《如何优雅地关闭Go Chan
       
-        <blockquote>
-<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/12/05，基于<code>Go 1.11</code>。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
-</blockquote>
-<h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p>本文是《GroupCache项目解析》系列文章的第二篇，在上一篇(<a href="http://www.marcoma.xyz/index.php/2018/11/30/groupcache_part1/" target="_blank" rel="noopener">[Golang]groupcache项目解析——Part1</a>)中已经对<code>GroupCache</code>的背景、架构、代码结构作了介绍，也提供了一个简单的用例。现在来到了第二篇，主要是对<code>GroupCache</code>中的几个辅助性的模块作详细的讲解与分析，其中包括</p>
-<ul>
-<li>Consistent Hash模块</li>
-<li>LRU模块</li>
-<li>SingleFlight模块</li>
-</ul>
-<h4 id="Consistent-Hash（一致性哈希）"><a href="#Consistent-Hash（一致性哈希）" class="headerlink" title="Consistent Hash（一致性哈希）"></a>Consistent Hash（一致性哈希）</h4><p>所谓的<code>一致性哈希</code>，根本目的就是将数据打散，均匀地分布到集群上多个不同的节点。它和普通哈希最不同的地方在于，<strong>除了数据外，它把节点本身（ip地址或者节点id）也进行了哈希，放到和数据同一个哈希空间内。</strong>（具体可参考本人之前的文章<a href="http://www.marcoma.xyz/index.php/2018/03/17/consistent_hash/" target="_blank" rel="noopener">《一致性Hash算法——分析与模拟》</a>） 接下来看看<code>groupcache</code>里面的具体代码。 先看数据结构的定义。</p>
-<pre><code>// Hash就是一个返回unit32的哈希方法
-type Hash func(data []byte) uint32  
-
-// Map就是一致性哈希的高级封装
-type Map struct {
-    hash     Hash       // 哈希算法
-    replicas int        // replica参数，表明了一份数据要冗余存储多少份
-    keys     []int  // 存储hash值，按hash值升序排列（模拟一致性哈希环空间）
-    hashMap  map[int]string     // 记录hash值 -&gt; 节点ip地址的映射关系
-}
-</code></pre><p>接下来看看工厂方法。</p>
-<pre><code>// 一致性哈希的工厂方法
-func New(replicas int, fn Hash) *Map {
-    m := &amp;Map{
-        replicas: replicas,
-        hash:     fn,
-        hashMap:  make(map[int]string),
-    }
-    if m.hash == nil {
-        m.hash = crc32.ChecksumIEEE // 不指定自定义Hash方法的话，默认用ChecksumIEEE
-    }
-    return m
-}
-</code></pre><p>最后分析最关键的<code>Add</code>和<code>Get</code>方法。</p>
-<pre><code>// Add方法，参数为...string，一般就是多个节点的ip地址（或者节点id）
-func (m *Map) Add(keys ...string) {
-    for _, key := range keys {
-        // 每一个key都会冗余多份（每份冗余就是一致性哈希里的虚拟节点 v-node）
-        for i := 0; i &lt; m.replicas; i++ {
-
-            // 1. 先算出当前冗余的hash值
-            // 2. 把hash值塞进哈希环里
-            // 3. 记录下hash值 -&gt; 节点ip地址的映射，之后可以凭借hash值找到具体服务器地址
-            hash := int(m.hash([]byte(strconv.Itoa(i) + key)))
-            m.keys = append(m.keys, hash) 
-            m.hashMap[hash] = key   
-        }
-    }
-    sort.Ints(m.keys)   // 一致性哈希要求哈希环是升序的，最后执行一次排序操作
-}
-
-// Get方法，输入一个key，找到该key应该存于哪个节点，返回该节点的地址
-func (m *Map) Get(key string) string {
-    if m.IsEmpty() {
-        return &quot;&quot;
-    }
-
-    // 1. 算出key的hash值
-    // 2. 二分查找大于等于该key的第一个hash值的下标（哈希环是升序有序的，所以可以二分查找）
-    hash := int(m.hash([]byte(key)))
-    idx := sort.Search(len(m.keys), func(i int) bool { return m.keys[i] &gt;= hash })
-
-    // 下标越界，循环找到到0号下标
-    if idx == len(m.keys) {
-        idx = 0
-    }
-
-    // 通过查询记录了hash -&gt; 节点地址的hashMap，得到节点地址，返回
-    return m.hashMap[m.keys[idx]]
-}
-</code></pre><p>通过上述代码可以看到，<code>groupcache</code>中的一致性哈希非常简单清晰。在<code>groupcache</code>里用到一致性哈希的地方，就是多节点部署时，要把多个节点地址用一致性哈希管理起来，从而让缓存数据能够均匀分散，降低单台服务器的压力。 <strong>但是这里实现的一致性哈希还比较粗糙，没有实现动态删除节点，还不支持节点宕机后自动数据迁移，这两个功能是一致性哈希的另一大精髓。（感兴趣的可参考我之前的文章）</strong></p>
-<h4 id="LRU"><a href="#LRU" class="headerlink" title="LRU"></a>LRU</h4><p>第二个模块我们来研究下<code>LRU</code>。所谓<code>LRU</code>其实就是操作系统里那个内存页管理的经典算法——最近最少被使用（Least Recently Used Algorithm）。<strong>其实除了操作系统底层，很多数据库或者缓存产品里都实现了<code>LRU</code>，例如<code>Innodb</code>存储引擎的<code>buffer pool</code>里的LRU List就是一个关键数据结构。</strong> <code>LRU</code>的思想非常朴素，基本都是基于一条双向链表，无非就是热门的、经常被访问的数据就放到链表头部，久而久之冷门数据就会被“排挤”到链表尾部，当内存不够时把尾部的数据移除，清理出更多空间来存新的数据。 在<code>groupcache</code>里，<code>LRU</code>用来存最底层的K-V数据，先来看看数据结构的定义。</p>
-<pre><code>// Key是任意可比较（Comparable）类型
-type Key interface{}
-
-// entry是一个K-V对，value也是任意类型（不必Comparable）
-type entry struct {
-    key   Key
-    value interface{}
-}
-
-// LRU的高层封装（非并发安全！）
-type Cache struct {
-
-    MaxEntries int  // 最多允许存多少个K-V entry
-    OnEvicted func(key Key, value interface{})  // 回调函数，当一个entry被移除后回调
-    ll    *list.List    // LRU链表
-    cache map[interface{}]*list.Element // 记录Key -&gt; entry的映射关系，O(1)时间得到entry
-
-}
-</code></pre><p>接下来看看关键的<code>Add</code>和<code>Get</code>方法。</p>
-<pre><code>// Add方法，插入一个K-V对
-func (c *Cache) Add(key Key, value interface{}) {
-    if c.cache == nil {
-        c.cache = make(map[interface{}]*list.Element)
-        c.ll = list.New()
-    }
-
-    // 如果该key已存在，更新entry里的value值，并将entry挪到链表头部
-    if ee, ok := c.cache[key]; ok {
-        c.ll.MoveToFront(ee)
-        ee.Value.(*entry).value = value
-        return
-    }
-
-    // 如果该key不存在，新建一个entry，插到链表头部
-    ele := c.ll.PushFront(&amp;entry{key, value})
-    c.cache[key] = ele
-
-    // 如果超出链表允许长度，移除链表尾部的数据
-    if c.MaxEntries != 0 &amp;&amp; c.ll.Len() &gt; c.MaxEntries {
-        c.RemoveOldest()
-    }
-}
-
-// Get方法，通过Key来拿对应的value
-func (c *Cache) Get(key Key) (value interface{}, ok bool) {
-    if c.cache == nil {
-        return
-    }
-
-    // 如果该key存在，获取对应entry的value，将该entry挪到链表头部，返回
-    if ele, hit := c.cache[key]; hit {
-        c.ll.MoveToFront(ele)
-        return ele.Value.(*entry).value, true
-    }
-    return
-}
-</code></pre><h4 id="SingleFlight"><a href="#SingleFlight" class="headerlink" title="SingleFlight"></a>SingleFlight</h4><p><code>SingleFlight</code>是一个非常重要的模块，看它的名字里有一个<code>Single</code>有一个<code>Flight</code>，其实<code>Single</code>指的是N条对同一个key的查询命令中<strong>只有1条被真正执行</strong>，而<code>Flight</code>大家就把它等价于<code>Execution</code>就行了。 先来看看<code>SingleFlight</code>里的数据结构的定义。</p>
-<pre><code>// call等价于一条被真正执行的对某个key的查询操作
-type call struct {
-    wg  sync.WaitGroup  // 用于阻塞对某个key的多条查询命令，同一时刻只能有1条真正执行的查询命令
-    val interface{}     // 查询结果，也就是缓存中某个key对应的value值
-    err error
-}
-
-// Group相当于一个管理每个key的call请求的对象
-type Group struct {
-    mu sync.Mutex       // 并发情况下，保证m这个普通map不会有并发安全问题
-    m  map[string]*call // key为数据的key，value为一条call命令，记录下某个key当前时刻有没有客户端在查询
-}
-</code></pre><p>接下来看看<code>SingleFlight</code>里面唯一一个，也是最重要的一个方法——<code>Do()</code></p>
-<pre><code>// Do里面是查询命令执行的逻辑。
-// 当客户端想查询某个key对应的值时会调用Do方法来执行查询。
-// 参数传入一个待查询的key，还有一个对应的查询方法，返回key对应的value值
-func (g *Group) Do(key string, fn func() (interface{}, error)) (interface{}, error) {
-
-    // 为了保证普通map的并发安全，要先上锁
-    g.mu.Lock()
-
-    // 检查map有无初始化
-    if g.m == nil {
-        g.m = make(map[string]*call)
-    }
-
-    // 检查当前时刻，该key是否已经有别的客户端在查询
-    // 如果有别的客户端也正在查询，map里肯定存有该key，以及一条对应的call命令
-    if c, ok := g.m[key]; ok {
-        g.mu.Unlock()   // 解锁，自己准备阻塞，此时已不存在并发安全问题，允许别人进行查询
-        c.wg.Wait() // 阻塞，等待别的客户端完成查询就好，不用自己再去耗费资源查询
-        return c.val, c.err // 阻塞结束，说明别人已经查询完成，拿来主义直接返回
-    }
-
-    // 如果能执行到此步，说明当前时刻没有别人在查询该key，当前客户端是
-    // 当前时刻第一个想要查询该key的人，就插入一条key -&gt; call记录
-    // 注意，此时的map仍然是上锁状态，因为还要对map进行插入，有并发安全问题
-    c := new(call)
-    c.wg.Add(1)
-    g.m[key] = c
-    g.mu.Unlock()
-
-    // 执行作为参数传入的查询方法
-    // **同一时刻对于同一个key只可能有一个客户端执行到此处**
-    c.val, c.err = fn()
-    c.wg.Done()
-
-    // 执行完查询方法，把map中的key -&gt; call删掉
-    g.mu.Lock()
-    delete(g.m, key)
-    g.mu.Unlock()
-
-    return c.val, c.err
-}
-</code></pre><p>结合上述代码注释里的分析，<code>SingleFlight</code>的逻辑应该很清楚了。特别提一提里面的几个思维亮点：</p>
-<ul>
-<li>时刻谨记go里面的普通map不是并发安全的，要在有并发安全隐患的地方手动上锁和解锁。</li>
-<li>用一个map来记录key与查询请求，可以迅速得知（理想情况下O(1)）当前时刻某个key是否有人在执行查询。</li>
-<li>本来用<code>set</code>类容器来存当前正被人查询的key也可以完成以上需求。但是第二个亮点就是<code>call</code>结构，<code>call</code>里面封装了一个<code>WaitGroup</code>和一个<code>val</code>。当某一时刻有N个对某个key的查询请求，通过<code>WaitGroup</code>来阻塞其中的N-1个，只执行1次查询方法，然后把查询结果塞到<code>call.val</code>中，通知<code>WaitGroup</code>完成任务。这样做，不仅执行查询的那一个“天选之子”可以返回该值，而且那N-1个被阻塞的也可以直接取<code>call.val</code>作为结果返回。</li>
-</ul>
-<h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p><code>groupcache</code>这个项目的代码量虽不多，但有很多精华的地方。如</p>
-<ul>
-<li>实现<strong>一致性哈希</strong>来管理多节点</li>
-<li>实现<code>LRU</code>算法来管理底层K-V数据</li>
-<li>实现<code>SingleFlight</code>来提高并发查询效率</li>
-</ul>
-<p>其中，<code>SingleFlight</code>的逻辑最让我开了眼界。之前对于“并发查询”的优化方面，我考虑的可能也就是如何优化存储的数据结构，或者类似于把请求分发到多台机器上处理，用多机的计算能力来抗。但是这些都不如<code>SingleFlight</code>里的逻辑这么粗暴明了，同时又高效。</p>
-
+      </p>
       
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/12/06/groupcache-part2/" data-id="cjpg78r730031bxuyisihwop4" class="article-share-link">Share</a>
+      <p>
+          <a href="/2018/11/20/close-channel/" class="excerpt-link">Read More...</a>
+      </p>
       
-      
-  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Go/">Go</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/源码/">源码</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li></ul>
-
-    </footer>
-  </div>
+    </section>
+  </article>
   
-</article>
-
-
-  
-    <article id="post-groupcache-part1" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/11/30/groupcache-part1/" class="article-date">
-  <time datetime="2018-11-30T12:33:36.000Z" itemprop="datePublished">2018-11-30</time>
-</a>
-    
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/Go/">Go</a>
-  </div>
-
-  </div>
-  <div class="article-inner">
+  <article class="post">
+    <header class="post-header">
+      <span class="post-meta">
+      <time datetime="2018-11-15T21:08:21.000Z" itemprop="datePublished">
+          2018-11-15
+      </time>
     
     
-      <header class="article-header">
+    | 
+    <a href="/tags/Go/">Go</a>,
+    
+    <a href="/tags/笔记/">笔记</a>
+    
+    
+</span>
+      <h2 class="post-title"><a href="/2018/11/15/polymorphism/">[Golang]奇怪的“类”和多态（Polymorphism）</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>
+      
         
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/11/30/groupcache-part1/">[Golang]groupcache项目解析——Part1</a>
-    </h1>
-  
+本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/14，基于Go 1.11。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。
 
-      </header>
+Introduction多态这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可以指向子类的对象，在Java里面虽然没有指针这样的概念，但是我们一般会说，如果某个子类实现了一个
+      
+      </p>
+      
+      <p>
+          <a href="/2018/11/15/polymorphism/" class="excerpt-link">Read More...</a>
+      </p>
+      
+    </section>
+  </article>
+  
+  <nav class="pagination" role="pagination">
     
-    <div class="article-entry" itemprop="articleBody">
-      
-        <blockquote>
-<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/29，基于<code>Go 1.11</code>。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
-</blockquote>
-<h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p>本文是《groupcache项目解析》系列文章的第一篇，在本文中主要是对<code>groupcache</code>这个项目作简单的介绍，包括其</p>
-<ul>
-<li>架构</li>
-<li>代码文件结构</li>
-<li>简单用例</li>
-</ul>
-<h4 id="groupcache简介"><a href="#groupcache简介" class="headerlink" title="groupcache简介"></a>groupcache简介</h4><p><code>groupcache</code>(<a href="https://github.com/golang/groupcache" target="_blank" rel="noopener">on Github</a>)是一个用<code>Go</code>实现的K-V cache的库，可以起到<code>memcached</code>的<strong>部分功能</strong>。它支持单节点部署，也支持多节点部署。 其中最值得一提的两个特性是：</p>
-<ul>
-<li>不支持update和delete（基本只能用于静态资源缓存）</li>
-<li>热门缓存自动镜像（auto mirroring）</li>
-</ul>
-<p><strong>⚠️注意，<code>groupcache</code>并不是一个可直接运行的存储组件，不像MySQL或者Redis之类那样提供编译后的可运行程序。<code>groupcache</code>只是一个K-V cache的第三方库，基于它的代码可以自己写代码实现一个cache层。</strong></p>
-<h4 id="groupcache架构"><a href="#groupcache架构" class="headerlink" title="groupcache架构"></a>groupcache架构</h4><ol>
-<li><p>节点管理 以上提到，<code>groupcache</code>是一个支持多节点部署的K-V cache。当有多个存储节点时，内部会以<code>consistent hash</code>（一致性哈希）的方式管理多个节点。关于一致性哈希的解析，详情可参考我之前的文章<a href="http://www.marcoma.xyz/index.php/2018/03/17/consistent_hash/" target="_blank" rel="noopener">《一致性Hash算法——分析与模拟》</a>。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/hash.png" alt=""> 通过一致性哈希，可以统一管理多个节点。如果哈希算法设计得比较好，可以把大量K-V数据均匀打散，存储到不同的节点上。</p>
-</li>
-<li><p>group（存储组） 在<code>groupcache</code>里，<code>group</code>是一个相对独立的存储容器，每个<code>group</code>都有自己的名字，多个<code>group</code>之间不共享数据。然而<code>group</code>只是一个<strong>逻辑概念</strong>，一个<code>group</code>里存的K-V数据是可以存在多个分散的物理节点上的（<strong>分散的策略依赖于一致性哈希算法</strong>）。也就是说每个物理节点上实际上存了多个<code>group</code>的K-V数据，组与组之间的访问隔离全靠<code>groupcache</code>的代码逻辑来实现。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/group.png" alt=""></p>
-</li>
-<li><p>缓存系统</p>
-<ul>
-<li><p>LRU 在缓存系统的底层，每个K-V Entry都是通过一条LRU链表来管理的。经常被访问的数据会被放置在LRU链表的前端，久而久之冷数据会下沉到链表尾端，甚至直接被移出链表。</p>
-</li>
-<li><p>并发查询优化 在<code>groupcache</code>中，如果某节点同时收到N个对于同一个key的查询请求，但是请求的key不在当前节点上，<code>groupcache</code>会自动<strong>阻塞</strong>N-1个请求，只执行其中一个请求，去其他节点或者数据库中fetch数据。最后才恢复N个请求，把数据放到N个请求中返回。因为无论多少个对同一个key的查询请求并发到达，只执行一次查询，所以并发查询效率很高。</p>
-</li>
-<li><p>热门缓存自动镜像 每个节点都包含了两类缓存：<code>main cache</code>（属于本节点的数据）和<code>hot cache</code>（不属于本节点但是全局热门的数据）。当节点收到了对某个key的查询请求，它首先会检查本地<code>hot cache</code>中有没有，如果没有就再看看该key是不是属于本节点的数据，如果不是就向兄弟节点请求。所谓的<strong>自动镜像</strong>，指的是从兄弟节点处返回的数据可以缓存在本节点的<code>hot cache</code>里，虽然自身<strong>没有那个数据的存储权限</strong>，但是可以存储成一份热门数据的镜像，以后再收到对该key的请求，无需再向兄弟节点请求，浪费网络资源。</p>
-</li>
-</ul>
-</li>
-</ol>
-<h4 id="groupcache代码模块"><a href="#groupcache代码模块" class="headerlink" title="groupcache代码模块"></a>groupcache代码模块</h4><ul>
-<li><p><code>consistenthash</code> <code>consistenthash</code>模块实现了简单的一致性哈希算法。数据（一般是节点地址）进入一致性哈希后，会被自动冗余得到多个备份（取决于<code>replica</code>的设定值），然后插到一致性哈希环上。</p>
-</li>
-<li><p><code>groupcachepb</code> <code>groupcachepb</code>模块里，用了第三方库<code>protobuf</code>生成了统一的<code>Request</code>和<code>Response</code>结构，供节点间网络通信使用。</p>
-</li>
-<li><p><code>lru</code> <code>lru</code>模块实现了经典的LRU算法，用<code>container/list</code>里的链表实现。</p>
-</li>
-<li><p><code>singleflight</code> <code>singleflight</code>模块非常重要。正如它名字里的<code>single</code>，它是用来保证多个对同一个key的请求不被多次执行的。也就是上面简介所说的<strong>并发查询优化</strong>。</p>
-</li>
-<li><p><code>testpb</code> <code>testpb</code>，测试<code>protobuf</code>结构。</p>
-</li>
-<li><p><code>byteview</code> <code>byteview</code>是一个对byte数组或者字符串的封装，在外部看来，<code>groupcache</code>里的所有K-V数据最终都是落盘到byte上，都是对<code>byteview</code>的读写操作。</p>
-</li>
-<li><p><code>groupcache</code> 核心代码文件，其中定义了<code>Group</code>、<code>GetterFunc</code>、<code>Stats</code>等多个关键数据结构，以及对应的方法。</p>
-</li>
-<li><p><code>http</code> 核心代码文件，定义了<code>HTTPPool</code>以及对应的方法，包含了各种网络通信的逻辑。</p>
-</li>
-<li><p><code>peers</code> 定义了节点的相关操作。</p>
-</li>
-<li><p><code>sinks</code> <code>sinks</code>里定义了<code>Sink</code>接口以及多种不同的sink。其实sink可以理解为一种特殊容器，当节点收到对某个key的查询请求，但是本地没有数据，需要到远程数据库里读取时，会把读取回来的数据下沉到sink容器里面，最后再把数据转成byteview塞到本地缓存里。</p>
-</li>
-</ul>
-<h4 id="Quick-Start-Example"><a href="#Quick-Start-Example" class="headerlink" title="Quick Start Example"></a>Quick Start Example</h4><p>以下提供一个简单的<code>groupcache</code>使用例子。</p>
-<pre><code>package main
-
-import (
-    &quot;github.com/golang/groupcache&quot;
-    &quot;io/ioutil&quot;
-    &quot;log&quot;
-    &quot;net/http&quot;
-    &quot;os&quot;
-)
-
-var (
-    // 简单起见，hardcode一段兄弟节点的地址
-    peers = []string{&quot;http://127.0.0.1:8001&quot;, &quot;http://127.0.0.1:8002&quot;, &quot;http://127.0.0.1:8003&quot;}
-)
-
-func main() {
-
-    // 先建好http连接池，表明当前节点的兄弟节点有哪些
-    host := os.Args[1]
-    localAddr:= &quot;http://&quot; + host
-    localHttpPool := groupcache.NewHTTPPool(localAddr)
-    localHttpPool.Set(peers...)
-
-    // 定义一个逻辑上的分组，叫fileCacheGroup，用来缓存文件内容，缓存大小为64MB
-    // 当本地缓存miss时，直接读取磁盘上的文件
-    var fileCacheGroup = groupcache.NewGroup(&quot;file&quot;, 64&lt;&lt;20, groupcache.GetterFunc(
-        func(ctx groupcache.Context, key string, dest groupcache.Sink) error {
-            result, err := ioutil.ReadFile(key)
-            if err != nil {
-                log.Println(&quot;Get file error.&quot;)
-                return err
-            }
-            log.Printf(&quot;Trying to get %s\n&quot;, key)
-            dest.SetBytes([]byte(result))
-            return nil
-        }))
-
-    // 为了测试，建立一个对外的http服务，路由是host:port/file_cache?fname={}
-    http.HandleFunc(&quot;/file_cache&quot;, func(rw http.ResponseWriter, r *http.Request) {
-        var value []byte
-        key := r.URL.Query().Get(&quot;fname&quot;)
-        fileCacheGroup.Get(nil, key, groupcache.AllocatingByteSliceSink(&amp;value))
-        rw.Write([]byte(value))
-    })
-
-    // 启动http服务
-    log.Fatal(http.ListenAndServe(host, nil))
-}
-</code></pre><p>如需测试上述代码，可编译后直接命令行执行（记得带上host参数如<code>127.0.0.1:8001</code>）。由于cache miss的逻辑是在本地磁盘上读取文件，所以可以先在目录下新建几个垃圾文本文件，里面随便填充一些内容，进行测试。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/groupcache_test.png" alt=""> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/postman_cache.png" alt=""> 测试结果如上图所示。</p>
-<ol>
-<li>先在本地随便新建一个<code>hh.txt</code>文件，里面写上<code>This is hh.txt!</code>。</li>
-<li>然后编译完上述例子程序后，直接传入参数<code>127.0.0.1:8001</code>以命令行启动程序。</li>
-<li>用postman访问代码中定义好的服务路由（<code>host:port/file_cache?fname={}</code>），测试缓存服务，得到response结果为<code>hh.txt</code>的文件内容。</li>
-</ol>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/30/groupcache-part1/" data-id="cjpg78r71002zbxuylx0udbj4" class="article-share-link">Share</a>
-      
-      
-  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Go/">Go</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/源码/">源码</a></li></ul>
-
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-go-concurrency-pattern" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/11/25/go-concurrency-pattern/" class="article-date">
-  <time datetime="2018-11-25T14:47:28.000Z" itemprop="datePublished">2018-11-25</time>
-</a>
-    
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/Go/">Go</a>
-  </div>
-
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/11/25/go-concurrency-pattern/">[Golang]浅析几种并发模式</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <blockquote>
-<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/24，基于<code>Go 1.11</code>。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
-</blockquote>
-<h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p>最近读完了整本《Go in Action》，给我印象最深的几章是讲</p>
-<ul>
-<li>多态</li>
-<li>高级并发模式</li>
-<li>常用工具包（<code>http</code>, <code>json</code>, <code>log</code>……）</li>
-</ul>
-<p>本文基于《Go in Action》里介绍的3种高级并发模式进行浅析，主要起到解释和笔记的作用，也会简单地讲讲我个人对这几种模式的理解。</p>
-<h4 id="并发模式"><a href="#并发模式" class="headerlink" title="并发模式"></a>并发模式</h4><ol>
-<li><p>任务计时器 何谓“任务计时器”？<strong>其实就是一个包装了多个要执行的<code>Task</code>和一个<code>Timer</code>的容器</strong>。该容器启动后，只有3种情况能够让其退出：</p>
-<ul>
-<li>所有<code>Task</code>执行完毕，正常退出</li>
-<li>收到外部中断信号（interrupt），退出</li>
-<li><code>Timer</code>超过设定的时长，退出</li>
-</ul>
-<p>先来直接看看《Go in Action》中给出的实现代码。</p>
-<pre><code>package runner
-
-import (
-    &quot;errors&quot;
-    &quot;os&quot;
-    &quot;os/signal&quot;
-    &quot;time&quot;
-)
-
-// 任务计时器
-type Runner struct {
-    interrupt chan os.Signal    // 接收中断信号的channel
-    complete chan error         // 接收任务完成信号的channel
-    timeout &lt;-chan time.Time    // 接收超时信号的channel
-    tasks []func(int)           // 存放要执行的多个任务的切片
-                                // 其中每个任务是一个以int为形参的方法
-}
-
-// 定义了两种异常退出的错误
-var ErrTimeout = errors.New(&quot;received timeout&quot;)
-var ErrInterrupt = errors.New(&quot;received interrupt&quot;)
-
-// 容器工厂，通过new直接得到一个容器实例
-func New(d time.Duration) *Runner {
-    return &amp;Runner{
-        interrupt: make(chan os.Signal, 1),
-        complete:  make(chan error),
-        timeout:   time.After(d),
-    }
-}
-
-// 往容器里添加任务的方法
-func (r *Runner) Add(tasks ...func(int)) {
-    r.tasks = append(r.tasks, tasks...)
-}
-
-// 容器启动的方法
-func (r *Runner) Start() error {
-    // We want to receive all interrupt based signals.
-    signal.Notify(r.interrupt, os.Interrupt)
-
-    // Run the different tasks on a different goroutine.
-    go func() {
-        r.complete &lt;- r.run()
-    }()
-
-    select {
-    // Signaled when processing is done.
-    case err := &lt;-r.complete:
-        return err
-
-    // Signaled when we run out of time.
-    case &lt;-r.timeout:
-        return ErrTimeout
-    }
-}
-
-// 容器内部执行任务的方法
-func (r *Runner) run() error {
-    for id, task := range r.tasks {
-        // Check for an interrupt signal from the OS.
-        if r.gotInterrupt() {
-            return ErrInterrupt
-        }
-
-        // Execute the registered task.
-        task(id)
-    }
-
-    return nil
-}
-
-// 检查是否发生中断信号
-func (r *Runner) gotInterrupt() bool {
-    select {
-    case &lt;-r.interrupt:
-        // Stop receiving any further signals.
-        signal.Stop(r.interrupt)
-        return true
-
-    default:
-        return false
-    }
-}
-</code></pre></li>
-</ol>
-<pre><code>上述代码的逻辑很清晰，但仍有几个细节需要特别强调一下。
-*   在容器`Runner`里，`timeout`是一个接收超时信号（`time.Time`）的channel，一旦该channel接收到**一个**超时信号，将通知`Runner`退出。而在new一个新的`Runner`时，我们用的是`time.After(duration)`来生成一个`timeout`管道，为什么不直接`make(chan time.Time)`呢？因为用`time.After(duration)`生成管道时，会潜在自动触发一个机制：经过`duration`后该管道会收到一个`time.Time`信号，不需要自己额外去做发送超时信号这一套逻辑。
-*   使用`select`语句。可以看到在`Start()`中，开了一个goroutine去执行任务后，我们写了一个`select`语句，其中两个分支分别是所有任务正常完成且收到complete信号，还有任务超时收到超时信号。**其实`select`语句可以简单地看成是一个定制版的`epoll`机制**，它可以同时监听多个`case`。如果所有的`case`分支都不能执行，将阻塞在此；如果有一个`case`可以执行，一定会执行该`case`；和`epoll`唯一不同的是，如果同时有多个`case`可以执行，`select`会**随机**执行其中一个`case`。同理，在`gotInterrupt()`里，我们也用了`select`语句监听有没有中断信号，如果在执行`gotInterrupt()`的那个时刻没有收到中断信号，那绝对会直接执行`default`分支（永远都能执行的分支），返回`false`告知调用者没有收到中断信号。
-*   在容器`Runner`里，`tasks`是一个装了多个待执行任务的切片，定义里说明了每个任务都是一个`func(int)`。**但是这并不具有普适性，这不是必须的，设计者可以根据自己的需求来定义每个任务是什么样的方法。**可以是`func(interfact{}) interface{}`，可以是任意的方法。
-*   `run()`方法用于在容器内部执行多个任务。最奇怪的是，在`run()`里面其实是**遍历了`tasks`，逐个逐个串行地执行任务，只有上一个任务完成了下一个任务才会开始。**个人认为，也许这种设计迎合了一定的场景需求（上下游任务间存在依赖），但是有些时候我们确实是需要并发地执行多个任务。**建议改成多个`goroutine`并发执行`tasks`中的任务，然后用`WaitGroup`来阻塞，等待所有任务完成。**
-
-        func (r *Runner) run() error {
-            wg := sync.WaitGroup{}
-            wg.Add(len(r.tasks))
-            for id, task := range r.tasks {
-                if r.gotInterrupt() {
-                    return ErrInterrupt
-                }
-
-                // 开多个goroutine并发执行多个任务，用WaitGroup来统一
-                go func() {
-                    defer wg.Done()
-                    task(id)
-                }()
-            }
-            wg.Wait()
-            return nil
-        }
-</code></pre><ol start="2">
-<li><p>资源池 什么是<strong>资源池</strong>，顾名思义，就是一个放满了各种资源的池子。讲得“专业”一点，就是一个管理着多个可用资源的容器，外部的线程/协程可向资源池申请资源，使用完后可以把资源放回资源池，重复利用。 直接来看看《Go in Action》中的代码。</p>
-<pre><code>package pool
-
-import (
-    &quot;errors&quot;
-    &quot;io&quot;
-    &quot;log&quot;
-    &quot;sync&quot;
-)
-
-// 资源池
-type Pool struct {
-    m         sync.Mutex        // mutex用于控制同步
-    resources chan io.Closer    // 存放资源的管道
-    factory   func() (io.Closer, error) // 新建资源的工厂
-    closed    bool              // 资源池是否关闭的标志
-}
-
-// 错误信号
-var ErrPoolClosed = errors.New(&quot;Pool has been closed.&quot;)
-
-// 资源池工厂，用于新建资源池
-func New(fn func() (io.Closer, error), size uint) (*Pool, error) {
-    if size &lt;= 0 {
-        return nil, errors.New(&quot;Size value too small.&quot;)
-    }
-
-    return &amp;Pool{
-        factory:   fn,
-        resources: make(chan io.Closer, size),
-    }, nil
-}
-
-// 从资源池中拿资源
-func (p *Pool) Acquire() (io.Closer, error) {
-    select {
-    case r, ok := &lt;-p.resources:
-        log.Println(&quot;Acquire:&quot;, &quot;Shared Resource&quot;)
-        if !ok {
-            return nil, ErrPoolClosed
-        }
-        return r, nil
-
-    default:
-        log.Println(&quot;Acquire:&quot;, &quot;New Resource&quot;)
-        return p.factory()
-    }
-}
-
-// 把资源放回资源池
-func (p *Pool) Release(r io.Closer) {
-    p.m.Lock()
-    defer p.m.Unlock()
-
-    if p.closed {
-        r.Close()
-        return
-    }
-
-    select {
-    case p.resources &lt;- r:
-        log.Println(&quot;Release:&quot;, &quot;In Queue&quot;)
-
-    default:
-        log.Println(&quot;Release:&quot;, &quot;Closing&quot;)
-        r.Close()
-    }
-}
-
-// 关闭资源池
-func (p *Pool) Close() {
-    p.m.Lock()
-    defer p.m.Unlock()
-
-    if p.closed {
-        return
-    }
-
-    p.closed = true
-
-    close(p.resources)
-
-    for r := range p.resources {
-        r.Close()
-    }
-}
-</code></pre></li>
-</ol>
-<pre><code>以下讲讲几个资源池设计中的细节。
-*   关于`factory`。`factory`是一个用来新建资源的工厂，当资源池内没有资源时，上述代码的逻辑是通过事先定义好的`factory`来新建资源。**当然，也可以不这么干。根据不同的场景和需求，当资源池内没有资源时可以选择阻塞，而非新建资源。**
-*   用`mutex`来同步`Release()`和`Close()`。在同一时刻，不能同时有多个协程进入`Release()`和进入`Close()`。也就是说有协程在关闭资源池时，不允许别的协程放回资源；有协程在放回资源时，不允许别的协程关闭资源池。如果不用`mutex`进行同步，假设同时有协程A进入了`Release()`，协程B进入了`Close()`。特殊情况下，当协程A运行到select语句前失去了cpu资源，协程B正常运行关闭了`resources`管道，协程A再想往一个已关闭了的`resources`管道里插数据，会直接引起错误。
-*   `resources`管道是一个`缓冲管道`。通过工厂new一个资源池时，`resources`被定义成了一个大小为`size`的`缓冲管道`。用`缓冲管道`的好处是，只有当管道**全空**或者**全满**时才会对生产者/消费者进行阻塞，其他情况下正常生产/消费资源。
-</code></pre><ol start="3">
-<li><p>并发池 所谓<strong>并发池</strong>，就是一个放了N个待执行任务的池子，或者可以看成是一个<strong>可并发执行任务，却不带有定时功能的任务计时器。</strong></p>
-<pre><code>package work
-
-import &quot;sync&quot;
-
-// 任务接口
-type Worker interface {
-    Task()
-}
-
-// 并发池
-type Pool struct {
-    work chan Worker
-    wg   sync.WaitGroup
-}
-
-// 并发池工厂，用于新建并发池
-func New(maxGoroutines int) *Pool {
-    p := Pool{
-        work: make(chan Worker),
-    }
-
-    p.wg.Add(maxGoroutines)
-    for i := 0; i &lt; maxGoroutines; i++ {
-        go func() {
-            for w := range p.work {
-                w.Task()
-            }
-            p.wg.Done()
-        }()
-    }
-
-    return &amp;p
-}
-
-// 提交任务
-func (p *Pool) Run(w Worker) {
-    p.work &lt;- w
-}
-
-// 关闭并发池
-func (p *Pool) Shutdown() {
-    close(p.work)
-    p.wg.Wait()
-}
-</code></pre></li>
-</ol>
-<pre><code>基本上实现的功能跟**优化后**的任务计时器一样（除了不支持定时），支持多`goroutine`并发执行。
-</code></pre><h4 id="应用场景"><a href="#应用场景" class="headerlink" title="应用场景"></a>应用场景</h4><ol>
-<li>任务计时器适用于各种监控任务，或者对执行时间有限制的任务。</li>
-<li>资源池多用于管理各种连接，例如数据库连接，提高连接的复用性。</li>
-<li>并发池多用于计算密集型任务，需要多个<code>goroutine</code>并发执行多个小任务。</li>
-</ol>
-<h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p>《Go in Action》中介绍的3种并发模式都非常实用，也有很强的普适性。但是在实际项目中还是需要搞清楚具体的需求，要清楚它们的assumption和它们的缺点，并不是100%地适用于所有场景，要基于这几种基本的模式作更深层次的自定义开发。</p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/25/go-concurrency-pattern/" data-id="cjpg78r6y002rbxuy7xei9bgv" class="article-share-link">Share</a>
-      
-      
-  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Go/">Go</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li></ul>
-
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-close-channel" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/11/20/close-channel/" class="article-date">
-  <time datetime="2018-11-20T17:48:26.000Z" itemprop="datePublished">2018-11-20</time>
-</a>
-    
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/Go/">Go</a>
-  </div>
-
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/11/20/close-channel/">[Golang]更正“神贴”《如何优雅地关闭Go Channel》</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <blockquote>
-<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于<code>Go 1.11</code>。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
-</blockquote>
-<h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p>现在在网上搜索<code>Go</code>，<code>Channel</code>，<code>关闭</code>等关键词时，一定会搜到一篇好几年前的“神贴”<strong>《How To Gracefully Close Channels》</strong>（<a href="https://go101.org/article/channel-closing.html" target="_blank" rel="noopener">原文链接请点击</a>），或者各种国人执笔的中文直译版<strong>《如何优雅地关闭Go Channel》</strong>。 基于<code>Go</code>本身对并发的强支持，不断地有开发者需要学习<code>Channel</code>这个被设计为多个<code>goroutine</code>间<strong>安全</strong>传递数据的内置数据结构，自然也有很多人学习过以上这篇文章。<strong>然而不知道是受当时写作的时间背景限制，还是其他原因，实际上这篇文章里有一些比较严重的缺陷，必须得到纠正。</strong> 我这么一个<code>Go</code>的初学者，研究过后暂时<strong>没有</strong>发现网上对原贴进行优化或者更正的博客，所以我决定写下这篇更正“神贴”的博客，并提供一些我的关闭<code>Go Channel</code>的解决方案。</p>
-<h4 id="驳斥理由"><a href="#驳斥理由" class="headerlink" title="驳斥理由"></a>驳斥理由</h4><ul>
-<li>原文标题的核心是<code>Close Channels</code>，然而除了第一个最简单的例子（M receivers，one sender）里有关闭数据channel的逻辑外，其他几个复杂例子中<strong>压根没有close channel，仅仅只是退出sender</strong></li>
-<li>即使我们把“退出sender”等价于“close channel”。但是同样除了第一个最简单的例子（M receivers，one sender）里是sender主动关闭外，其他几个例子中退出sender都是由receiver触发的，类似receiver读到一个什么特殊值就提示sender停止生产。<strong>我不否认在某些场景里确实需要receiver提示sender何时结束</strong>（例如receiver发生了异常，无法继续处理，可通知sender赶紧结束）。<strong>但是在很多场景里是需要sender自己触发停止生产的，而不是让receiver告知才停止</strong>（例如100个sender分别读100台机器上的文件，然后把文件数据怼到一个channel里，此时肯定不可能让receiver来主导sender的数据读取何时停止，对吧）。</li>
-<li>最后一个问题，原贴例子里receiver读到一个特殊值导致退出后，并没有安排别的<code>goroutine</code>去读完channel中可能剩下的数据，直接导致数据丢失。（当然作者也意识到这一点了，所以在最后提了一下，说读完剩下的数据很简单blabla，我就不写了你们自己去实现就好了）</li>
-</ul>
-<h4 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h4><p>其实很明显，关闭channel最主要的麻烦在于sender端如何控制，既不能不去关闭，也不能重复关闭（<code>panic</code>）。所以接下来就讨论两种在sender端关闭channel的解决方案：单个sender和多个sender的应用场景。</p>
-<ul>
-<li><p>单个sender</p>
-<pre><code>package main
-
-import (
-    &quot;fmt&quot;
-    &quot;sync&quot;
-)
-
-// 一个sender，一个receiver
-func main() {
-    dataChannel := make(chan int, 100)
-    done := make(chan interface{})
-    go sender(dataChannel)
-    go receiver(dataChannel, done)
-
-    // 阻塞直到receiver完成，避免主线程马上退出
-    &lt;-done
-    fmt.Println(&quot;Done.&quot;)
-}
-
-func sender(dataChannel chan int) {
-    defer close(dataChannel)
-    for i := 0;i &lt; 1000;i++ {
-        dataChannel &lt;- i
-    }
-}
-
-func receiver(dataChannel chan int, done chan interface{}) {
-    for data := range dataChannel {
-        fmt.Printf(&quot;Receive data %d\n&quot;, data)
-    }
-    done &lt;- nil
-}
-</code></pre></li>
-</ul>
-<pre><code>在单个sender的场景下，没有什么好说的。其实就是当sender把所有数据都塞到channel之后主动关闭该channel。**显式close channel的好处是，当receiver端使用`for range`从channel中读数据，读到close标识后会自动结束循环。（或者是普通循环里的ok标识为false，用来结束循环）**
-</code></pre><ul>
-<li><p>多个sender</p>
-<pre><code>package main
-</code></pre></li>
-</ul>
-<pre><code>    // 多个sender，一个receiver
-    const (
-        SENDER_COUNT = 5
-    )
-
-    func sender(id int, dataChannel chan string, wg *sync.WaitGroup) {
-        defer wg.Done()
-        for i := 0;i &lt; 100;i++ {
-            dataChannel &lt;- fmt.Sprintf(&quot;Sender %d is sending %d&quot;, id, i)
-        }
-    }
-
-    func receiver(dataChannel chan string, done chan interface{}) {
-        for data := range dataChannel {
-            fmt.Printf(&quot;Receive data: %s\n&quot;, data)
-        }
-        done &lt;- nil
-    }
-
-    func monitor(dataChannel chan string, wg *sync.WaitGroup) {
-        wg.Wait()
-        close(dataChannel)
-    }
-
-    func main() {
-        dataChannel := make(chan string, 100)
-        done := make(chan interface{})
-        wg := &amp;sync.WaitGroup{}
-        wg.Add(SENDER_COUNT)
-
-        go monitor(dataChannel, wg)
-        for i := 0;i &lt; SENDER_COUNT;i++ {
-            go sender(i, dataChannel, wg)
-        }
-        go receiver(dataChannel, done)
-
-        &lt;-done
-        fmt.Println(&quot;Done.&quot;)
-    }
-
-
-参照以上代码，核心的思想是利用`sync`包自带的`WaitGroup`（类似于`Java`里`J.U.C`包的`CountdownLatch`），用来统计已完成工作的sender数。除了sender和receiver外，我们还定义了一个monitor协程，用来关闭channel。 可以看到我们定义了1个monitor，1个receiver，5个sender，并且在启动sender之前先启动了monitor，传入`waitGroup`，让其等待所有sender协程完成工作。在sender里，通过`defer`来保证sender在完成作业（或者发生异常）之后能够通知`waitGroup`。当所有sender都完成工作后，`waitGroup`计数自然减为0，monitor协程主动关闭了数据channel，所以receiver端的`for range`循环在读完所有数据后就能正常退出。
-</code></pre><h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p>本文是对《How To Gracefully Close Channels》的核心内容表示质疑，并且提出了我自己的解决方案。<strong>其实原文里作者提供的解决方案并不是错误的，里面的方案对部分场景肯定是适用的。只是对sender端主动关闭的场景而言有一定的纰漏。</strong> 希望读者能理解不同场景下应该有不同的解决方案，具体还是要结合实际项目来分析。</p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/20/close-channel/" data-id="cjpg78r5h0000bxuygv420dhx" class="article-share-link">Share</a>
-      
-      
-  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Go/">Go</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li></ul>
-
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-polymorphism" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/11/15/polymorphism/" class="article-date">
-  <time datetime="2018-11-15T21:08:21.000Z" itemprop="datePublished">2018-11-15</time>
-</a>
-    
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/Go/">Go</a>
-  </div>
-
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/11/15/polymorphism/">[Golang]奇怪的“类”和多态（Polymorphism）</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <blockquote>
-<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/14，基于<code>Go 1.11</code>。 至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
-</blockquote>
-<h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p><strong>多态</strong>这个词语每个开发者都一定不会感到陌生。因为在很多不同的编程语言里面，多态都是有具体实现的。例如在C++里面我们可能会说父类的指针可以指向子类的对象，在Java里面虽然没有指针这样的概念，但是我们一般会说，如果某个子类实现了一个接口，那么这个接口的引用就可以引用这个子类的一个实例对象。 但是类似于C++和Java里面的实现基本上都是基于接口和类的相互合作去构建的。而在Go里面，是有接口的定义，但是并不存在严格意义上的类（Class），只是单纯的结构体（Struct），而且实现方法时还有略显奇葩的<code>Receiver</code>机制。所以本文的目标就是来探索一下在Go语言里面多态是如何实现的，以及在Go语言时实现多态的过程中有哪些奇奇怪怪的坑。</p>
-<h4 id="类、方法、多态"><a href="#类、方法、多态" class="headerlink" title="类、方法、多态"></a>类、方法、多态</h4><ol>
-<li><p>基本接口实现 首先看看一下在Go语言里面如何去实现一个接口，其实就是让一个结构体去实现接口里定义的所有方法。但是在Go里面结构体（Struct）并不是我们在Java中认知的类（Class），所以我们所谓的实现一个方法是要写在结构体的外部，并且为每个方法定义一个接收者（Receiver）。</p>
-<pre><code>// Human接口，内含breathe()方法，因为所有人类都能呼吸
-type Human interface {
-    breathe()
-}
-
-// 学生结构体，内含姓名和年龄
-type Student struct {
-    name string
-    age int
-}
-
-// 实现Student类的breathe方法，实现了Human接口
-func (s Student) breathe() {
-    fmt.Println(&quot;I can breathe.&quot;)
-}
-</code></pre></li>
-</ol>
-<ol start="2">
-<li><p>Receiver的选择 在为每个方法定义Receiver的时候，不仅可以把Receiver定义为一个结构体的对象（值），还可以定义为该结构体的一个指针。当你需要对某个对象（值）里面的属性做修改的时候，例如更新或者删除原值，一般情况下会把Receiver定义为结构体的<strong>指针</strong>。</p>
-<pre><code>// Driver接口，内含updateLicense()方法，因为司机有时需要更新驾照信息
-type Driver interface {
-    updateLicense()
-}
-
-// Man结构体
-type Man struct {
-    name string
-    age int
-    license string
-}
-
-// 实现Man的updateLicense方法，实现了Driver接口
-func (m *Man) updateLicense() {
-    m.license = &quot;new license&quot;
-    fmt.Println(&quot;License is updated.&quot;)
-}
-</code></pre></li>
-</ol>
-<ol start="3">
-<li><p>方法调用 无论你是用指针还是用某个结构体具体的值，都可以直接对该结构体所实现的方法进行直接的调用。当你使用指针调用某个接收者是值的方法时，Go语言的内部会帮你把指针指向的对象（值）找出来，然后再进行调用。如果某个方法的接收者是一个指针，同样也可以用对象（值）来进行调用。这是因为go语言内部会自动把对象（值）的地址找到，然后构建出指向该对象（值）的指针，就可以顺利进行调用。</p>
-<pre><code>// 学生结构体，内含姓名和年龄
-type Student struct {
-    name string
-    age int
-}
-
-// Receiver为对象（值）的方法
-func (s Student) breathe() {
-    fmt.Println(&quot;I can breathe.&quot;)
-}
-
-// Receiver为指针的方法
-func (s *Student) grow() {
-    s.age += 1
-    fmt.Println(&quot;Grow older.&quot;)
-}
-
-func main() {
-
-    student := Student{name: &quot;hh&quot;, age: 18} //学生对象（值）
-    pointer := &amp;student //指针
-
-    student.breathe() //直接调用正常，打印出I can breathe.
-    pointer.breathe() //通过指针调用也正常，也打印出I can breathe.
-
-    student.grow() //直接调用正常，打印出Grow older
-    pointer.grow() //通过指针调用也正常，也打印出Grow older
-
-}
-</code></pre></li>
-</ol>
-<pre><code>**从上述代码可以看出，无论某个方法的Receiver是对象（值）还是指针，都可以通过对象（值）或者指针来进行方法调用。**再仔细想一想也是非常合理的，因为Go内部可以轻松地找到一个对象（值）的地址，自然就能构建出指向它的指针（`&amp;obj`），调用Receiver为指针的方法；另外也很容易通过指针找到其指向的对象（值）（`*p`），自然也能轻松调用Receiver为对象（值）的方法。
-</code></pre><ol start="4">
-<li><p>最简单的多态示例</p>
-<pre><code>// Human接口，内含breathe()方法，因为所有人类都能呼吸
-type Human interface {
-    breathe()
-}
-
-// 学生结构体，内含姓名和年龄
-type Student struct {
-    name string
-    age int
-}
-
-// 实现Student类的breathe方法，实现了Human接口
-func (s Student) breathe() {
-    fmt.Println(&quot;I can breathe.&quot;)
-}
-
-// 测试多态的Test方法
-func Test(h Human) {
-    h.breathe()
-}
-
-func main() {
-
-    student := Student{name: &quot;hh&quot;, age: 18}
-    Test(student) //打印出I can breathe.
-
-}
-</code></pre></li>
-</ol>
-<pre><code>上述是最简单直接描述`多态`的代码例子，`Test`方法的入参是一个接口类型（`Human`），**只要实现了`Human`接口的任一类型的对象都可以传进去，可以是这里的`Student`，也可以是`Driver`，也可以是`Teacher`。无所谓，只要实现了`Human`接口就没问题。**
-</code></pre><ol start="5">
-<li><p>实现多态时诡异的报错 在上面最简单的多态例子里，<code>Student</code>实现了<code>Human</code>接口，实现了一个以值为Receiver的<code>breathe()</code>方法，便可成功传入<code>Test</code>方法里。<strong>那假如接口中声明了不止一个方法，且实现时Receiver不一定是值，还可能是指针呢？那样可以吗？</strong></p>
-<pre><code>// Human接口，内含breathe()和grow()
-type Human interface {
-    breathe()
-    grow()
-}
-
-// 学生结构体，内含姓名和年龄
-type Student struct {
-    name string
-    age int
-}
-
-// 实现Human接口中的breathe()
-func (s Student) breathe() {
-    fmt.Println(&quot;I can breathe.&quot;)
-}
-
-// 实现Human接口中的grow()，因为要改变age属性，所以Receiver为指针
-func (s *Student) grow() {
-    s.age += 1
-    fmt.Println(&quot;I can grow.&quot;)
-}
-
-// 测试多态的Test方法
-func Test(h Human) {
-    h.breathe()
-    h.grow()
-}
-
-func main() {
-
-    student := Student{name: &quot;hh&quot;, age: 18}
-    Test(student) // 此处报错！！！
-
-    // 报错信息如下
-    // cannot use student (type Student) as type Human in argument to Test:
-    // Student does not implement Human (grow method has pointer receiver)
-
-}
-</code></pre></li>
-</ol>
-<pre><code>从上述代码的报错中看到，`Student`没有实现`Human`接口，因为`grow`方法的Receiver是指针？？？**可是我明明实现了`grow`方法啊，只是它的Receiver是指针而已！难道`*Student`和`Student`居然被认为是两种不同的类型？？？** **没错！在Go的设计理念中，`type pointer`和`type value`确实就是两种不同的类型！** **所以如果想让某个结构体实现一个接口，必须要分离开来思考，你到底是想让`type pointer`实现还是想让`type value`实现？** 这个时候，正常人都会想：我要实现一些需要改变对象属性值的方法（像上面的`grow()`），当然需要让这些方法的Receiver为指针，不然怎么改变对象内部的属性值啊？而对于那些不需要改变对象属性值的方法，Receiver为指针也不会出错，顶多就是看着不规范而已。**好，那就把所有实现的方法的Receiver都改成指针，肯定能正常实现那个接口~** 于是便有了下面的代码👇
-
-    // Human接口，内含breathe()和grow()
-    type Human interface {
-        breathe()
-        grow()
-    }
-
-    // 学生结构体，内含姓名和年龄
-    type Student struct {
-        name string
-        age int
-    }
-
-    // 全改成指针Receiver，美滋滋
-    func (s *Student) breathe() {
-        fmt.Println(&quot;I can breathe.&quot;)
-    }
-
-    // 全改成指针Receiver，美滋滋
-    func (s *Student) grow() {
-        s.age += 1
-        fmt.Println(&quot;I can grow.&quot;)
-    }
-
-    // 测试多态的Test方法
-    func Test(h Human) {
-        h.breathe()
-        h.grow()
-    }
-
-    func main() {
-
-        student := Student{name: &quot;hh&quot;, age: 18}
-        Test(student) // 此处还是报错！！！
-
-        // 报错信息如下
-        // Cannot use &apos;student&apos; (type Student) as type Human 
-        // Type does not implement &apos;Human&apos; as &apos;breathe&apos; method has a pointer receiver less... (⌘F1) 
-        //Inspection info: Reports incompatible types.
-
-    }
-
-
-**又出错了？！甚至都不用run，IDE直接报错？！** **之前说好的指针和对象在调用方法时可以随便互换使用呢？？？为什么这里不行了？？？** 此时就要搬出`Go specification`里的经典表格来解释这个表层现象了👇👇👇。 ![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gospec.png) 注意看第二个表格。第一行：当`Methods Receivers`为对象（值）（`t T`）的时候，可用对象（值）或者指针作为多态方法的接口参数；第二行：当`Methods Receivers`为指针时，只能用指针作为多态方法的接口参数。我们实现的方法的Receiver全都是指针，所以我们传一个对象（值）进去，像`Test(student)`就会报错。**如果我们把main中的代码改成`Test(&amp;student)`，用指针作为方法的多态接口参数，自然就不会报错了。** **但这些只是表层现象，再研究得深入一点，为什么会这样呢？原来我们一直认为“有了对象（值）就一定能找到它的地址，从而构建出指向它自己的指针”，其实这种想法在一定程度上是有问题的。**在`Go In Action`一书中给出了一段示意代码，展示了为什么有的时候是找不到对象（值）的地址的👇👇👇。
-
-    01 // Sample program to show how you can&apos;t always get the
-    02 // address of a value.
-    03 package main
-    04
-    05 import &quot;fmt&quot;
-    06
-    07 // duration is a type with a base type of int.
-    08 type duration int
-    09
-    10 // format pretty-prints the duration value.
-    11 func (d *duration) pretty() string {
-    12     return fmt.Sprintf(&quot;Duration: %d&quot;, *d)
-    13 }
-    14
-    15 // main is the entry point for the application.
-    16 func main() {
-    17     duration(42).pretty()
-    18
-    19     // cannot call pointer method on duration(42)
-    20     // cannot take the address of duration(42)
-    21 }
-
-
-**当你拥有一个对象（值），你有可能拿不到它的地址，那就没有办法构建出指向它的指针，自然也就没有办法访问到Receiver为指针的那些方法。所以该对象所拥有的方法集合（`Method Set`）中只包含Receiver为对象（值）的那部分方法** **而当你拥有一个指针的时候，你肯定、必然、100%能拿到它指向的对象（值）。那你既能访问到Receiver为指针的方法，也能访问到Receiver为对象（值）的方法。所以该指针所拥有的方法集合（`Method Set`）中包含了Receiver为指针和Receiver为对象（值）的所有方法** **这也就是上面第一个表格的含义。然后我们试着把第一个表格转置一下，也就能得到第二个表格。**解释了为什么我们把`Test(student)`改成`Test(&amp;student)`就能通过的原因。另外如果把那两个方法改成`func (s Student) breathe()`和`func (s Student) grow()`，那无论是`Test(student)`还是`Test(&amp;student)`都可以正常运行，因为参照第二个表格，当实现接口中的方法的Receiver为对象（值）时，以接口类型作为参数的多态方法可以接收对象（值）也可以接收指针，无所谓。
-</code></pre><h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p>本人文笔水平有限，在文字解释部分可能稍显混乱，如有疑问请反复参照示意代码、表格、图片，也欢迎留言讨论。 在Go实现多态这一部分，最麻烦的莫过于同一个结构体的<code>指针类型</code>和<code>值类型</code>，在实现接口时被认为是不一样的类型。当某个结构体想实现一个接口，统一了所有方法的Receiver后，在传参给接口参数时又出现了类型不匹配方面的小坑。表面上fix掉报错很容易，但其底层的原理掰开来还是有点小复杂的。</p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/15/polymorphism/" data-id="cjpg78r7c003cbxuyj2fe7pgt" class="article-share-link">Share</a>
-      
-      
-  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Go/">Go</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li></ul>
-
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-
-
-  <nav id="page-nav">
-    
-    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="page-number" href="/page/3/">3</a><a class="extend next" rel="next" href="/page/2/">Next &raquo;</a>
+    <span class="page-number">Page 1 of 3</span>
+    <a class="older-posts" href="/page/2/">Older Posts →</a>
   </nav>
-
-</section>
-        
-          <aside id="sidebar">
-  
-    
-  <div class="widget-wrap">
-    <h3 class="widget-title">Categories</h3>
-    <div class="widget">
-      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/BigData/">BigData</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Go/">Go</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/">Leetcode</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/">分布式</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/推荐系统/">推荐系统</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/未分类/">未分类</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/算法/">算法</a></li></ul>
-    </div>
-  </div>
+</main>
 
 
   
-    
-  <div class="widget-wrap">
-    <h3 class="widget-title">Tags</h3>
-    <div class="widget">
-      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/">Go</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/">Java</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/">zookeeper</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/分布式/">分布式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/推荐/">推荐</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/源码/">源码</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/笔记/">笔记</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/算法/">算法</a></li></ul>
-    </div>
-  </div>
-
-
+<footer class="site-footer">
   
-    
-  <div class="widget-wrap">
-    <h3 class="widget-title">Tag Cloud</h3>
-    <div class="widget tagcloud">
-      <a href="/tags/Go/" style="font-size: 18.33px;">Go</a> <a href="/tags/Java/" style="font-size: 16.67px;">Java</a> <a href="/tags/Leetcode/" style="font-size: 11.67px;">Leetcode</a> <a href="/tags/bigdata/" style="font-size: 15px;">bigdata</a> <a href="/tags/hadoop/" style="font-size: 16.67px;">hadoop</a> <a href="/tags/mapreduce/" style="font-size: 15px;">mapreduce</a> <a href="/tags/zookeeper/" style="font-size: 10px;">zookeeper</a> <a href="/tags/分布式/" style="font-size: 13.33px;">分布式</a> <a href="/tags/推荐/" style="font-size: 15px;">推荐</a> <a href="/tags/数据结构/" style="font-size: 18.33px;">数据结构</a> <a href="/tags/源码/" style="font-size: 11.67px;">源码</a> <a href="/tags/笔记/" style="font-size: 20px;">笔记</a> <a href="/tags/算法/" style="font-size: 18.33px;">算法</a>
-    </div>
-  </div>
-
-  
-    
-  <div class="widget-wrap">
-    <h3 class="widget-title">Archives</h3>
-    <div class="widget">
-      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/09/">September 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/06/">June 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">March 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">February 2018</a></li></ul>
-    </div>
-  </div>
-
-
-  
-    
-  <div class="widget-wrap">
-    <h3 class="widget-title">Recent Posts</h3>
-    <div class="widget">
-      <ul>
-        
-          <li>
-            <a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
-          </li>
-        
-          <li>
-            <a href="/2018/12/09/trashed/">__trashed</a>
-          </li>
-        
-          <li>
-            <a href="/2018/12/09/trashed-2/">[Raft]</a>
-          </li>
-        
-          <li>
-            <a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
-          </li>
-        
-          <li>
-            <a href="/2018/12/08/hello-world/">Hello World</a>
-          </li>
-        
-      </ul>
-    </div>
-  </div>
-
-  
-</aside>
-        
-      </div>
-      <footer id="footer">
-  
-  <div class="outer">
-    <div id="footer-info" class="inner">
-      &copy; 2018 John Doe<br>
-      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
-    </div>
+  <div class="inner">
+     <section class="copyright">All content copyright <a href="/">casper</a> &copy; 2014 &bull; All rights reserved.</section>
+     <section class="poweredby">Proudly published with <a class="icon-ghost" href="http://zespia.tw/hexo/">Hexo</a></section>
   </div>
 </footer>
-    </div>
-    <nav id="mobile-nav">
-  
-    <a href="/" class="mobile-nav-link">Home</a>
-  
-    <a href="/archives" class="mobile-nav-link">Archives</a>
-  
-</nav>
-    
 
-<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
 
-
-  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
-  <script src="/fancybox/jquery.fancybox.pack.js"></script>
-
-
-<script src="/js/script.js"></script>
+<script type="text/javascript" src="/js/jquery.fitvids.js"></script>
+<script type="text/javascript" src="/js/index.js"></script>
 
 
 
-  </div>
+
+
+
 </body>
 </html>

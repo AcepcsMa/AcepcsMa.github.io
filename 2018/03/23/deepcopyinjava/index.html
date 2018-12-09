@@ -1,100 +1,57 @@
 <!DOCTYPE html>
 <html>
-<head><meta name="generator" content="Hexo 3.8.0">
-  <meta charset="utf-8">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html" charset="UTF-8" >
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+  <title>Java中的深复制&amp;浅复制 | casper</title>
+  <meta name="description" content="" />
+  <meta name="HandheldFriendly" content="True" />
+  <meta name="MobileOptimized" content="320" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" type="text/css" href="/css/screen.css" />
+  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+  <meta name="generator" content="casper">
+
+  
+  
   
 
   
-  <title>Java中的深复制&amp;浅复制 | Hexo</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="本文内容均为本人（Haoxiang Ma）原创，如需转载请注明出处。  问题背景在程序中，出于特定的需求，往往要对一些对象进行复制，然后对复制后的对象进行操作，且不想让这些操作影响到原对象的数据。在这种情况下，搞清楚深复制（Deep Copy）和浅复制（Shallow Copy）是非常有必要的。 何谓浅复制？简单来说，就是对一个对象进行复制，得到一个新对象，然后“照搬”原对象中的数据来填充新对象">
-<meta name="keywords" content="Java">
-<meta property="og:type" content="article">
-<meta property="og:title" content="Java中的深复制&amp;浅复制">
-<meta property="og:url" content="http://yoursite.com/2018/03/23/deepcopyinjava/index.html">
-<meta property="og:site_name" content="Hexo">
-<meta property="og:description" content="本文内容均为本人（Haoxiang Ma）原创，如需转载请注明出处。  问题背景在程序中，出于特定的需求，往往要对一些对象进行复制，然后对复制后的对象进行操作，且不想让这些操作影响到原对象的数据。在这种情况下，搞清楚深复制（Deep Copy）和浅复制（Shallow Copy）是非常有必要的。 何谓浅复制？简单来说，就是对一个对象进行复制，得到一个新对象，然后“照搬”原对象中的数据来填充新对象">
-<meta property="og:locale" content="default">
-<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/shallow.png">
-<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/deep.png">
-<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Java中的深复制&amp;浅复制">
-<meta name="twitter:description" content="本文内容均为本人（Haoxiang Ma）原创，如需转载请注明出处。  问题背景在程序中，出于特定的需求，往往要对一些对象进行复制，然后对复制后的对象进行操作，且不想让这些操作影响到原对象的数据。在这种情况下，搞清楚深复制（Deep Copy）和浅复制（Shallow Copy）是非常有必要的。 何谓浅复制？简单来说，就是对一个对象进行复制，得到一个新对象，然后“照搬”原对象中的数据来填充新对象">
-<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/shallow.png">
-  
-    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
-  
-  
-    <link rel="icon" href="/favicon.png">
-  
-  
-    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
-  
-  <link rel="stylesheet" href="/css/style.css">
 </head>
-</html>
-<body>
-  <div id="container">
-    <div id="wrap">
-      <header id="header">
-  <div id="banner"></div>
-  <div id="header-outer" class="outer">
-    <div id="header-title" class="inner">
-      <h1 id="logo-wrap">
-        <a href="/" id="logo">Hexo</a>
-      </h1>
-      
+
+
+<body class="post-template">
+
+  <header class="site-head" style="background-image: url(//blog.ghost.org/content/images/2013/Nov/cover.png)">
+    <div class="vertical">
+        <div class="site-head-content inner">
+             <a class="blog-logo" href="/"><img src="//blog.ghost.org/content/images/2013/Nov/bloglogo_1-1.png" alt="Blog Logo"></a> 
+            <h1 class="blog-title">casper</h1>
+            <h2 class="blog-description"></h2>
+        </div>
     </div>
-    <div id="header-inner" class="inner">
-      <nav id="main-nav">
-        <a id="main-nav-toggle" class="nav-icon"></a>
-        
-          <a class="main-nav-link" href="/">Home</a>
-        
-          <a class="main-nav-link" href="/archives">Archives</a>
-        
-      </nav>
-      <nav id="sub-nav">
-        
-          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
-        
-        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
-      </nav>
-      <div id="search-form-wrap">
-        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
-      </div>
-    </div>
-  </div>
 </header>
-      <div class="outer">
-        <section id="main"><article id="post-deepcopyinjava" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/03/23/deepcopyinjava/" class="article-date">
-  <time datetime="2018-03-23T16:57:57.000Z" itemprop="datePublished">2018-03-23</time>
-</a>
-    
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/Java/">Java</a>
-  </div>
-
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 class="article-title" itemprop="name">
-      Java中的深复制&amp;浅复制
-    </h1>
   
 
-      </header>
+<main class="content" role="main">
+  <article class="post">
+    <span class="post-meta">
+      <time datetime="2018-03-23T16:57:57.000Z" itemprop="datePublished">
+          2018-03-23
+      </time>
     
-    <div class="article-entry" itemprop="articleBody">
-      
-        <blockquote>
+    
+    | 
+    <a href="/tags/Java/">Java</a>
+    
+    
+</span>
+    <h1 class="post-title">Java中的深复制&浅复制</h1>
+    <section class="post-content">
+      <blockquote>
 <p>本文内容均为本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
 </blockquote>
 <h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>在程序中，出于特定的需求，往往要对一些对象进行复制，然后对复制后的对象进行操作，<strong>且不想让这些操作影响到原对象的数据</strong>。在这种情况下，搞清楚<code>深复制（Deep Copy）</code>和<code>浅复制（Shallow Copy）</code>是非常有必要的。 何谓<code>浅复制</code>？简单来说，就是对一个对象进行复制，得到一个新对象，然后“照搬”原对象中的数据来填充新对象的数据域。虽然新旧对象是两个不同的对象（在内存中的地址不同），但是它们内部的数据是一样的。 这样看来，<code>浅复制</code>不正是我们所需的<code>复制</code>嘛，可以得到一个新的对象，且新对象中的数据跟原对象一样，已经是非常完美的复制啊，为什么还要加一个<code>浅</code>字呢？ <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/shallow.png" alt=""> 原因在于，<strong>在Java中</strong>，一个对象里可能有<code>primitive</code>类型的数据如<code>int</code>,<code>long</code>等，更可能包含了<code>referrence（引用）</code>类型的数据如指向自定义类实例的引用。众所周知，<strong>引用的值仅仅是其所指向对象的内存地址</strong>。通过<code>浅复制</code>，我们会把这个内存地址“照搬”过去新对象中，那么新对象和旧对象中的一个成员引用就会指向同一块内存，操作的时候将会互相影响，与我们理想状态下的<code>复制</code>相差甚远。如上图所示，从<code>Building1</code>对象复制出来<code>Building2</code>对象后，它们本身所处的内存地址不一样，已经成为了两个独立的对象，但由于<code>Building</code>中包含了一个引用类型的数据<code>Floor</code>，而<code>浅复制</code>只将引用的值照搬过去新对象中，导致两个不同的<code>Building</code>中的<code>Floor</code>指向了内存里的同一个<code>Floor</code>。 <strong>所谓的<code>浅</code>指的就是对于<code>referrence（引用）</code>类型的数据只是“浅显”地“照搬”其值，没有深度地“复制”出一个新的对象。</strong> 所以对应<code>浅复制</code>，为了解决它的问题，我们自然就有<code>深复制</code>的概念。所谓<code>深复制</code>就是为了完完全全、彻彻底底地对一个对象进行<strong>深度</strong>的复制，避免新旧对象中的引用仍指向同一块内存区域，互相影响。 <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/deep.png" alt=""> 如上图所示，从<code>Building1</code>对象复制出来<code>Building2</code>对象，两者的<code>Floor</code>引用指向的已是内存区域中不同的<code>Floor</code>对象，无论对<code>Building1</code>再怎么折腾，也不会对<code>Building2</code>产生影响，完成真正理想状态下的<code>复制</code>。 <strong>本文将探讨在<code>Java</code>中如何实现对象的<code>深复制</code>。</strong></p>
@@ -278,147 +235,65 @@ class Floor implements Cloneable {
 </li>
 </ol>
 
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/03/23/deepcopyinjava/" data-id="cjpg78r6v002nbxuy13ndchbm" class="article-share-link">Share</a>
-      
-      
-  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Java/">Java</a></li></ul>
-
-    </footer>
-  </div>
-  
-    
-<nav id="article-nav">
-  
-    <a href="/2018/03/31/whatiscow/" id="article-nav-newer" class="article-nav-link-wrap">
-      <strong class="article-nav-caption">Newer</strong>
-      <div class="article-nav-title">
-        
-          什么是Copy-On-Write
-        
-      </div>
-    </a>
-  
-  
-    <a href="/2018/03/17/consistent-hash/" id="article-nav-older" class="article-nav-link-wrap">
-      <strong class="article-nav-caption">Older</strong>
-      <div class="article-nav-title">一致性Hash算法——分析与模拟</div>
-    </a>
-  
-</nav>
-
-  
-</article>
-
+    </section>
+    <footer class="post-footer">
+      <section class="author">
+    <h4>John Doe</h4>
+    <p>A designer, developer and entrepreneur. Spends his time travelling the world with a bag of kites. Likes journalism and publishing platforms.</p>
 </section>
-        
-          <aside id="sidebar">
-  
+      <section class="share">
+    <h4>Share this post</h4>
+    <a class="icon-twitter" href="http://twitter.com/share?url=http://yoursite.com/2018/03/23/deepcopyinjava/" onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+        <span class="hidden">Twitter</span>
+    </a>
+    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://yoursite.com/2018/03/23/deepcopyinjava/" onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+        <span class="hidden">Facebook</span>
+    </a>
+    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://yoursite.com/2018/03/23/deepcopyinjava/" onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+        <span class="hidden">Google+</span>
+    </a>
+</section>
+    </footer>
+  </article>
+  <nav class="pagination" role="pagination">
     
-  <div class="widget-wrap">
-    <h3 class="widget-title">Categories</h3>
-    <div class="widget">
-      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/BigData/">BigData</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Go/">Go</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/">Leetcode</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/">分布式</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/推荐系统/">推荐系统</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/未分类/">未分类</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/算法/">算法</a></li></ul>
-    </div>
-  </div>
-
-
-  
+    <a class="newer-posts" href="/2018/03/31/whatiscow/">
+        ← 什么是Copy-On-Write
+    </a>
     
-  <div class="widget-wrap">
-    <h3 class="widget-title">Tags</h3>
-    <div class="widget">
-      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/">Go</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/">Java</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/">zookeeper</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/分布式/">分布式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/推荐/">推荐</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/源码/">源码</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/笔记/">笔记</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/算法/">算法</a></li></ul>
-    </div>
-  </div>
-
-
-  
+    <span class="page-number">•</span>
     
-  <div class="widget-wrap">
-    <h3 class="widget-title">Tag Cloud</h3>
-    <div class="widget tagcloud">
-      <a href="/tags/Go/" style="font-size: 18.33px;">Go</a> <a href="/tags/Java/" style="font-size: 16.67px;">Java</a> <a href="/tags/Leetcode/" style="font-size: 11.67px;">Leetcode</a> <a href="/tags/bigdata/" style="font-size: 15px;">bigdata</a> <a href="/tags/hadoop/" style="font-size: 16.67px;">hadoop</a> <a href="/tags/mapreduce/" style="font-size: 15px;">mapreduce</a> <a href="/tags/zookeeper/" style="font-size: 10px;">zookeeper</a> <a href="/tags/分布式/" style="font-size: 13.33px;">分布式</a> <a href="/tags/推荐/" style="font-size: 15px;">推荐</a> <a href="/tags/数据结构/" style="font-size: 18.33px;">数据结构</a> <a href="/tags/源码/" style="font-size: 11.67px;">源码</a> <a href="/tags/笔记/" style="font-size: 20px;">笔记</a> <a href="/tags/算法/" style="font-size: 18.33px;">算法</a>
-    </div>
-  </div>
-
-  
+    <a class="older-posts" href="/2018/03/17/consistent-hash/">
+        一致性Hash算法——分析与模拟 →
+    </a>
     
-  <div class="widget-wrap">
-    <h3 class="widget-title">Archives</h3>
-    <div class="widget">
-      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/09/">September 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/06/">June 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">March 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">February 2018</a></li></ul>
-    </div>
-  </div>
+</nav>
+  <div id="comment" class="comments-area">
+    <h1 class="title"><a href="#disqus_comments" name="disqus_comments">Comments</a></h1>
 
-
-  
     
-  <div class="widget-wrap">
-    <h3 class="widget-title">Recent Posts</h3>
-    <div class="widget">
-      <ul>
-        
-          <li>
-            <a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
-          </li>
-        
-          <li>
-            <a href="/2018/12/09/trashed/">__trashed</a>
-          </li>
-        
-          <li>
-            <a href="/2018/12/09/trashed-2/">[Raft]</a>
-          </li>
-        
-          <li>
-            <a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
-          </li>
-        
-          <li>
-            <a href="/2018/12/08/hello-world/">Hello World</a>
-          </li>
-        
-      </ul>
-    </div>
-  </div>
+</div>
+</main>
+
 
   
-</aside>
-        
-      </div>
-      <footer id="footer">
+<footer class="site-footer">
   
-  <div class="outer">
-    <div id="footer-info" class="inner">
-      &copy; 2018 John Doe<br>
-      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
-    </div>
+  <div class="inner">
+     <section class="copyright">All content copyright <a href="/">casper</a> &copy; 2014 &bull; All rights reserved.</section>
+     <section class="poweredby">Proudly published with <a class="icon-ghost" href="http://zespia.tw/hexo/">Hexo</a></section>
   </div>
 </footer>
-    </div>
-    <nav id="mobile-nav">
-  
-    <a href="/" class="mobile-nav-link">Home</a>
-  
-    <a href="/archives" class="mobile-nav-link">Archives</a>
-  
-</nav>
-    
 
-<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
 
-
-  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
-  <script src="/fancybox/jquery.fancybox.pack.js"></script>
-
-
-<script src="/js/script.js"></script>
+<script type="text/javascript" src="/js/jquery.fitvids.js"></script>
+<script type="text/javascript" src="/js/index.js"></script>
 
 
 
-  </div>
+
+
+
 </body>
 </html>

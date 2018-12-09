@@ -1,97 +1,61 @@
 <!DOCTYPE html>
 <html>
-<head><meta name="generator" content="Hexo 3.8.0">
-  <meta charset="utf-8">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html" charset="UTF-8" >
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+  <title>[Google]记一道不错的电面题 | casper</title>
+  <meta name="description" content="" />
+  <meta name="HandheldFriendly" content="True" />
+  <meta name="MobileOptimized" content="320" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" type="text/css" href="/css/screen.css" />
+  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+  <meta name="generator" content="casper">
+
+  
+  
   
 
   
-  <title>[Google]记一道不错的电面题 | Hexo</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="[Google]记一道不错的电面题 最近一位朋友跟我分享了一道Ta在google电面中被问到的算法题，一阵研究后觉得题目出得很不错，不是那种傻X的tricky题目，故分享之，并附上我实现的Java代码。  题目根据输入的有序字符串，构造出目标字符串，保证每个输入的串均服从目标串的原顺序。  target: 3-5-7-1-9 input: 3-5-7, 5-1-9, 7-1, 1-9, 5-7">
-<meta name="keywords" content="笔记,Java,算法">
-<meta property="og:type" content="article">
-<meta property="og:title" content="[Google]记一道不错的电面题">
-<meta property="og:url" content="http://yoursite.com/2018/09/28/google-interview0/index.html">
-<meta property="og:site_name" content="Hexo">
-<meta property="og:description" content="[Google]记一道不错的电面题 最近一位朋友跟我分享了一道Ta在google电面中被问到的算法题，一阵研究后觉得题目出得很不错，不是那种傻X的tricky题目，故分享之，并附上我实现的Java代码。  题目根据输入的有序字符串，构造出目标字符串，保证每个输入的串均服从目标串的原顺序。  target: 3-5-7-1-9 input: 3-5-7, 5-1-9, 7-1, 1-9, 5-7">
-<meta property="og:locale" content="default">
-<meta property="og:updated_time" content="2018-12-09T01:17:33.000Z">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="[Google]记一道不错的电面题">
-<meta name="twitter:description" content="[Google]记一道不错的电面题 最近一位朋友跟我分享了一道Ta在google电面中被问到的算法题，一阵研究后觉得题目出得很不错，不是那种傻X的tricky题目，故分享之，并附上我实现的Java代码。  题目根据输入的有序字符串，构造出目标字符串，保证每个输入的串均服从目标串的原顺序。  target: 3-5-7-1-9 input: 3-5-7, 5-1-9, 7-1, 1-9, 5-7">
-  
-    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
-  
-  
-    <link rel="icon" href="/favicon.png">
-  
-  
-    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
-  
-  <link rel="stylesheet" href="/css/style.css">
 </head>
-</html>
-<body>
-  <div id="container">
-    <div id="wrap">
-      <header id="header">
-  <div id="banner"></div>
-  <div id="header-outer" class="outer">
-    <div id="header-title" class="inner">
-      <h1 id="logo-wrap">
-        <a href="/" id="logo">Hexo</a>
-      </h1>
-      
+
+
+<body class="post-template">
+
+  <header class="site-head" style="background-image: url(//blog.ghost.org/content/images/2013/Nov/cover.png)">
+    <div class="vertical">
+        <div class="site-head-content inner">
+             <a class="blog-logo" href="/"><img src="//blog.ghost.org/content/images/2013/Nov/bloglogo_1-1.png" alt="Blog Logo"></a> 
+            <h1 class="blog-title">casper</h1>
+            <h2 class="blog-description"></h2>
+        </div>
     </div>
-    <div id="header-inner" class="inner">
-      <nav id="main-nav">
-        <a id="main-nav-toggle" class="nav-icon"></a>
-        
-          <a class="main-nav-link" href="/">Home</a>
-        
-          <a class="main-nav-link" href="/archives">Archives</a>
-        
-      </nav>
-      <nav id="sub-nav">
-        
-          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
-        
-        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
-      </nav>
-      <div id="search-form-wrap">
-        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
-      </div>
-    </div>
-  </div>
 </header>
-      <div class="outer">
-        <section id="main"><article id="post-google-interview0" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/09/28/google-interview0/" class="article-date">
-  <time datetime="2018-09-28T16:54:07.000Z" itemprop="datePublished">2018-09-28</time>
-</a>
-    
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/算法/">算法</a>
-  </div>
-
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 class="article-title" itemprop="name">
-      [Google]记一道不错的电面题
-    </h1>
   
 
-      </header>
+<main class="content" role="main">
+  <article class="post">
+    <span class="post-meta">
+      <time datetime="2018-09-28T16:54:07.000Z" itemprop="datePublished">
+          2018-09-28
+      </time>
     
-    <div class="article-entry" itemprop="articleBody">
-      
-        <h2 id="Google-记一道不错的电面题"><a href="#Google-记一道不错的电面题" class="headerlink" title="[Google]记一道不错的电面题"></a>[Google]记一道不错的电面题</h2><blockquote>
+    
+    | 
+    <a href="/tags/笔记/">笔记</a>,
+    
+    <a href="/tags/Java/">Java</a>,
+    
+    <a href="/tags/算法/">算法</a>
+    
+    
+</span>
+    <h1 class="post-title">[Google]记一道不错的电面题</h1>
+    <section class="post-content">
+      <h2 id="Google-记一道不错的电面题"><a href="#Google-记一道不错的电面题" class="headerlink" title="[Google]记一道不错的电面题"></a>[Google]记一道不错的电面题</h2><blockquote>
 <p>最近一位朋友跟我分享了一道Ta在google电面中被问到的算法题，一阵研究后觉得题目出得很不错，不是那种傻X的tricky题目，故分享之，并附上我实现的Java代码。</p>
 </blockquote>
 <h3 id="题目"><a href="#题目" class="headerlink" title="题目"></a>题目</h3><p>根据输入的有序字符串，构造出目标字符串，保证每个输入的串均服从目标串的原顺序。</p>
@@ -208,147 +172,65 @@ public class Solution {
 <li>基于入度为<code>0</code>的点，利用<code>Queue</code>实现<code>topological sort</code>。</li>
 </ol>
 
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/09/28/google-interview0/" data-id="cjpg78r5m0001bxuyqe5h2yvw" class="article-share-link">Share</a>
-      
-      
-  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Java/">Java</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/笔记/">笔记</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/算法/">算法</a></li></ul>
-
-    </footer>
-  </div>
-  
-    
-<nav id="article-nav">
-  
-    <a href="/2018/11/10/go-slice/" id="article-nav-newer" class="article-nav-link-wrap">
-      <strong class="article-nav-caption">Newer</strong>
-      <div class="article-nav-title">
-        
-          [Golang]奇葩数据结构之Slice（切片）
-        
-      </div>
-    </a>
-  
-  
-    <a href="/2018/06/01/recsys-note4/" id="article-nav-older" class="article-nav-link-wrap">
-      <strong class="article-nav-caption">Older</strong>
-      <div class="article-nav-title">《推荐系统实践》笔记 #4</div>
-    </a>
-  
-</nav>
-
-  
-</article>
-
+    </section>
+    <footer class="post-footer">
+      <section class="author">
+    <h4>John Doe</h4>
+    <p>A designer, developer and entrepreneur. Spends his time travelling the world with a bag of kites. Likes journalism and publishing platforms.</p>
 </section>
-        
-          <aside id="sidebar">
-  
+      <section class="share">
+    <h4>Share this post</h4>
+    <a class="icon-twitter" href="http://twitter.com/share?url=http://yoursite.com/2018/09/28/google-interview0/" onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+        <span class="hidden">Twitter</span>
+    </a>
+    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://yoursite.com/2018/09/28/google-interview0/" onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+        <span class="hidden">Facebook</span>
+    </a>
+    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://yoursite.com/2018/09/28/google-interview0/" onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+        <span class="hidden">Google+</span>
+    </a>
+</section>
+    </footer>
+  </article>
+  <nav class="pagination" role="pagination">
     
-  <div class="widget-wrap">
-    <h3 class="widget-title">Categories</h3>
-    <div class="widget">
-      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/BigData/">BigData</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Go/">Go</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/">Leetcode</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Leetcode/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/">分布式</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/分布式/算法/">算法</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/推荐系统/">推荐系统</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/未分类/">未分类</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/算法/">算法</a></li></ul>
-    </div>
-  </div>
-
-
-  
+    <a class="newer-posts" href="/2018/11/10/go-slice/">
+        ← [Golang]奇葩数据结构之Slice（切片）
+    </a>
     
-  <div class="widget-wrap">
-    <h3 class="widget-title">Tags</h3>
-    <div class="widget">
-      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/">Go</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Java/">Java</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Leetcode/">Leetcode</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">bigdata</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hadoop/">hadoop</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mapreduce/">mapreduce</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/">zookeeper</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/分布式/">分布式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/推荐/">推荐</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/数据结构/">数据结构</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/源码/">源码</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/笔记/">笔记</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/算法/">算法</a></li></ul>
-    </div>
-  </div>
-
-
-  
+    <span class="page-number">•</span>
     
-  <div class="widget-wrap">
-    <h3 class="widget-title">Tag Cloud</h3>
-    <div class="widget tagcloud">
-      <a href="/tags/Go/" style="font-size: 18.33px;">Go</a> <a href="/tags/Java/" style="font-size: 16.67px;">Java</a> <a href="/tags/Leetcode/" style="font-size: 11.67px;">Leetcode</a> <a href="/tags/bigdata/" style="font-size: 15px;">bigdata</a> <a href="/tags/hadoop/" style="font-size: 16.67px;">hadoop</a> <a href="/tags/mapreduce/" style="font-size: 15px;">mapreduce</a> <a href="/tags/zookeeper/" style="font-size: 10px;">zookeeper</a> <a href="/tags/分布式/" style="font-size: 13.33px;">分布式</a> <a href="/tags/推荐/" style="font-size: 15px;">推荐</a> <a href="/tags/数据结构/" style="font-size: 18.33px;">数据结构</a> <a href="/tags/源码/" style="font-size: 11.67px;">源码</a> <a href="/tags/笔记/" style="font-size: 20px;">笔记</a> <a href="/tags/算法/" style="font-size: 18.33px;">算法</a>
-    </div>
-  </div>
-
-  
+    <a class="older-posts" href="/2018/06/01/recsys-note4/">
+        《推荐系统实践》笔记 #4 →
+    </a>
     
-  <div class="widget-wrap">
-    <h3 class="widget-title">Archives</h3>
-    <div class="widget">
-      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/09/">September 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/06/">June 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">March 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">February 2018</a></li></ul>
-    </div>
-  </div>
+</nav>
+  <div id="comment" class="comments-area">
+    <h1 class="title"><a href="#disqus_comments" name="disqus_comments">Comments</a></h1>
 
-
-  
     
-  <div class="widget-wrap">
-    <h3 class="widget-title">Recent Posts</h3>
-    <div class="widget">
-      <ul>
-        
-          <li>
-            <a href="/2018/12/09/raft-leader-election-trashed/">[Raft]Leader Election(选主)笔记</a>
-          </li>
-        
-          <li>
-            <a href="/2018/12/09/trashed/">__trashed</a>
-          </li>
-        
-          <li>
-            <a href="/2018/12/09/trashed-2/">[Raft]</a>
-          </li>
-        
-          <li>
-            <a href="/2018/12/09/raft-leader-election/">[Raft]Leader Election(选主)笔记</a>
-          </li>
-        
-          <li>
-            <a href="/2018/12/08/hello-world/">Hello World</a>
-          </li>
-        
-      </ul>
-    </div>
-  </div>
+</div>
+</main>
+
 
   
-</aside>
-        
-      </div>
-      <footer id="footer">
+<footer class="site-footer">
   
-  <div class="outer">
-    <div id="footer-info" class="inner">
-      &copy; 2018 John Doe<br>
-      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
-    </div>
+  <div class="inner">
+     <section class="copyright">All content copyright <a href="/">casper</a> &copy; 2014 &bull; All rights reserved.</section>
+     <section class="poweredby">Proudly published with <a class="icon-ghost" href="http://zespia.tw/hexo/">Hexo</a></section>
   </div>
 </footer>
-    </div>
-    <nav id="mobile-nav">
-  
-    <a href="/" class="mobile-nav-link">Home</a>
-  
-    <a href="/archives" class="mobile-nav-link">Archives</a>
-  
-</nav>
-    
 
-<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
 
-
-  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
-  <script src="/fancybox/jquery.fancybox.pack.js"></script>
-
-
-<script src="/js/script.js"></script>
+<script type="text/javascript" src="/js/jquery.fitvids.js"></script>
+<script type="text/javascript" src="/js/index.js"></script>
 
 
 
-  </div>
+
+
+
 </body>
 </html>
