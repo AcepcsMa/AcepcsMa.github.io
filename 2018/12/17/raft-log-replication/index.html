@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="OverviewRaft中的核心步骤是  选主 日志复制  在上一篇《Raft选主笔记》中，相信已经清晰说明了Raft中选主的多个限制。通过一系列严格的筛选后，被选出来的Raft Leader就能接收来自客户端的请求，进行各种数据处理。 在本篇笔记中，主要打算记录日志复制（Log Replication）中的一些知识点。 数据结构既然说到了“日志复制”，那么先来看看复制过程中用到的各种数据结构。">
+<meta name="keywords" content="笔记,算法,分布式">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Raft]Log Replication笔记">
+<meta property="og:url" content="http://yoursite.com/2018/12/17/raft-log-replication/index.html">
+<meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
+<meta property="og:description" content="OverviewRaft中的核心步骤是  选主 日志复制  在上一篇《Raft选主笔记》中，相信已经清晰说明了Raft中选主的多个限制。通过一系列严格的筛选后，被选出来的Raft Leader就能接收来自客户端的请求，进行各种数据处理。 在本篇笔记中，主要打算记录日志复制（Log Replication）中的一些知识点。 数据结构既然说到了“日志复制”，那么先来看看复制过程中用到的各种数据结构。">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2018-12-18T03:11:38.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Raft]Log Replication笔记">
+<meta name="twitter:description" content="OverviewRaft中的核心步骤是  选主 日志复制  在上一篇《Raft选主笔记》中，相信已经清晰说明了Raft中选主的多个限制。通过一系列严格的筛选后，被选出来的Raft Leader就能接收来自客户端的请求，进行各种数据处理。 在本篇笔记中，主要打算记录日志复制（Log Replication）中的一些知识点。 数据结构既然说到了“日志复制”，那么先来看看复制过程中用到的各种数据结构。">
+    
+    
+        
+          
+              <link rel="shortcut icon" href="/images/favicon.ico">
+          
+        
+        
+          
+            <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+          
+        
+        
+          
+            <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+          
+        
+    
+    <!-- title -->
+    <title>[Raft]Log Replication笔记</title>
+    <!-- styles -->
+    <link rel="stylesheet" href="/css/style.css">
+    <!-- rss -->
+    
+    
+    <!-- styles -->
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+<link rel="stylesheet" href="/lib/meslo-LG/styles.css">
+<link rel="stylesheet" href="/lib/justified-gallery/justifiedGallery.min.css">
+
+</head>
+
+<body>
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#"><i class="fa fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#"><i class="fa fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fa fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/tags/">Tags</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="/about">About</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </span>
+    <br>
+    <span id="actions">
+      <ul>
+        
+        
+        <li><a class="icon" href="/2018/12/09/raft-leader-election/"><i class="fa fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" href="#"><i class="fa fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" href="http://www.facebook.com/sharer.php?u=http://yoursite.com/2018/12/17/raft-log-replication/"><i class="fa fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2018/12/17/raft-log-replication/&text=[Raft]Log Replication笔记"><i class="fa fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2018/12/17/raft-log-replication/&title=[Raft]Log Replication笔记"><i class="fa fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2018/12/17/raft-log-replication/&is_video=false&description=[Raft]Log Replication笔记"><i class="fa fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[Raft]Log Replication笔记&body=Check out this article: http://yoursite.com/2018/12/17/raft-log-replication/"><i class="fa fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2018/12/17/raft-log-replication/&title=[Raft]Log Replication笔记"><i class="fa fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2018/12/17/raft-log-replication/&title=[Raft]Log Replication笔记"><i class="fa fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2018/12/17/raft-log-replication/&title=[Raft]Log Replication笔记"><i class="fa fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2018/12/17/raft-log-replication/&title=[Raft]Log Replication笔记"><i class="fa fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2018/12/17/raft-log-replication/&name=[Raft]Log Replication笔记&description="><i class="fa fa-tumblr " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Overview"><span class="toc-number">1.</span> <span class="toc-text">Overview</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#数据结构"><span class="toc-number">2.</span> <span class="toc-text">数据结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Log-Replication过程"><span class="toc-number">3.</span> <span class="toc-text">Log Replication过程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#NextIndex-amp-MatchIndex"><span class="toc-number">4.</span> <span class="toc-text">NextIndex &amp; MatchIndex</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index width mx-auto px2 my4">
+        
+        <article class="post" itemscope="" itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        [Raft]Log Replication笔记
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+        <span itemprop="name">Haoxiang Ma's Tech Blog</span>
+      </span>
+      
+    <div class="postdate">
+        <time datetime="2018-12-17T07:22:00.000Z" itemprop="datePublished">2018-12-17</time>
+    </div>
+
+
+      
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/分布式/">分布式</a>, <a class="tag-link" href="/tags/笔记/">笔记</a>, <a class="tag-link" href="/tags/算法/">算法</a>
+    </div>
+
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="Overview"><a href="#Overview" class="headerlink" title="Overview"></a>Overview</h2><p><code>Raft</code>中的核心步骤是</p>
+<ol>
+<li>选主</li>
+<li>日志复制</li>
+</ol>
+<p>在上一篇<a href="http://marcoma.xyz/2018/12/09/raft-leader-election/" target="_blank" rel="noopener">《Raft选主笔记》</a>中，相信已经清晰说明了<code>Raft</code>中选主的多个限制。通过一系列严格的筛选后，被选出来的<code>Raft Leader</code>就能接收来自客户端的请求，进行各种数据处理。</p>
+<p>在本篇笔记中，主要打算记录<strong>日志复制（Log Replication）</strong>中的一些知识点。</p>
+<h2 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h2><p>既然说到了“日志复制”，那么先来看看复制过程中用到的各种数据结构。</p>
+<p>在基础的<code>Raft</code>中，只有两种RPC请求：</p>
+<ul>
+<li><code>RequestVote RPC</code> —— 由Candidate主动发出，请求大家进行投票</li>
+<li><code>AppendEntries RPC</code> —— 由Leader主动发出，请求Followers进行日志复制</li>
+</ul>
+<p>根据<code>Raft</code>论文里的原图，我们可以总结出以下的数据结构。</p>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="comment">// RequestVote RPC</span></span><br><span class="line"><span class="keyword">type</span> RequestVote <span class="keyword">struct</span> &#123;</span><br><span class="line">	TermId <span class="keyword">int64</span>			<span class="comment">// candidate的term id</span></span><br><span class="line">	LeaderId <span class="keyword">int64</span>			<span class="comment">// candidate的leader id</span></span><br><span class="line">	LastLogIndex <span class="keyword">int64</span>		<span class="comment">// candidate存的最后一条log entry的下标</span></span><br><span class="line">	LastLogTerm <span class="keyword">int64</span>		<span class="comment">// candidate存的最后一条log entry的term id</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="comment">// AppendEntries RPC</span></span><br><span class="line"><span class="keyword">type</span> AppendEntries <span class="keyword">struct</span> &#123;</span><br><span class="line">	TermId <span class="keyword">int64</span>			<span class="comment">// leader的term id</span></span><br><span class="line">	LeaderId <span class="keyword">int64</span>			<span class="comment">// leader id</span></span><br><span class="line">	PrevLogIndex <span class="keyword">int64</span>		<span class="comment">// 当前发送entries的前一条entry的下标</span></span><br><span class="line">	PrevLogTerm <span class="keyword">int64</span>		<span class="comment">// 当前发送entries的前一条entry的term</span></span><br><span class="line">	LastCommittedIndex <span class="keyword">int64</span>	<span class="comment">// leader上最后一条commit的entry的下标</span></span><br><span class="line">	Entries []LogEntry		<span class="comment">// 当前要发送的1或N条log entry</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>除了两种RPC请求外，每台server（无论是Leader还是Follower还是Candidate）上都肯定要存一些<strong>系统变量</strong>，用来记录自己或者系统的状态。</p>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">type</span> ServerState <span class="keyword">struct</span> &#123;</span><br><span class="line">	CurrentTerm <span class="keyword">int64</span>		<span class="comment">// 本机上的当前term id</span></span><br><span class="line">	VoteFor <span class="keyword">int64</span>			<span class="comment">// 本轮投票投给了谁（该机器的id）</span></span><br><span class="line">	LogEntries []LogEntry		<span class="comment">// 本机上存的log entries</span></span><br><span class="line">	</span><br><span class="line">	LastCommittedIndex <span class="keyword">int64</span>	<span class="comment">// 本机最后一条commit的log entry的下标</span></span><br><span class="line">	LastAppliedIndex <span class="keyword">int64</span>		<span class="comment">// 本机最后一条被状态机执行的log entry的下标</span></span><br><span class="line">	</span><br><span class="line">	NextIndex []<span class="keyword">int64</span>		<span class="comment">// *leader特有，为每一台follower维护一个下次要发送的log entry的下标</span></span><br><span class="line">	MatchIndex []<span class="keyword">int64</span>		<span class="comment">// *leader特有，为每一台follower维护一个已经成功匹配上的log entry的下标</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="Log-Replication过程"><a href="#Log-Replication过程" class="headerlink" title="Log Replication过程"></a>Log Replication过程</h2><ol>
+<li><p>当集群接收到来自客户端的存储请求</p>
+<ul>
+<li>客户端发给Follower，Follower转发给Leader？或者告诉客户端请它发给Leader？</li>
+<li>客户端直接发给Leader，Leader接收请求</li>
+</ul>
+</li>
+<li><p>Leader自己先把请求里的数据落盘，存在本地，更新自身的meta data</p>
+</li>
+<li><p>Leader发起<code>AppendEntries RPC</code>，请求集群中的其他Follower进行日志复制</p>
+</li>
+<li><p>每台Follower都接收到<code>AppendEntries RPC</code>，检查RPC请求里的各项参数，以确定是否接受该请求</p>
+<ul>
+<li><p>比较<code>AppendEntriesRPC.TermId</code>与<code>Follower.CurrentTerm</code></p>
+  <figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 只有当RPC请求里的Term*不小于*当前Follower的Term，才能接受</span></span><br><span class="line"><span class="keyword">if</span> AppendEntriesRPC.TermId &lt; Follower.CurrentTerm &#123;</span><br><span class="line">	IgnoreRPC()</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> AppendEntriesRPC.TermId &gt; Follower.CurrentTerm &#123;</span><br><span class="line">	UpdateCurrentTerm()</span><br><span class="line">&#125;</span><br><span class="line">AcceptRPC()</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>比较完Term后，若成功接受，则要处理<code>PrevLogIndex</code>和<code>PrevLogTerm</code>了。为什么要处理这两个参数呢？<strong>因为要通过它们来保证：在本次<code>AppendEntries</code>之前的所有log entry都是主从之间正确同步的。</strong></p>
+  <figure class="highlight golang"><table><tr><td class="code"><pre><span class="line">index := AppendEntriesRPC.PrevLogIndex</span><br><span class="line">term := AppendEntriesRPC.PrevLogTerm</span><br><span class="line"><span class="keyword">if</span> Follower.LogEntries[index].Term != term &#123;</span><br><span class="line">	StopAndNotifyLeader()	<span class="comment">// 告知Leader双方达成一致的位置</span></span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">	AcceptLogEntries()	<span class="comment">// 已经达成一致，接受所有log entry</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>  可以看出，当Leader的历史log entry和Follower的历史log entry出现不一致时，是不能进行日志复制的，<strong>完成一次日志复制的前提是：在本次日志复制之前的所有log entry都必须是一致的。</strong></p>
+<p>  所以当发生了不一致时，应该停止日志复制，并把本机上最后一个<code>term == AppendEntriesRPC.PrevLogTerm</code>的log entry index告知Leader，好让Leader下次重新发起<code>AppendEntriesRPC</code>时能够定位到大家都共同一致的位置。</p>
+</li>
+</ul>
+</li>
+<li><p>Leader重新定位PrevLogIndex和PrevLogTerm后 / 或者无需调整本身就是一致的情况下，Follower就接受该<code>AppendEntriesRPC</code>，把<code>AppendEntriesRPC.Entries</code>落盘到本机上，回复Leader已成功落盘</p>
+</li>
+<li><p>Leader为每个Follower维护一些落盘成功与否的变量，当Leader通过Follower的回复监测到某条log entry已被过半的Follower落盘，即可更新Leader自身的<code>LastCommittedIndex</code>，待下次<code>AppendEntriesRPC</code>发送时告诉各个Follower要commit哪一条log entry</p>
+ <figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 例如可以用一个map类容器实现这个逻辑</span></span><br><span class="line"><span class="keyword">const</span> (</span><br><span class="line">	SERVER_COUNT = <span class="number">5</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> committedMap = <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">int64</span>]<span class="keyword">int64</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment">// ......</span></span><br><span class="line"></span><br><span class="line">followerId := AppendEntrisResponse.FollowerId</span><br><span class="line">savedLogIndices := AppendEntrisResponse.savedIndices</span><br><span class="line"><span class="keyword">for</span> _, savedIndex := <span class="keyword">range</span> savedLogIndices &#123;</span><br><span class="line">	committedMap[savedIndex] += <span class="number">1</span></span><br><span class="line">	<span class="keyword">if</span> committedMap[savedIndex] &gt;= SERVER_COUNT / <span class="number">2</span> &#123;</span><br><span class="line">		Leader.LastCommittedIndex = savedIndex</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 更新NextIndex和MatchIndex数组</span></span><br><span class="line">	Leader.NextIndex[followerId] = savedIndex + <span class="number">1</span></span><br><span class="line">	Leader.MatchIndex[followerId] = savedIndex</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>待下次<code>AppendEntriesRPC</code>时，Leader把最新的<code>LastCommittedIndex</code>告知Follower，Follower就可以在本地的状态机上执行<code>LastCommittedIndex</code>之前的log entry，然后回复Leader哪些log entry已被成功执行，Leader对应更新MatchIndex数组</p>
+</li>
+</ol>
+<h2 id="NextIndex-amp-MatchIndex"><a href="#NextIndex-amp-MatchIndex" class="headerlink" title="NextIndex &amp; MatchIndex"></a>NextIndex &amp; MatchIndex</h2><p>在<code>ServerState</code>中大部分变量都很好理解，只有2个变量——<code>NextIndex</code>和<code>MatchIndex</code>是比较奇怪的，因为它们都是数组类型的变量，<strong>而且是Leader特有的变量</strong>。</p>
+<ul>
+<li><code>NextIndex</code>：为每个Follower记录了将要发给该Follower的下一条log entry的index（初始值为<code>Leader.LastLogIndex + 1</code>）</li>
+<li><code>MatchIndex</code>：为每个Follower记录了该Follower上已经成功匹配的log entry的index（初始值为<code>0</code>）</li>
+</ul>
+<p>乍一看上去，正常情况下<code>MatchIndex[i]</code>貌似一直等于<code>NextIndex[i] - 1</code>。但总是会有特殊情况的，假如某台Follower的机子在某一时刻宕机了几十秒，在这几十秒里也经历了Leader的更迭，那么<code>MatchIndex[i]</code>就很有可能不等于<code>NextIndex[i] - 1</code>。在这种情况下，Leader要先根据<code>MatchIndex[i]</code>确定最后一个正确同步的位置，然后重新设置<code>NextIndex[i] = MatchIndex[i] + 1</code>，重新进行历史log entry的同步。</p>
+
+  </div>
+</article>
+
+    <div class="blog-post-comments">
+        
+        
+        <div class="vcomment"></div>
+        
+    </div>
+
+
+
+    </div>
+    
+      <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/tags/">Tags</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="/about">About</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Overview"><span class="toc-number">1.</span> <span class="toc-text">Overview</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#数据结构"><span class="toc-number">2.</span> <span class="toc-text">数据结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Log-Replication过程"><span class="toc-number">3.</span> <span class="toc-text">Log Replication过程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#NextIndex-amp-MatchIndex"><span class="toc-number">4.</span> <span class="toc-text">NextIndex &amp; MatchIndex</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" href="http://www.facebook.com/sharer.php?u=http://yoursite.com/2018/12/17/raft-log-replication/"><i class="fa fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2018/12/17/raft-log-replication/&text=[Raft]Log Replication笔记"><i class="fa fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2018/12/17/raft-log-replication/&title=[Raft]Log Replication笔记"><i class="fa fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2018/12/17/raft-log-replication/&is_video=false&description=[Raft]Log Replication笔记"><i class="fa fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[Raft]Log Replication笔记&body=Check out this article: http://yoursite.com/2018/12/17/raft-log-replication/"><i class="fa fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2018/12/17/raft-log-replication/&title=[Raft]Log Replication笔记"><i class="fa fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2018/12/17/raft-log-replication/&title=[Raft]Log Replication笔记"><i class="fa fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2018/12/17/raft-log-replication/&title=[Raft]Log Replication笔记"><i class="fa fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2018/12/17/raft-log-replication/&title=[Raft]Log Replication笔记"><i class="fa fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2018/12/17/raft-log-replication/&name=[Raft]Log Replication笔记&description="><i class="fa fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+      <ul>
+        <li id="toc"><a class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fa fa-list fa-lg" aria-hidden="true"></i> TOC</a></li>
+        <li id="share"><a class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fa fa-share-alt fa-lg" aria-hidden="true"></i> Share</a></li>
+        <li id="top" style="display:none"><a class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a></li>
+        <li id="menu"><a class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fa fa-bars fa-lg" aria-hidden="true"></i> Menu</a></li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+    
+    <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy; 2018 Haoxiang Ma
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/tags/">Tags</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="/about">About</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    <!-- jquery -->
+<script src="/lib/jquery/jquery.min.js"></script>
+<script src="/lib/justified-gallery/jquery.justifiedGallery.min.js"></script>
+<script src="/js/main.js"></script>
+<!-- search -->
+
+<!-- Google Analytics -->
+
+    <script type="text/javascript">
+        (function(i,s,o,g,r,a,m) {i['GoogleAnalyticsObject']=r;i[r]=i[r]||function() {
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+        ga('create', 'UA-86660611-1', 'auto');
+        ga('send', 'pageview');
+    </script>
+
+<!-- Disqus Comments -->
+
+
+<!-- Valine Comments -->
+
+<script src="//cdn1.lncld.net/static/js/3.0.4/av-min.js"></script>
+<script src="//unpkg.com/valine@latest/dist/Valine.min.js"></script>
+<script type="text/javascript">
+    var notify = 'false' == true ? true : false;
+    var verify = 'false' == true ? true : false;
+    var GUEST_INFO = ['nick','mail','link'];
+    var guest_info = 'nick,mail'.split(',').filter(function(item){
+      return GUEST_INFO.indexOf(item) > -1
+    });
+    guest_info = guest_info.length == 0 ? GUEST_INFO :guest_info;
+    new Valine({
+        el: '.vcomment',
+        notify: notify,
+        verify: verify,
+        appId: "1mYS96DR4e28MDXJxW1ByUA6-gzGzoHsz",
+        appKey: "IMF92wd7jJxCXanv65MdkiBn",
+        avatar:"",
+        placeholder: "Say something...",
+        guest_info:guest_info,
+        pageSize:"10"
+    })
+</script>
+
+
+</body>
+</html>
