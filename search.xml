@@ -3,6 +3,29 @@
   
     
     <entry>
+      <title>为2019年立下的flag</title>
+      <link href="/2018/12/31/2019-flags/"/>
+      <url>/2018/12/31/2019-flags/</url>
+      
+        <content type="html"><![CDATA[<h3 id="2018"><a href="#2018" class="headerlink" title="2018"></a>2018</h3><p>遥想2017/12/31晚上，当时还是我室友喊我去了<strong><em>Kerry Park</em></strong>跨年看烟花什么的。在萧瑟的寒风中，两三度的温度下，🎆🎆🎆绽放的一瞬间，默默地许了一个愿，希望自己的flag(s)都能不辱使命地完成。</p><p>现在2018马上就过去了，想想2017年给自己立下的flag(s)，好像也大概完成了个80%，感觉自己的自驱力确实还凑合，或者说兴趣 or 成就感驱动确实是有用的。</p><p>当然主要是在🎆🎆🎆中许愿起的作用吧！！！</p><h3 id="2019——也是一条有梦想的咸鱼🐟"><a href="#2019——也是一条有梦想的咸鱼🐟" class="headerlink" title="2019——也是一条有梦想的咸鱼🐟"></a>2019——也是一条有梦想的咸鱼🐟</h3><p>至于即将到来的2019年，既然从2018开始用心维护我这个没有人看的博客，那就恬不知耻地直接把flag(s)以blog post的形式公诸于世好了。为了</p><ol><li>给自己更强烈的心理助推，都公开了必须要尽全力做到吧，不然要被笑死了🤣</li><li>万一日后某天有幸成为了一名<code>伪大佬</code>，看看当年立下的flag(s)应该会很有意思🤣</li><li>或者日后某天彻底gg成为了一名油腻+愤世嫉俗+碌碌无为的loser，也能感慨一下自己当年也是个有梦想的咸鱼🤣</li></ol><p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/jjfr.jpg" alt=""></p><p>立下flags</p><ul><li>技术篇<ul><li>积极follow几大computer system领域的顶会，争取认真研读+总结<code>&gt;=4篇</code>核心paper</li><li>读完<code>《ceph设计原理与实现》</code></li><li>读完<code>《Linux Kernel Development》</code></li><li>重读一遍<code>《MySQL InnoDB存储引擎》</code></li><li>产出原创技术博客<code>&gt;=18</code>篇</li><li>简单粗暴，<code>&gt;=70%</code>的天数有代码提交记录</li><li>全年自学时间<code>&gt;=365h</code></li></ul></li><li>爱好篇<ul><li>买一台单反 or 微单</li><li>产出<code>&gt;=50张</code>自己满意的静态照片</li><li>产出<code>&gt;=3个</code>自己满意的vlog</li><li>去<code>&gt;=2个</code>从来没有去过的城市旅游</li><li>学会<code>final cut pro</code>或者<code>pr</code>的简单操作，学会自己剪简单的视频</li></ul></li></ul><p>等到2019/12/31再来挖坟🤣，看看能给自己打多少分，希望起码及格（60%）吧🤣。</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> 目标 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> 目标 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    <entry>
       <title>[Raft]Log Replication笔记</title>
       <link href="/2018/12/17/raft-log-replication/"/>
       <url>/2018/12/17/raft-log-replication/</url>
