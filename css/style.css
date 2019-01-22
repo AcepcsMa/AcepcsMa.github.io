@@ -454,6 +454,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
 }
+strong {
+  color: #00fa9a;
+}
+code {
+  color: #00fa9a;
+}
 .content {
   flex: 1;
 }
@@ -525,7 +531,7 @@ body {
 }
 .width {
   width: 100%;
-  max-width: 39rem;
+  max-width: 50rem;
 }
 @media (max-width: 480px) {
   .px3 {
@@ -1412,6 +1418,7 @@ pre code {
   padding: 0;
 }
 .highlight {
+  tab-size: 4;
   font-family: "Menlo", "Meslo LG", monospace;
   background: #212326;
   -webkit-border-radius: 4px;
