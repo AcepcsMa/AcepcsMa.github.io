@@ -14,14 +14,19 @@
 <meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
 <meta property="og:description" content="本文80%由本人（Haoxiang Ma）原创，20%参考其他博客，如需转载请注明出处。 本文写于2019/02/05，基于MySQL 5.7.18。至于其他版本的MySQL，如有出入请自行查阅其他资料。  索引（Index）是什么索引 = 目录，这就是我认为最直观的解释。 不妨类比一下，一本有着上千页的书 = 一张存了上亿行的数据库表。 如果想在这本书里快速翻找到某一章、某一节、甚至是某一段内">
 <meta property="og:locale" content="default">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/innodb_index_table1.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/innodb_index_table2.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/innodb_bplustree.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/innodb_index_table3.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/secondary_index.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/innodb_index_table4.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/secondary_index2.png">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/multiple_index.png">
-<meta property="og:updated_time" content="2019-02-06T02:15:50.982Z">
+<meta property="og:updated_time" content="2019-02-06T02:38:45.154Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="MySQL InnoDB索引的那些事">
 <meta name="twitter:description" content="本文80%由本人（Haoxiang Ma）原创，20%参考其他博客，如需转载请注明出处。 本文写于2019/02/05，基于MySQL 5.7.18。至于其他版本的MySQL，如有出入请自行查阅其他资料。  索引（Index）是什么索引 = 目录，这就是我认为最直观的解释。 不妨类比一下，一本有着上千页的书 = 一张存了上亿行的数据库表。 如果想在这本书里快速翻找到某一章、某一节、甚至是某一段内">
-<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/secondary_index.png">
+<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/innodb_index_table1.png">
     
     
         
@@ -168,7 +173,7 @@
 <li><p>Hash</p>
 <p>  本质上就是一张<code>HashMap</code>，可以想象一下key就是字段值，value就是该行的行号/primary key/存放位置offset等等</p>
 <p>  例如有一张<code>user</code>表：</p>
-<p>  |id|user_name|<br>  |—|—|<br>  |1|ii|<br>  |2|jj|<br>  |3|kk|</p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/innodb_index_table1.png" alt=""></p>
 <p>  如果为<code>user_name</code>列建一个Hash索引的话，大概会像：</p>
   <figure class="highlight python"><table><tr><td class="code"><pre><span class="line">hash_index = &#123;</span><br><span class="line">	<span class="string">"ii"</span>: <span class="number">1</span>,</span><br><span class="line">	<span class="string">"jj"</span>: <span class="number">2</span>,</span><br><span class="line">	<span class="string">"kk"</span>: <span class="number">3</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>  <strong><em>不过在<code>InnoDB</code>中，Hash索引是无法由用户自行创建的，一般讲Hash索引是指存储引擎内部在运行过程中慢慢自动为热门数据构建的索引。</em></strong></p>
@@ -181,13 +186,12 @@
 <p>  在B+树里，非叶子节点不存真正的数据，只存索引值，只有最底层的叶子节点才会存真正的数据。同时，在数据库领域为了尽可能地减少磁盘I/O，所以B+树的fan-out（阶/扇出）都会设置得比较大，意味着一个树节点可以有非常多的孩子节点，那样树的高度就不会过高。<strong>宁愿“宽胖”也不要“高瘦”，高瘦意味着从root到leaf要访问很多个中间树节点，意味着很多次磁盘I/O。</strong></p>
 <p>  除此之外，其他的B+树基础特性都得到了保留。B+树数据结构基础可以参考以下Calcular的博客：<a href="https://blog.csdn.net/Calcular/article/details/79328397" target="_blank" rel="noopener">《B+树完全解析》</a>。</p>
 <p>  再拿<code>user</code>表来做例子：</p>
-<p>  |id|user_name|<br>  |—|—|<br>  |1|ii|<br>  |2|jj|<br>  |3|kk|<br>  |…|…|<br>  |100|aa|</p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/innodb_index_table2.png" alt=""></p>
+<p>  假如基于<code>id</code>列构建B+树索引，建出来的B+树大概像：</p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/innodb_bplustree.png" alt=""></p>
 </li>
 </ul>
-<pre><code>假如基于`id`列构建B+树索引，建出来的B+树大概像：
-
-![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/innodb_bplustree.png)
-</code></pre><p>以上从<strong>数据结构</strong>的角度介绍了3种索引类型，接下来从<strong>逻辑角度</strong>介绍<code>InnoDB</code>里的2种索引类型。</p>
+<p>以上从<strong>数据结构</strong>的角度介绍了3种索引类型，接下来从<strong>逻辑角度</strong>介绍<code>InnoDB</code>里的2种索引类型。</p>
 <ul>
 <li><p>聚集索引（<code>Clustered Index</code>）</p>
 <p>  <strong>聚集索引 = 全表数据 + 基于主键大小排序构建出的B+树</strong></p>
@@ -200,7 +204,7 @@
 <p>  对于一张表来说，除了唯一一个聚集索引外，其他所有索引都称为辅佐索引。</p>
 <p>  辅佐索引的B+树里，非叶子节点存的是某N列的值的索引，<strong>叶子节点存的不再是行数据，而是该行对应的主键值！</strong></p>
 <p>  拿<code>student</code>表做例子：</p>
-<p>  |id|…|hobby|<br>  |—|—|—|<br>  |1|…|basketball|<br>  |2|…|football|<br>  |3|…|swimming|<br>  |4|…|tennis|<br>  |5|…|pingpong|</p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/innodb_index_table3.png" alt=""></p>
 <p>  假设在hobby这一列上建一个索引，毫无疑问这就是一个辅佐索引：</p>
 <p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/secondary_index.png" alt=""></p>
 <p>  注意观察，最底层的叶子节点不再存完整的行数据，而是存了对应行的主键，相当于一个指向行数据的指针。</p>
@@ -227,48 +231,7 @@
 <h2 id="联合索引及工作流程"><a href="#联合索引及工作流程" class="headerlink" title="联合索引及工作流程"></a>联合索引及工作流程</h2><p>那如果不是<strong>单列索引</strong>，而是<strong>联合（多列）索引</strong>呢？</p>
 <p>例如<code>student</code>表除了<code>hobby</code>字段还有<code>age</code>字段，想联合<code>(hobby, age)</code>来建索引可不可以？</p>
 <p>答案当然是没有问题，而且先上结论：<strong>在一定情况下联合索引比单列索引性价比更高。</strong></p>
-<table>
-<thead>
-<tr>
-<th>id</th>
-<th>…</th>
-<th>hobby</th>
-<th>age</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>…</td>
-<td>basketball</td>
-<td>15</td>
-</tr>
-<tr>
-<td>2</td>
-<td>…</td>
-<td>football</td>
-<td>13</td>
-</tr>
-<tr>
-<td>3</td>
-<td>…</td>
-<td>swimming</td>
-<td>16</td>
-</tr>
-<tr>
-<td>4</td>
-<td>…</td>
-<td>tennis</td>
-<td>15</td>
-</tr>
-<tr>
-<td>5</td>
-<td>…</td>
-<td>pingpong</td>
-<td>16</td>
-</tr>
-</tbody>
-</table>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/innodb_index_table4.png" alt=""></p>
 <p>其对应的B+树跟之前没有太大差别，仅仅是索引比大小时用的是二元组<code>(hobby, age)</code>来比，而不仅仅是<code>hobby</code>单属性来比。</p>
 <p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/secondary_index2.png" alt=""></p>
 <p>如上图，如果再插入一条<code>(hobby=pingpong, age=20)</code>的数据，这条数据就不会落到左下角的叶子节点，而是右下角的叶子节点。因为比大小比的是整个<code>(hobby, age)</code>二元组的大小，<code>(hobby=pingpong, age=20) &gt; (hobby=pingpong, age=16)</code>。</p>
@@ -311,7 +274,7 @@
 <p>感谢以下的参考资料和博客：</p>
 <ul>
 <li><a href="https://blog.csdn.net/zxcc1314/article/details/83627025" target="_blank" rel="noopener">[InnoDB]性别字段为什么不适合加索引 by gnocuohz</a></li>
-<li><a href="http://hedengcheng.com/?p=577" target="_blank" rel="noopener">SQL中的where条件，在数据库中提取与应用浅析<br>by 何登成</a></li>
+<li><a href="http://hedengcheng.com/?p=577" target="_blank" rel="noopener">SQL中的where条件，在数据库中提取与应用浅析 by 何登成</a></li>
 <li><a href="https://segmentfault.com/q/1010000000342176" target="_blank" rel="noopener">mysql里创建‘联合索引’的意义？ on segmentfault</a></li>
 </ul>
 
