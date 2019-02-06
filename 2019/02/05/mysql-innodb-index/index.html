@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="本文80%由本人（Haoxiang Ma）原创，20%参考其他博客，如需转载请注明出处。 本文写于2019/02/05，基于MySQL 5.7.18。至于其他版本的MySQL，如有出入请自行查阅其他资料。  索引（Index）是什么索引 = 目录，这就是我认为最直观的解释。 不妨类比一下，一本有着上千页的书 = 一张存了上亿行的数据库表。 如果想在这本书里快速翻找到某一章、某一节、甚至是某一段内">
+<meta name="keywords" content="MySQL,InnoDB,数据库">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL InnoDB索引的那些事">
+<meta property="og:url" content="http://yoursite.com/2019/02/05/mysql-innodb-index/index.html">
+<meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
+<meta property="og:description" content="本文80%由本人（Haoxiang Ma）原创，20%参考其他博客，如需转载请注明出处。 本文写于2019/02/05，基于MySQL 5.7.18。至于其他版本的MySQL，如有出入请自行查阅其他资料。  索引（Index）是什么索引 = 目录，这就是我认为最直观的解释。 不妨类比一下，一本有着上千页的书 = 一张存了上亿行的数据库表。 如果想在这本书里快速翻找到某一章、某一节、甚至是某一段内">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/secondary_index.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/secondary_index2.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/multiple_index.png">
+<meta property="og:updated_time" content="2019-02-06T02:15:50.982Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MySQL InnoDB索引的那些事">
+<meta name="twitter:description" content="本文80%由本人（Haoxiang Ma）原创，20%参考其他博客，如需转载请注明出处。 本文写于2019/02/05，基于MySQL 5.7.18。至于其他版本的MySQL，如有出入请自行查阅其他资料。  索引（Index）是什么索引 = 目录，这就是我认为最直观的解释。 不妨类比一下，一本有着上千页的书 = 一张存了上亿行的数据库表。 如果想在这本书里快速翻找到某一章、某一节、甚至是某一段内">
+<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/secondary_index.png">
+    
+    
+        
+          
+              <link rel="shortcut icon" href="/images/favicon.ico">
+          
+        
+        
+          
+            <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+          
+        
+        
+          
+            <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+          
+        
+    
+    <!-- title -->
+    <title>MySQL InnoDB索引的那些事</title>
+    <!-- styles -->
+    <link rel="stylesheet" href="/css/style.css">
+    <!-- rss -->
+    
+    
+    <!-- styles -->
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+<link rel="stylesheet" href="/lib/meslo-LG/styles.css">
+<link rel="stylesheet" href="/lib/justified-gallery/justifiedGallery.min.css">
+
+</head>
+
+<body>
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#"><i class="fa fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#"><i class="fa fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fa fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/tags/">Tags</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="/about">About</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </span>
+    <br>
+    <span id="actions">
+      <ul>
+        
+        
+        <li><a class="icon" href="/2019/01/27/jwt/"><i class="fa fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" href="#"><i class="fa fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" href="http://www.facebook.com/sharer.php?u=http://yoursite.com/2019/02/05/mysql-innodb-index/"><i class="fa fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&text=MySQL InnoDB索引的那些事"><i class="fa fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&title=MySQL InnoDB索引的那些事"><i class="fa fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&is_video=false&description=MySQL InnoDB索引的那些事"><i class="fa fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=MySQL InnoDB索引的那些事&body=Check out this article: http://yoursite.com/2019/02/05/mysql-innodb-index/"><i class="fa fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&title=MySQL InnoDB索引的那些事"><i class="fa fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&title=MySQL InnoDB索引的那些事"><i class="fa fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&title=MySQL InnoDB索引的那些事"><i class="fa fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&title=MySQL InnoDB索引的那些事"><i class="fa fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&name=MySQL InnoDB索引的那些事&description="><i class="fa fa-tumblr " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#索引（Index）是什么"><span class="toc-number">1.</span> <span class="toc-text">索引（Index）是什么</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL-InnoDB索引类型"><span class="toc-number">2.</span> <span class="toc-text">MySQL InnoDB索引类型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#单列索引及工作流程"><span class="toc-number">3.</span> <span class="toc-text">单列索引及工作流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#联合索引及工作流程"><span class="toc-number">4.</span> <span class="toc-text">联合索引及工作流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#上索引会毁性能？"><span class="toc-number">5.</span> <span class="toc-text">上索引会毁性能？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#总结"><span class="toc-number">6.</span> <span class="toc-text">总结</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index width mx-auto px2 my4">
+        
+        <article class="post" itemscope="" itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        MySQL InnoDB索引的那些事
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+        <span itemprop="name">Haoxiang Ma's Tech Blog</span>
+      </span>
+      
+    <div class="postdate">
+        <time datetime="2019-02-06T01:30:00.000Z" itemprop="datePublished">2019-02-05</time>
+    </div>
+
+
+      
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/InnoDB/">InnoDB</a>, <a class="tag-link" href="/tags/MySQL/">MySQL</a>, <a class="tag-link" href="/tags/数据库/">数据库</a>
+    </div>
+
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <blockquote>
+<p>本文80%由本人（Haoxiang Ma）原创，20%参考其他博客，如需转载请注明出处。</p>
+<p>本文写于2019/02/05，基于<code>MySQL 5.7.18</code>。<br>至于其他版本的<code>MySQL</code>，如有出入请自行查阅其他资料。</p>
+</blockquote>
+<h2 id="索引（Index）是什么"><a href="#索引（Index）是什么" class="headerlink" title="索引（Index）是什么"></a>索引（Index）是什么</h2><p><strong>索引 = 目录</strong>，这就是我认为最直观的解释。</p>
+<p>不妨类比一下，一本有着上千页的书 = 一张存了上亿行的数据库表。</p>
+<p>如果想在这本书里快速翻找到某一章、某一节、甚至是某一段内容，最快的方法莫过于直接查书的目录，翻到目录里跟内容对应的那一页，再从该页的开头第一个字开始看，直到找到目标内容。</p>
+<p>从数据库领域也莫过于此，如果我们能给一张表维护一个“目录”，在查我们想要的数据时，那就不需要从表的第一行开始检查，一直检查到该表的最后一行，极大提高了查表的效率。</p>
+<p>讲完了大白话，我尝试用一句较为精炼严谨的话描述索引是什么：</p>
+<p><strong>索引 = 一种记录了数据表里数据所在位置的结构。</strong></p>
+<p>明显，它具有两种特性：</p>
+<ul>
+<li>索引是一种数据结构，你可以试着用数组、链表、队列、栈、二叉树、图……去实现，why not？</li>
+<li>索引里存的是一张表里的数据所在的位置，借助索引，应该可以快速轻松地查到xx字段 = yy的数据在哪一行。</li>
+</ul>
+<h2 id="MySQL-InnoDB索引类型"><a href="#MySQL-InnoDB索引类型" class="headerlink" title="MySQL InnoDB索引类型"></a>MySQL InnoDB索引类型</h2><p>因为最近一直在看<code>MySQL</code>（其实是<code>InnoDB</code>）的内容，所以就专门针对<code>InnoDB</code>里的索引做了一点研究。接下来的内容如无特殊说明，均是基于<code>MySQL 5.7.18</code>及该版本默认自带的<code>InnoDB plugin</code>。</p>
+<p>上面说了，索引是一种存东西的数据结构，理论上可以用我们学过的任意数据结构来实现。但是不同的数据结构在实现某个需求时肯定会有不同的效率（时间复杂度），所以从数据结构的角度来看，<code>InnoDB</code>内置了3种数据结构来实现索引：</p>
+<ul>
+<li><p>Hash</p>
+<p>  本质上就是一张<code>HashMap</code>，可以想象一下key就是字段值，value就是该行的行号/primary key/存放位置offset等等</p>
+<p>  例如有一张<code>user</code>表：</p>
+<p>  |id|user_name|<br>  |—|—|<br>  |1|ii|<br>  |2|jj|<br>  |3|kk|</p>
+<p>  如果为<code>user_name</code>列建一个Hash索引的话，大概会像：</p>
+  <figure class="highlight python"><table><tr><td class="code"><pre><span class="line">hash_index = &#123;</span><br><span class="line">	<span class="string">"ii"</span>: <span class="number">1</span>,</span><br><span class="line">	<span class="string">"jj"</span>: <span class="number">2</span>,</span><br><span class="line">	<span class="string">"kk"</span>: <span class="number">3</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>  <strong><em>不过在<code>InnoDB</code>中，Hash索引是无法由用户自行创建的，一般讲Hash索引是指存储引擎内部在运行过程中慢慢自动为热门数据构建的索引。</em></strong></p>
+</li>
+<li><p>全文索引</p>
+<p>  本质上就是一个倒排表（<code>inverted index</code>），专门为文本（长文本）类数据而设的。<strong><em>从<code>MySQL 5.6</code>开始才支持<code>InnoDB</code>的全文索引功能。</em></strong></p>
+</li>
+<li><p>B+树</p>
+<p>  As its name indicates，这就是用标准的B+树实现的数据结构。默认情况下，一个<code>disk page</code>单位大小为<code>16KB</code>，为了匹配这个特性，在<code>InnoDB</code>的B+树索引里的一个节点也对应一个<code>disk page</code>，也最多存<code>16KB</code>的数据。</p>
+<p>  在B+树里，非叶子节点不存真正的数据，只存索引值，只有最底层的叶子节点才会存真正的数据。同时，在数据库领域为了尽可能地减少磁盘I/O，所以B+树的fan-out（阶/扇出）都会设置得比较大，意味着一个树节点可以有非常多的孩子节点，那样树的高度就不会过高。<strong>宁愿“宽胖”也不要“高瘦”，高瘦意味着从root到leaf要访问很多个中间树节点，意味着很多次磁盘I/O。</strong></p>
+<p>  除此之外，其他的B+树基础特性都得到了保留。B+树数据结构基础可以参考以下Calcular的博客：<a href="https://blog.csdn.net/Calcular/article/details/79328397" target="_blank" rel="noopener">《B+树完全解析》</a>。</p>
+<p>  再拿<code>user</code>表来做例子：</p>
+<p>  |id|user_name|<br>  |—|—|<br>  |1|ii|<br>  |2|jj|<br>  |3|kk|<br>  |…|…|<br>  |100|aa|</p>
+</li>
+</ul>
+<pre><code>假如基于`id`列构建B+树索引，建出来的B+树大概像：
+
+![](https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/innodb_bplustree.png)
+</code></pre><p>以上从<strong>数据结构</strong>的角度介绍了3种索引类型，接下来从<strong>逻辑角度</strong>介绍<code>InnoDB</code>里的2种索引类型。</p>
+<ul>
+<li><p>聚集索引（<code>Clustered Index</code>）</p>
+<p>  <strong>聚集索引 = 全表数据 + 基于主键大小排序构建出的B+树</strong></p>
+<p>  所谓的“聚集”，就是全部行数据和索引数据的“聚集”，都放在了同一棵B+树里，非叶子节点存的是主键值的索引，叶子节点存的是真实的一行一行的表数据。</p>
+<p>  <strong>因为一张表只能有一个主键，所以一张表只能有一个聚集索引。</strong></p>
+<p>  上面的<code>user</code>表和对应的B+树就是一个聚集索引，因为那棵B+树是基于主键的大小排序构建出来的，非叶子节点存的都是主键值的索引，叶子节点存了全部行数据。</p>
+</li>
+<li><p>辅佐索引（<code>Secondary Index</code>）</p>
+<p>  <strong>辅佐索引 = 主键数据 + 基于某N列组合排序构建出的B+树</strong> （1 &lt;= N &lt;= 表总列数）</p>
+<p>  对于一张表来说，除了唯一一个聚集索引外，其他所有索引都称为辅佐索引。</p>
+<p>  辅佐索引的B+树里，非叶子节点存的是某N列的值的索引，<strong>叶子节点存的不再是行数据，而是该行对应的主键值！</strong></p>
+<p>  拿<code>student</code>表做例子：</p>
+<p>  |id|…|hobby|<br>  |—|—|—|<br>  |1|…|basketball|<br>  |2|…|football|<br>  |3|…|swimming|<br>  |4|…|tennis|<br>  |5|…|pingpong|</p>
+<p>  假设在hobby这一列上建一个索引，毫无疑问这就是一个辅佐索引：</p>
+<p>  <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/secondary_index.png" alt=""></p>
+<p>  注意观察，最底层的叶子节点不再存完整的行数据，而是存了对应行的主键，相当于一个指向行数据的指针。</p>
+</li>
+</ul>
+<h2 id="单列索引及工作流程"><a href="#单列索引及工作流程" class="headerlink" title="单列索引及工作流程"></a>单列索引及工作流程</h2><p>接下来看看最简单的索引：<strong>单列索引</strong>，展开来讲就是“在单列上构建的辅佐索引”。其结构可以参考上面的<code>student</code>表和其对应的B+树。</p>
+<p>那么单列索引为什么可以提高查表效率呢？以<code>student</code>表上的<code>hobby</code>索引为例，以下就是它的工作流程：</p>
+<ol>
+<li>执行<code>select * from student where hobby = &#39;swimming&#39;;</code></li>
+<li>执行引擎检查发现hobby列上已建索引，决定使用该索引</li>
+<li>遍历<code>hobby</code>索引的B+树，比较<code>swimming</code>和各中间节点上的索引值的大小，遍历过程发生多次磁盘I/O，最终定位到最右下角的节点</li>
+<li>发现该节点对应的<code>disk page</code>还未加载到内存，加载该页</li>
+<li>页加载后，从页中找到<code>hobby = swimming</code>的记录，读出该记录的主键为<code>3</code></li>
+<li>遍历聚集索引（<code>Clustered Index</code>），比较<code>3</code>和各中间节点上的主键索引值的大小，最终定位到某个叶子节点</li>
+<li>发现该节点对应的<code>disk page</code>还未加载到内存，加载该页</li>
+<li>页加载后，从页中找到<code>id = 3</code>的记录，读出该记录的所有字段值</li>
+<li>把结果返回给客户端</li>
+</ol>
+<p>从以上的步骤可以看到，利用单列辅佐索引来查数据，实际上分了两段逻辑：</p>
+<ol>
+<li>遍历辅佐索引的B+树，找到想要的行的primary key</li>
+<li>根据primary key，去遍历聚集索引的B+树，最终得到完整的行数据</li>
+</ol>
+<h2 id="联合索引及工作流程"><a href="#联合索引及工作流程" class="headerlink" title="联合索引及工作流程"></a>联合索引及工作流程</h2><p>那如果不是<strong>单列索引</strong>，而是<strong>联合（多列）索引</strong>呢？</p>
+<p>例如<code>student</code>表除了<code>hobby</code>字段还有<code>age</code>字段，想联合<code>(hobby, age)</code>来建索引可不可以？</p>
+<p>答案当然是没有问题，而且先上结论：<strong>在一定情况下联合索引比单列索引性价比更高。</strong></p>
+<table>
+<thead>
+<tr>
+<th>id</th>
+<th>…</th>
+<th>hobby</th>
+<th>age</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>…</td>
+<td>basketball</td>
+<td>15</td>
+</tr>
+<tr>
+<td>2</td>
+<td>…</td>
+<td>football</td>
+<td>13</td>
+</tr>
+<tr>
+<td>3</td>
+<td>…</td>
+<td>swimming</td>
+<td>16</td>
+</tr>
+<tr>
+<td>4</td>
+<td>…</td>
+<td>tennis</td>
+<td>15</td>
+</tr>
+<tr>
+<td>5</td>
+<td>…</td>
+<td>pingpong</td>
+<td>16</td>
+</tr>
+</tbody>
+</table>
+<p>其对应的B+树跟之前没有太大差别，仅仅是索引比大小时用的是二元组<code>(hobby, age)</code>来比，而不仅仅是<code>hobby</code>单属性来比。</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/secondary_index2.png" alt=""></p>
+<p>如上图，如果再插入一条<code>(hobby=pingpong, age=20)</code>的数据，这条数据就不会落到左下角的叶子节点，而是右下角的叶子节点。因为比大小比的是整个<code>(hobby, age)</code>二元组的大小，<code>(hobby=pingpong, age=20) &gt; (hobby=pingpong, age=16)</code>。</p>
+<p><strong>至于联合索引触发的工作流程，跟单列索引的逻辑几乎一样，也是分两段走，不必多说。</strong></p>
+<p>那为什么说在一定情况下联合索引比单列索引性价比更高？参考<a href="https://segmentfault.com/q/1010000000342176" target="_blank" rel="noopener">《mysql里创建联合索引的意义?》</a>一文，我详细拓展了以下原因：</p>
+<ol>
+<li><p>1个联合索引 = N个索引。如果建一个在<code>(a, b, c)</code>三列上的联合索引，相当于建了<code>(a)</code>，<code>(a, b)</code>，<code>(a, b, c)</code>三个索引。为什么呢？结合上述B+树的结构来思考，如果以三元组<code>(a, b, c)</code>建了B+树，B+树里的节点都按“先比a的大小，再比b的大小，最后比c的大小”的顺序排列。当执行<code>select * from ... where a = ?</code>和<code>select * from ... where a = ? and b = ?</code>时，一样能利用按<code>(a, b, c)</code>排好序的B+树。</p>
+<p> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/multiple_index.png" alt=""></p>
+<p> 如上图，已按<code>(a, b, c)</code>三元组的大小构建B+树。当执行<code>select * from ... where a = 2</code>，自然也能利用该B+树的排序性质，走到左下角的叶子节点；当执行<code>select * from ... where a = 4 and b = 1</code>时，在root处比较得到：<code>(a=3, b=3, c=...) &lt; (a=4, b=1) &lt; (a=6, b=5, c=...)</code>，所以自然也会往右边走。</p>
+<p> 综上所述，联合索引确实可以以<strong>一己之力</strong>起到N个索引的作用，还不用单独建多个独立的索引，节省磁盘空间&amp;介绍写表的开销。</p>
+</li>
+<li><p>有效减少回表查询的次数。还是参考以上按<code>(a, b, c)</code>三元组的大小构建的B+树。当执行的sql为<code>select a, b, c from ... where ...;</code>，<strong>联合索引的B+树的底层叶子节点其实已经包含了a, b, c的数据，不需要查出primary key再回聚集索引查询。</strong></p>
+</li>
+<li>筛选度高，减少表遍历的行数。执行<code>select * from ... where a = ? and b = ? and c = ?</code>时，假如独立满足a, b, c的各有10%的数据。在联合索引的筛选下，能够筛选出<code>N * 10% * 10% * 10%</code>的数据，再拿它们的primary key到聚集索引查询。如果不走联合索引，只走a的单列索引，那么只能筛选出<code>N * 10%</code>的数据，将会拿大量的primary key回聚集索引查询，磁盘I/O次数会高非常多。</li>
+</ol>
+<h2 id="上索引会毁性能？"><a href="#上索引会毁性能？" class="headerlink" title="上索引会毁性能？"></a>上索引会毁性能？</h2><p>前面讲了一大堆，貌似索引就是个纯天然24k好东西，但是世界上永远没有绝对的好与坏，在computer science里更是如此，所有东西都有它的trade-off，要看具体的问题和场景来选择方案。</p>
+<p>来看一个在面试中经常被问到的例子：在用户表的<code>sex</code>列应不应该加索引？</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">DROP TABLE IF EXISTS people;</span><br><span class="line">CREATE TABLE `people` (</span><br><span class="line">  `id` int unsigned PRIMARY KEY AUTO_INCREMENT,</span><br><span class="line">  `name` varchar(255) DEFAULT NULL,</span><br><span class="line">  `sex` tinyint(1) unsigned DEFAULT NULL</span><br><span class="line">) ENGINE=InnoDB;</span><br></pre></td></tr></table></figure>
+<p>建表后，插入100w行数据，其中50w行<code>sex=0</code>，另外50w行<code>sex=1</code>。</p>
+<p>开启MySQL的<code>profiling</code>，<code>set profiling = 1;</code>用来查看sql运行时间。</p>
+<p>未对<code>sex</code>列加索引前，连续执行三次<code>select * from people where sex = 0;</code>，用<code>show profiles</code>查看执行时间，得到：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">Duration 	Query</span><br><span class="line">1.32345100 	SELECT * FROM people WHERE sex = 0</span><br><span class="line">1.32988600 	SELECT * FROM people WHERE sex = 0</span><br><span class="line">1.33359200 	SELECT * FROM people WHERE sex = 0</span><br></pre></td></tr></table></figure>
+<p>单次查询的时间大概是1.3秒出头。</p>
+<p>然后对<code>sex</code>列加索引，<code>ALTER TABLE people ADD INDEX idx_sex (sex);</code>。再连续执行三次<code>select * from people where sex = 0;</code>，用<code>show profiles</code>查看执行时间，得到：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">Duration 	Query</span><br><span class="line">3.74329700 	SELECT * FROM people WHERE sex = 0</span><br><span class="line">2.80777500	SELECT * FROM people WHERE sex = 0</span><br><span class="line">2.70100800	SELECT * FROM people WHERE sex = 0</span><br></pre></td></tr></table></figure>
+<p>单次查询的时间大概是3秒左右，<strong>比未加索引时足足慢了一倍以上。</strong></p>
+<p>下面来分析一下为什么会出现这种情况，在这个场景下为什么会有如此负面的影响？</p>
+<p>100w数据里性别分布均匀，男女各50w。根据<code>sex</code>列建成B+树后，假设：</p>
+<ul>
+<li>B+树的fan-out足够大且单条记录所占空间极小</li>
+<li>辅佐索引上，一个叶子节点上能装1000条记录（<code>(sex, primary key)</code>为一条记录）</li>
+<li>得到该B+树的层高为2</li>
+</ul>
+<p><strong>极端情况下无任何内存缓存，全靠磁盘I/O</strong>，为了在辅佐索引读出50w条男性记录的primary key，要访问<code>50w / 1000 = 500 pages = 500次磁盘I/O</code>。然后拿50w个primary key去查聚集索引，聚集索引B+树的层高也为2，也就是说在极端情况下查50w次primary key要触发100w次磁盘I/O。全过程的磁盘I/O为<code>100w + 500</code>次。</p>
+<p>在不加索引的情况+无缓存极端情况下，进行全表扫描。全表100w条数据，要访问<code>100w / 1000 = 1000 pages = 1000次磁盘I/O</code>，全过程的磁盘I/O就是<code>1000</code>次。</p>
+<p>经过分析，可以看到在均匀分布的<code>sex</code>列上走索引，反而得不偿失，磁盘I/O数会剧增。<strong>当然，以上分析撇除了内存缓存因素，所以差距被夸大了。但是实际应用中，差距即使没有百万和一千那么大，还是比较明显的。</strong></p>
+<p>这个案例告诉我们：索引不要加在选择性很差的列上，也就是那些distinct值极少的列。（选择性 = #distinct / #row）</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>数据库索引是一个很大的研究方向，即使把圈子限定在<code>MySQL InnoDB</code>里，索引也能讲上十几篇文章。本文只是为了让大家简单入门<code>MySQL InnoDB</code>的索引体系，并且尽力提供一些容易让人理解的图表和例子，好让初学者不要像我当初一样满脑子浆糊，在网上搜来搜去都是那些互相复制粘贴的文章。</p>
+<p>我觉得有兴趣、且懂c++的读者可以尝试阅读<code>InnoDB</code>的源码，从<code>工程优雅性</code>的角度而言未必是一个牛逼的项目，但是可以深入理解一些数据结构和算法的实现，之后在使用<code>MySQL</code>的时候会发现如鱼得水，融会贯通。</p>
+<p>感谢以下的参考资料和博客：</p>
+<ul>
+<li><a href="https://blog.csdn.net/zxcc1314/article/details/83627025" target="_blank" rel="noopener">[InnoDB]性别字段为什么不适合加索引 by gnocuohz</a></li>
+<li><a href="http://hedengcheng.com/?p=577" target="_blank" rel="noopener">SQL中的where条件，在数据库中提取与应用浅析<br>by 何登成</a></li>
+<li><a href="https://segmentfault.com/q/1010000000342176" target="_blank" rel="noopener">mysql里创建‘联合索引’的意义？ on segmentfault</a></li>
+</ul>
+
+  </div>
+</article>
+
+    <div class="blog-post-comments">
+        
+        
+        <div class="vcomment"></div>
+        
+    </div>
+
+
+
+    </div>
+    
+      <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/tags/">Tags</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="/about">About</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#索引（Index）是什么"><span class="toc-number">1.</span> <span class="toc-text">索引（Index）是什么</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL-InnoDB索引类型"><span class="toc-number">2.</span> <span class="toc-text">MySQL InnoDB索引类型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#单列索引及工作流程"><span class="toc-number">3.</span> <span class="toc-text">单列索引及工作流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#联合索引及工作流程"><span class="toc-number">4.</span> <span class="toc-text">联合索引及工作流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#上索引会毁性能？"><span class="toc-number">5.</span> <span class="toc-text">上索引会毁性能？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#总结"><span class="toc-number">6.</span> <span class="toc-text">总结</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" href="http://www.facebook.com/sharer.php?u=http://yoursite.com/2019/02/05/mysql-innodb-index/"><i class="fa fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&text=MySQL InnoDB索引的那些事"><i class="fa fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&title=MySQL InnoDB索引的那些事"><i class="fa fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&is_video=false&description=MySQL InnoDB索引的那些事"><i class="fa fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=MySQL InnoDB索引的那些事&body=Check out this article: http://yoursite.com/2019/02/05/mysql-innodb-index/"><i class="fa fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&title=MySQL InnoDB索引的那些事"><i class="fa fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&title=MySQL InnoDB索引的那些事"><i class="fa fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&title=MySQL InnoDB索引的那些事"><i class="fa fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&title=MySQL InnoDB索引的那些事"><i class="fa fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2019/02/05/mysql-innodb-index/&name=MySQL InnoDB索引的那些事&description="><i class="fa fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+      <ul>
+        <li id="toc"><a class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fa fa-list fa-lg" aria-hidden="true"></i> TOC</a></li>
+        <li id="share"><a class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fa fa-share-alt fa-lg" aria-hidden="true"></i> Share</a></li>
+        <li id="top" style="display:none"><a class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a></li>
+        <li id="menu"><a class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fa fa-bars fa-lg" aria-hidden="true"></i> Menu</a></li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+    
+    <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy; 2019 Haoxiang Ma
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/tags/">Tags</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="/about">About</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    <!-- jquery -->
+<script src="/lib/jquery/jquery.min.js"></script>
+<script src="/lib/justified-gallery/jquery.justifiedGallery.min.js"></script>
+<script src="/js/main.js"></script>
+<!-- search -->
+
+<!-- Google Analytics -->
+
+    <script type="text/javascript">
+        (function(i,s,o,g,r,a,m) {i['GoogleAnalyticsObject']=r;i[r]=i[r]||function() {
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+        ga('create', 'UA-86660611-1', 'auto');
+        ga('send', 'pageview');
+    </script>
+
+<!-- Disqus Comments -->
+
+
+<!-- Valine Comments -->
+
+<script src="//cdn1.lncld.net/static/js/3.0.4/av-min.js"></script>
+<script src="//unpkg.com/valine@latest/dist/Valine.min.js"></script>
+<script type="text/javascript">
+    var notify = 'false' == true ? true : false;
+    var verify = 'false' == true ? true : false;
+    var GUEST_INFO = ['nick','mail','link'];
+    var guest_info = 'nick,mail'.split(',').filter(function(item){
+      return GUEST_INFO.indexOf(item) > -1
+    });
+    guest_info = guest_info.length == 0 ? GUEST_INFO :guest_info;
+    new Valine({
+        el: '.vcomment',
+        notify: notify,
+        verify: verify,
+        appId: "1mYS96DR4e28MDXJxW1ByUA6-gzGzoHsz",
+        appKey: "IMF92wd7jJxCXanv65MdkiBn",
+        avatar:"",
+        placeholder: "Say something...",
+        guest_info:guest_info,
+        pageSize:"10"
+    })
+</script>
+
+
+</body>
+</html>
