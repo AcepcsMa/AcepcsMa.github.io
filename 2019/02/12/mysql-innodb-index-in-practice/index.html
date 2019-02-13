@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/02/12，基于MySQL 5.7.18。至于其他版本的MySQL，如有出入请自行查阅其他资料。  Overview在上一篇博客《MySQL InnoDB索引的那些事》里，已经用一些例子来简单讲解InnoDB里的B+树索引是什么了。但是可能在内容上比较理论和生硬，讲的都是数据结构和分析类的东西。所以今天这篇">
+<meta name="keywords" content="MySQL,InnoDB,数据库">
+<meta property="og:type" content="article">
+<meta property="og:title" content="再次实践MySQL InnoDB索引">
+<meta property="og:url" content="http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/index.html">
+<meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/02/12，基于MySQL 5.7.18。至于其他版本的MySQL，如有出入请自行查阅其他资料。  Overview在上一篇博客《MySQL InnoDB索引的那些事》里，已经用一些例子来简单讲解InnoDB里的B+树索引是什么了。但是可能在内容上比较理论和生硬，讲的都是数据结构和分析类的东西。所以今天这篇">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/multi_index.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/multi_index_fail.png">
+<meta property="og:updated_time" content="2019-02-13T00:25:47.774Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="再次实践MySQL InnoDB索引">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/02/12，基于MySQL 5.7.18。至于其他版本的MySQL，如有出入请自行查阅其他资料。  Overview在上一篇博客《MySQL InnoDB索引的那些事》里，已经用一些例子来简单讲解InnoDB里的B+树索引是什么了。但是可能在内容上比较理论和生硬，讲的都是数据结构和分析类的东西。所以今天这篇">
+<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/multi_index.png">
+    
+    
+        
+          
+              <link rel="shortcut icon" href="/images/favicon.ico">
+          
+        
+        
+          
+            <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+          
+        
+        
+          
+            <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+          
+        
+    
+    <!-- title -->
+    <title>再次实践MySQL InnoDB索引</title>
+    <!-- styles -->
+    <link rel="stylesheet" href="/css/style.css">
+    <!-- rss -->
+    
+    
+    <!-- styles -->
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+<link rel="stylesheet" href="/lib/meslo-LG/styles.css">
+<link rel="stylesheet" href="/lib/justified-gallery/justifiedGallery.min.css">
+
+</head>
+
+<body>
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#"><i class="fa fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#"><i class="fa fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fa fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/tags/">Tags</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="/about">About</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </span>
+    <br>
+    <span id="actions">
+      <ul>
+        
+        
+        <li><a class="icon" href="/2019/02/05/mysql-innodb-index/"><i class="fa fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" href="#"><i class="fa fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" href="http://www.facebook.com/sharer.php?u=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/"><i class="fa fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&text=再次实践MySQL InnoDB索引"><i class="fa fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&title=再次实践MySQL InnoDB索引"><i class="fa fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&is_video=false&description=再次实践MySQL InnoDB索引"><i class="fa fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=再次实践MySQL InnoDB索引&body=Check out this article: http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/"><i class="fa fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&title=再次实践MySQL InnoDB索引"><i class="fa fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&title=再次实践MySQL InnoDB索引"><i class="fa fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&title=再次实践MySQL InnoDB索引"><i class="fa fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&title=再次实践MySQL InnoDB索引"><i class="fa fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&name=再次实践MySQL InnoDB索引&description="><i class="fa fa-tumblr " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Overview"><span class="toc-number">1.</span> <span class="toc-text">Overview</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#怎么知道有无触发索引"><span class="toc-number">2.</span> <span class="toc-text">怎么知道有无触发索引</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#同时只能触发一个索引？"><span class="toc-number">3.</span> <span class="toc-text">同时只能触发一个索引？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#什么情况下索引会失效？"><span class="toc-number">4.</span> <span class="toc-text">什么情况下索引会失效？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#什么时候需要加索引"><span class="toc-number">5.</span> <span class="toc-text">什么时候需要加索引</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#InnoDB内置的索引优化技术"><span class="toc-number">6.</span> <span class="toc-text">InnoDB内置的索引优化技术</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index width mx-auto px2 my4">
+        
+        <article class="post" itemscope="" itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        再次实践MySQL InnoDB索引
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+        <span itemprop="name">Haoxiang Ma's Tech Blog</span>
+      </span>
+      
+    <div class="postdate">
+        <time datetime="2019-02-13T00:00:00.000Z" itemprop="datePublished">2019-02-12</time>
+    </div>
+
+
+      
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/InnoDB/">InnoDB</a>, <a class="tag-link" href="/tags/MySQL/">MySQL</a>, <a class="tag-link" href="/tags/数据库/">数据库</a>
+    </div>
+
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <blockquote>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
+<p>本文写于2019/02/12，基于<code>MySQL 5.7.18</code>。<br>至于其他版本的<code>MySQL</code>，如有出入请自行查阅其他资料。</p>
+</blockquote>
+<h2 id="Overview"><a href="#Overview" class="headerlink" title="Overview"></a>Overview</h2><p>在上一篇博客<a href="https://marcoma.xyz/2019/02/05/mysql-innodb-index/" target="_blank" rel="noopener">《MySQL InnoDB索引的那些事》</a>里，已经用一些例子来简单讲解InnoDB里的B+树索引是什么了。但是可能在内容上比较理论和生硬，讲的都是数据结构和分析类的东西。所以今天这篇博客主要想讲讲“in-practice”方面的东西，再来看看InnoDB的索引，特指B+树索引。</p>
+<h2 id="怎么知道有无触发索引"><a href="#怎么知道有无触发索引" class="headerlink" title="怎么知道有无触发索引"></a>怎么知道有无触发索引</h2><p>要分析一条select语句有没有触发索引，最简单的做法就是用<code>EXPLAIN</code>来分析一下该select语句。</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">EXPLAIN</span> <span class="keyword">select</span> ... <span class="keyword">from</span> ... <span class="keyword">where</span> ...;</span><br></pre></td></tr></table></figure>
+<p>可是<code>EXPLAIN</code>得到的结果不是一句人能看懂的话，或者log类型的数据，而是一堆字段，接下来就逐个字段看看它们的含义。</p>
+<ul>
+<li><code>id</code>：在你所执行的sql语句中，某个select子句的执行顺序。<code>id</code>为1的是第一个被执行的子查询，以此类推。</li>
+<li><code>select_type</code>：该条select子句的类型，在<code>MySQL 5.7</code>中有11种可能取值。</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>select_type</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SIMPLE</td>
+<td>简单查询，不包含union或者子查询</td>
+</tr>
+<tr>
+<td>PRIMARY</td>
+<td>在多层select中的最外层查询语句</td>
+</tr>
+<tr>
+<td>UNION</td>
+<td>在union中第二个或者最后一个查询语句</td>
+</tr>
+<tr>
+<td>DEPENDENT UNION</td>
+<td>在union中第二个或者最后一个查询语句，但依赖于外层查询</td>
+</tr>
+<tr>
+<td>SUBQUERY</td>
+<td>子查询中的第一条select语句</td>
+</tr>
+<tr>
+<td>DEPENDENT SUBQUERY</td>
+<td>子查询中的第一条select语句，但依赖于外层查询</td>
+</tr>
+<tr>
+<td>DERIVED</td>
+<td>派生表的查询，在from里的子查询</td>
+</tr>
+<tr>
+<td>MATERIALIZED</td>
+<td>???</td>
+</tr>
+<tr>
+<td>UNCACHEABLE SUBQUERY</td>
+<td>查询结果不可被缓存的子查询</td>
+</tr>
+<tr>
+<td>UNCACHEABLE UNION</td>
+<td>在union中第二个或最后一个查询语句，该查询语句属于一个UNCACHEABLE的SUBQUERY</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>table</code>：被查询的表的表名</li>
+<li><code>partitions</code>：对于分区表而言，该条select语句命中的记录所在的分区</li>
+<li><code>type</code>：按照官方手册的说法，就是表与表之间join的类型</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>type</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>system</td>
+<td>表中只有一行数据</td>
+</tr>
+<tr>
+<td>const</td>
+<td>表中最多只有一行匹配数据（例如select … from … where pk = ?）</td>
+</tr>
+<tr>
+<td>eq_ref</td>
+<td></td>
+</tr>
+<tr>
+<td>ref</td>
+<td>常出现于辅助索引的等值查询</td>
+</tr>
+<tr>
+<td>fulltext</td>
+<td>出现于全文检索索引</td>
+</tr>
+<tr>
+<td>ref_or_null SUBQUERY</td>
+<td></td>
+</tr>
+<tr>
+<td>index_merge</td>
+<td></td>
+</tr>
+<tr>
+<td>unique_subquery</td>
+</tr>
+<tr>
+<td>index_subquery</td>
+<td></td>
+</tr>
+<tr>
+<td>range</td>
+<td>常出现于范围索引</td>
+</tr>
+<tr>
+<td>index</td>
+<td>与all几乎一样，常见于扫描secondary index上的覆盖索引数据</td>
+</tr>
+<tr>
+<td>all</td>
+<td>全表扫描</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>possible keys</code>：该select语句中所有可能触发的索引</li>
+<li><code>key</code>：实际触发的索引（有可能多于1个）</li>
+<li><code>key_len</code>：实际触发的索引列的长度</li>
+<li><code>ref</code>：等值查询时为<code>const</code>，如果用了表达式则可能为<code>func</code></li>
+<li><code>rows</code>：预估需要扫描行数</li>
+<li><code>filtered</code>：预估百分之多少的行会被查询条件过滤</li>
+<li><code>Extra</code>：备注信息，从中观察可优化的点</li>
+</ul>
+<h2 id="同时只能触发一个索引？"><a href="#同时只能触发一个索引？" class="headerlink" title="同时只能触发一个索引？"></a>同时只能触发一个索引？</h2><p>在之前的那篇文章，还有一些其他网上的文章里会提到：如果一张表上有多个索引，在查询时只会触发其中一个。</p>
+<p><strong>其实单看这句话是不准确的。</strong>比较严谨准确的描述应该是：<strong>在查询时，遇到某一列包含在多个索引内时，同时只能触发其中一个索引。</strong></p>
+<p>举个例子，假如在<code>a</code>列上建了：</p>
+<ul>
+<li>单列索引<code>idx_a (a)</code></li>
+<li>联合索引<code>idx_abc (a, b, c)</code></li>
+<li>联合索引<code>idx_ak (a, k)</code></li>
+</ul>
+<p>在执行<code>select ... from ... where a = ?;</code>时，<strong>只能同时触发以上3个索引的其中一个。</strong></p>
+<p>所以，如果查询语句的where条件中不止一列，是不是就可以触发多个索引呢？下面实际来试一试《MySQL技术内幕》里的例子。</p>
+<p>先建一张测试表<code>t</code></p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> t (</span><br><span class="line">	a <span class="built_in">int</span>,</span><br><span class="line">	b <span class="built_in">int</span>,</span><br><span class="line">	<span class="keyword">key</span> (a),</span><br><span class="line">	<span class="keyword">key</span> (b)</span><br><span class="line">) <span class="keyword">ENGINE</span>=<span class="keyword">INNODB</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> t <span class="keyword">select</span> <span class="number">1</span>, <span class="number">1</span>;</span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> t <span class="keyword">select</span> <span class="number">1</span>, <span class="number">2</span>;</span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> t <span class="keyword">select</span> <span class="number">2</span>, <span class="number">3</span>;</span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> t <span class="keyword">select</span> <span class="number">2</span>, <span class="number">4</span>;</span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> t <span class="keyword">select</span> <span class="number">1</span>, <span class="number">2</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">explain</span> <span class="keyword">select</span> * <span class="keyword">from</span> t <span class="keyword">where</span> a = <span class="number">1</span> <span class="keyword">and</span> b = <span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+<p>得到的结果如下图所示：</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/multi_index.png" alt=""></p>
+<p>确实在一条select语句中触发了两个独立的单列索引，然后再将它们的中间结果取交集（Using intersect(b, a)），得到最终结果。</p>
+<p>但是，不是所有情况下都能触发多个独立索引，然后进行集合运算。当使用存储过程大量插入数据后：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">DELIMITER //</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">PROCEDURE</span> <span class="string">`proc_insert_t`</span>()</span><br><span class="line"><span class="keyword">BEGIN</span></span><br><span class="line">    <span class="keyword">declare</span> i <span class="built_in">int</span> <span class="keyword">default</span> <span class="number">1</span>;</span><br><span class="line">	WHILE i &lt;= 10000 DO</span><br><span class="line">        <span class="keyword">INSERT</span> <span class="keyword">INTO</span> t(a, b) <span class="keyword">VALUES</span>(i, i * <span class="number">2</span>);</span><br><span class="line">        <span class="keyword">SET</span> i = i + <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">END</span> <span class="keyword">WHILE</span>;</span><br><span class="line"><span class="keyword">END</span> //</span><br><span class="line">DELIMITER ;</span><br><span class="line"></span><br><span class="line"><span class="keyword">call</span> proc_insert_t();</span><br><span class="line"></span><br><span class="line"><span class="keyword">explain</span> <span class="keyword">select</span> * <span class="keyword">from</span> t <span class="keyword">where</span> a = <span class="number">100</span> <span class="keyword">and</span> b = <span class="number">200</span>;</span><br></pre></td></tr></table></figure>
+<p>就会得到以下结果：</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/multi_index_fail.png" alt=""></p>
+<p>这说明，<strong>MySQL内置的sql优化器会对select语句进行优化</strong>，当它觉得走单个索引性能比较高时会走单个索引，当它觉得两个索引取交集的性能好时，它就会触发两个索引。</p>
+<p>如果想要人为地在某条查询语句里使用索引，可以试试</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">select</span> ... <span class="keyword">from</span> ... <span class="keyword">USE</span> <span class="keyword">INDEX</span>(...) <span class="keyword">where</span> ...; // 建议优化器使用某索引</span><br><span class="line"><span class="keyword">select</span> ... <span class="keyword">from</span> ... <span class="keyword">FORCE</span> INEDX(...) <span class="keyword">where</span> ...; // 强行绕开优化器，强制使用某索引</span><br></pre></td></tr></table></figure>
+<h2 id="什么情况下索引会失效？"><a href="#什么情况下索引会失效？" class="headerlink" title="什么情况下索引会失效？"></a>什么情况下索引会失效？</h2><p>索引是不是百利而无一害的？不是。</p>
+<p>索引是不是建好了就一定会被触发的？不是。</p>
+<p>以下基于示例表<code>t</code>作解释：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> t</span><br><span class="line">(</span><br><span class="line">	a <span class="built_in">int</span>,</span><br><span class="line">	b <span class="built_in">int</span>,</span><br><span class="line">	<span class="keyword">key</span> (a)</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+<p>绝大多数情况下，我们说数据库索引都是指的那一棵棵的B+树，在某些情况下索引失效 = 无法遍历B+树，常见的有：</p>
+<ol>
+<li><p>带or的条件查询</p>
+<p> <code>select ... from ... where a OR b;</code>，会直接走全表扫描。</p>
+</li>
+<li><p>不等值查询</p>
+<p> 当where里的条件是不等值如<code>!=</code>或者<code>&lt;&gt;</code>时，没有办法把这个当做遍历B+树时比大小的依据，所以无法触发索引。</p>
+</li>
+<li><p>联合索引不满足最左前缀原则</p>
+<p> 已知表上建好了联合索引<code>idx_abc (a, b, c)</code>，但是查询的where条件里不满足最左前缀原则，例如<code>select ... from ... where b = ? and c = ?</code>，这样是没有办法触发上面的联合索引的。</p>
+<p> <strong>试想一下<code>idx_abc (a, b, c)</code>对应的B+树结构，每个节点里存的东西都是按照三元组<code>(a, b, c)</code>来排序的，先有a的顺序，在a的有序性基础上才有b的顺序，在b的有序性基础上才有c的顺序。</strong>所以如果在where条件里没有“最左边”的那一列，那根本就无法正常遍历B+树，因为B+树里的每个节点都是按照先a再b再c的顺序排序的，那也就谈不上“触发索引”了。</p>
+</li>
+<li><p>like条件的字符串以通配符“%”开头</p>
+<p> 同上，试想一下<code>idx_name (name)</code>对应的B+树，每个节点里都是按字符串字典序排好的数据，用通配符%开头，遍历的时候怎么比大小？？？怎么可能正常地遍历B+树？？？？？？自然就索引失效了。</p>
+<p> 但是如果查询条件以通配符%结尾，却是可以走索引的，因为<code>&quot;abc%&quot;</code>在遍历B+树的时候可以简单当成<code>&quot;abc&quot;</code>来比大小。</p>
+</li>
+<li><p>where条件中用了计算表达式或者函数</p>
+<p> 同上，也是B+树遍历的问题。用表达式的结果或者函数的结果做filter的话，除非能另外建一棵新的B+树，树节点的数据按表达式的输出来排序，那样才能正常遍历。<strong>不能正常遍历B+树 = 索引失效。</strong></p>
+</li>
+<li><p>MySQL优化器决定不走索引</p>
+<p> 有一些情况下，如上一篇文章提到的<code>sex</code>列索引，MySQL优化器未必会选择触发“性价比低”的索引。如果经过优化器判断，走secondary index再回clustered index查表将产生大量的磁盘I/O，甚至比直接全表扫描的磁盘I/O更多的话，很可能就不会走索引。</p>
+</li>
+</ol>
+<h2 id="什么时候需要加索引"><a href="#什么时候需要加索引" class="headerlink" title="什么时候需要加索引"></a>什么时候需要加索引</h2><p>给某一列或者某几列加索引的优点很明显：加速目标数据查询，尽量避免全表扫描，减少磁盘I/O。而不加索引在别的方面也有好处：在某张表上的索引越多，意味着维护的B+树越多，当对该表<strong>频繁</strong>地进行insert/update/delete时，意味着要频繁修改诸多B+树的数据&amp;结构，性能很可能有大幅的下降。</p>
+<p>所以，加不加索引，什么场景需要加索引，哪些列应该加索引，也是一个很麻烦的问题。</p>
+<p>下面简单地讲几个加索引能带来较大收益的场景。</p>
+<ol>
+<li><p>某一列/几列经常作为条件在where中作等值过滤，且选择性很高</p>
+<p> 例如电商业务里的<code>order</code>表，很可能经常需要通过<code>user_id</code>来查询该user的订单。</p>
+ <figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> <span class="keyword">order</span> (</span><br><span class="line">	<span class="keyword">id</span> <span class="built_in">int</span> primary <span class="keyword">key</span> auto_increment,</span><br><span class="line">	user_id <span class="built_in">int</span>,</span><br><span class="line">	......</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">select</span> ... <span class="keyword">from</span> <span class="keyword">order</span> <span class="keyword">where</span> user_id = ?;</span><br></pre></td></tr></table></figure>
+<p> 当这张表的容量上升至千万级别，不为<code>user_id</code>加索引的话，每次执行上述查询语句会全表扫描千万行。如果为<code>user_id</code>加索引，将根据user_id建一棵B+树，层高大概为3~4层，也就是最多3~4次磁盘I/O就能定位到要找的<code>user_id</code>对应的页。</p>
+<p> 为<code>user_id</code>加索引，另外一个很重要的原因是在<code>order</code>表里<code>user_id</code>的选择性还是很不错的。所谓选择性，上一篇文章说过<code>选择性 = unique值的数量 / 行数</code>，虽然在<code>order</code>表里<code>user_id</code>的选择性不可能为1，但是也比<code>sex</code>那类二值属性的选择性要好得多，值得加索引。</p>
+</li>
+<li><p>某一列/几列经常需要排序</p>
+ <figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> t (</span><br><span class="line">	......</span><br><span class="line">	a <span class="built_in">int</span>,</span><br><span class="line">	b <span class="built_in">int</span></span><br><span class="line">	......</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">select</span> ... <span class="keyword">from</span> t <span class="keyword">where</span> a = ? <span class="keyword">order</span> <span class="keyword">by</span> b;</span><br></pre></td></tr></table></figure>
+<p> 为什么在这种情况下加索引<code>idx_ab (a, b)</code>也是不错的选择呢？其实很简单，再次回想一下<code>idx_ab (a, b)</code>对应的B+树的结构。在B+树里，无论是非叶子还是叶子节点，里面存的数据都是按<code>(a, b)</code>二元组的顺序存的。当通过<code>where a = ?</code>的条件遍历B+树定位到叶子节点里的<code>a = ?</code>的记录后，其实<code>b</code>属性在<code>a = ?</code>的记录上也已经有序了。</p>
+<p> 有了这个索引的帮助，就不需要一股脑地把数据取出来后再另外做<code>order by</code>的排序工作，提高了很多效率。</p>
+</li>
+<li><p>某一列/几列经常在select中被查询</p>
+ <figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> t (</span><br><span class="line">	......</span><br><span class="line">	a <span class="built_in">int</span>,</span><br><span class="line">	b <span class="built_in">int</span>,</span><br><span class="line">	c <span class="built_in">int</span></span><br><span class="line">	......</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">select</span> a, b, c <span class="keyword">from</span> t <span class="keyword">where</span> a = ?;</span><br></pre></td></tr></table></figure>
+<p> 如上面的表，如果经常要查询某几个固定的字段，如<code>(a, b, c)</code>，而非全部字段<code>*</code>，加一个联合索引<code>idx_abc (a, b, c)</code>效果应该不错。再次考虑其对应的B+树的结构，对于secondary index（辅助索引）来说，最底层叶子节点里就已经存了<code>(a, b, c)</code>三元组的数据了（当然还有primary key）。<strong>那走一遍secondary index（辅助索引）就能得到全部想要的字段值，不需要通过primary key又回clustered index（聚集索引）扫一遍，减少了不少磁盘I/O，提高了查询效率。</strong></p>
+</li>
+</ol>
+<h2 id="InnoDB内置的索引优化技术"><a href="#InnoDB内置的索引优化技术" class="headerlink" title="InnoDB内置的索引优化技术"></a>InnoDB内置的索引优化技术</h2><p>索引优化技术部分基本是对《MySQL技术内幕：InnoDB存储引擎》内的5.6.6和5.6.7节作概括总结，更详细的描述可以直接看书。</p>
+<ol>
+<li><p>MRR（Multi-Range Read）</p>
+<ul>
+<li>MRR适用于range、ref、eq_ref类型的查询</li>
+<li>其第一个作用是，查完secondary index（辅助索引）得到一堆大概率不连续的primary key/row ID后，将其放到缓存里，然后对其进行排序。最后根据primary key/row ID遍历clustered index（聚集索引）的B+树时，因为primary key/row ID的有序性，所以遍历过程都是顺序磁盘I/O，而非随机磁盘I/O，提高了一定的读性能</li>
+<li><p>其第二个作用是，将某类型的range查询拆分为k-v对的等值查询。例如</p>
+  <figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> t </span><br><span class="line"><span class="keyword">where</span> a &gt;= <span class="number">1000</span> <span class="keyword">and</span> a &lt; <span class="number">2000</span></span><br><span class="line"><span class="keyword">and</span> b = <span class="number">10000</span>;</span><br></pre></td></tr></table></figure>
+<p>  会将以上range查询拆成多个<code>(a=1000, b=10000)</code>……<code>(a=1999, b=10000)</code>的k-v对等值查询，避免range查询中先取出大量的无用数据再作filter的性能损耗。</p>
+</li>
+</ul>
+</li>
+<li><p>ICP（Index Condition Pushdown）</p>
+<ul>
+<li>ICP = 过滤条件下推，把where中的过滤条件下推到了存储引擎层，减少无用数据的取出。</li>
+</ul>
+</li>
+</ol>
+
+  </div>
+</article>
+
+    <div class="blog-post-comments">
+        
+        
+        <div class="vcomment"></div>
+        
+    </div>
+
+
+
+    </div>
+    
+      <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/tags/">Tags</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="/about">About</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Overview"><span class="toc-number">1.</span> <span class="toc-text">Overview</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#怎么知道有无触发索引"><span class="toc-number">2.</span> <span class="toc-text">怎么知道有无触发索引</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#同时只能触发一个索引？"><span class="toc-number">3.</span> <span class="toc-text">同时只能触发一个索引？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#什么情况下索引会失效？"><span class="toc-number">4.</span> <span class="toc-text">什么情况下索引会失效？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#什么时候需要加索引"><span class="toc-number">5.</span> <span class="toc-text">什么时候需要加索引</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#InnoDB内置的索引优化技术"><span class="toc-number">6.</span> <span class="toc-text">InnoDB内置的索引优化技术</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" href="http://www.facebook.com/sharer.php?u=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/"><i class="fa fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&text=再次实践MySQL InnoDB索引"><i class="fa fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&title=再次实践MySQL InnoDB索引"><i class="fa fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&is_video=false&description=再次实践MySQL InnoDB索引"><i class="fa fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=再次实践MySQL InnoDB索引&body=Check out this article: http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/"><i class="fa fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&title=再次实践MySQL InnoDB索引"><i class="fa fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&title=再次实践MySQL InnoDB索引"><i class="fa fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&title=再次实践MySQL InnoDB索引"><i class="fa fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&title=再次实践MySQL InnoDB索引"><i class="fa fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2019/02/12/mysql-innodb-index-in-practice/&name=再次实践MySQL InnoDB索引&description="><i class="fa fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+      <ul>
+        <li id="toc"><a class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fa fa-list fa-lg" aria-hidden="true"></i> TOC</a></li>
+        <li id="share"><a class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fa fa-share-alt fa-lg" aria-hidden="true"></i> Share</a></li>
+        <li id="top" style="display:none"><a class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a></li>
+        <li id="menu"><a class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fa fa-bars fa-lg" aria-hidden="true"></i> Menu</a></li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+    
+    <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy; 2019 Haoxiang Ma
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/tags/">Tags</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a href="/about">About</a></li>
+         
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    <!-- jquery -->
+<script src="/lib/jquery/jquery.min.js"></script>
+<script src="/lib/justified-gallery/jquery.justifiedGallery.min.js"></script>
+<script src="/js/main.js"></script>
+<!-- search -->
+
+<!-- Google Analytics -->
+
+    <script type="text/javascript">
+        (function(i,s,o,g,r,a,m) {i['GoogleAnalyticsObject']=r;i[r]=i[r]||function() {
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+        ga('create', 'UA-86660611-1', 'auto');
+        ga('send', 'pageview');
+    </script>
+
+<!-- Disqus Comments -->
+
+
+<!-- Valine Comments -->
+
+<script src="//cdn1.lncld.net/static/js/3.0.4/av-min.js"></script>
+<script src="//unpkg.com/valine@latest/dist/Valine.min.js"></script>
+<script type="text/javascript">
+    var notify = 'false' == true ? true : false;
+    var verify = 'false' == true ? true : false;
+    var GUEST_INFO = ['nick','mail','link'];
+    var guest_info = 'nick,mail'.split(',').filter(function(item){
+      return GUEST_INFO.indexOf(item) > -1
+    });
+    guest_info = guest_info.length == 0 ? GUEST_INFO :guest_info;
+    new Valine({
+        el: '.vcomment',
+        notify: notify,
+        verify: verify,
+        appId: "1mYS96DR4e28MDXJxW1ByUA6-gzGzoHsz",
+        appKey: "IMF92wd7jJxCXanv65MdkiBn",
+        avatar:"",
+        placeholder: "Say something...",
+        guest_info:guest_info,
+        pageSize:"10"
+    })
+</script>
+
+
+</body>
+</html>
