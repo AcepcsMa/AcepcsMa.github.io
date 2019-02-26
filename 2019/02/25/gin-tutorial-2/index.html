@@ -9,15 +9,15 @@
     <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/02/25，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第二篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-1]photo gallery项目》里，我们已经完成了：  配置文件 &amp;amp; 配置解析 常量定义 JWT的">
 <meta name="keywords" content="gin,教程,连载,后端">
 <meta property="og:type" content="article">
-<meta property="og:title" content="[Gin教程-1]photo gallery项目">
+<meta property="og:title" content="[Gin教程-2]数据库与Models实现">
 <meta property="og:url" content="http://yoursite.com/2019/02/25/gin-tutorial-2/index.html">
 <meta property="og:site_name" content="Haoxiang Ma&#39;s Tech Blog">
 <meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/02/25，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第二篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-1]photo gallery项目》里，我们已经完成了：  配置文件 &amp;amp; 配置解析 常量定义 JWT的">
 <meta property="og:locale" content="default">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-er-diagram.png">
-<meta property="og:updated_time" content="2019-02-25T23:47:31.987Z">
+<meta property="og:updated_time" content="2019-02-26T00:03:03.854Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="[Gin教程-1]photo gallery项目">
+<meta name="twitter:title" content="[Gin教程-2]数据库与Models实现">
 <meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/02/25，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第二篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-1]photo gallery项目》里，我们已经完成了：  配置文件 &amp;amp; 配置解析 常量定义 JWT的">
 <meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-er-diagram.png">
     
@@ -39,7 +39,7 @@
         
     
     <!-- title -->
-    <title>[Gin教程-1]photo gallery项目</title>
+    <title>[Gin教程-2]数据库与Models实现</title>
     <!-- styles -->
     <link rel="stylesheet" href="/css/style.css">
     <!-- rss -->
@@ -93,15 +93,15 @@
     <div id="share" style="display: none">
       <ul>
   <li><a class="icon" href="http://www.facebook.com/sharer.php?u=http://yoursite.com/2019/02/25/gin-tutorial-2/"><i class="fa fa-facebook " aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&text=[Gin教程-1]photo gallery项目"><i class="fa fa-twitter " aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-1]photo gallery项目"><i class="fa fa-linkedin " aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&is_video=false&description=[Gin教程-1]photo gallery项目"><i class="fa fa-pinterest " aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="mailto:?subject=[Gin教程-1]photo gallery项目&body=Check out this article: http://yoursite.com/2019/02/25/gin-tutorial-2/"><i class="fa fa-envelope " aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-1]photo gallery项目"><i class="fa fa-get-pocket " aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-1]photo gallery项目"><i class="fa fa-reddit " aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-1]photo gallery项目"><i class="fa fa-stumbleupon " aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-1]photo gallery项目"><i class="fa fa-digg " aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&name=[Gin教程-1]photo gallery项目&description="><i class="fa fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&text=[Gin教程-2]数据库与Models实现"><i class="fa fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-2]数据库与Models实现"><i class="fa fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&is_video=false&description=[Gin教程-2]数据库与Models实现"><i class="fa fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[Gin教程-2]数据库与Models实现&body=Check out this article: http://yoursite.com/2019/02/25/gin-tutorial-2/"><i class="fa fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-2]数据库与Models实现"><i class="fa fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-2]数据库与Models实现"><i class="fa fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-2]数据库与Models实现"><i class="fa fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-2]数据库与Models实现"><i class="fa fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&name=[Gin教程-2]数据库与Models实现&description="><i class="fa fa-tumblr " aria-hidden="true"></i></a></li>
 </ul>
 
     </div>
@@ -118,7 +118,7 @@
   <header>
     
     <h1 class="posttitle" itemprop="name headline">
-        [Gin教程-1]photo gallery项目
+        [Gin教程-2]数据库与Models实现
     </h1>
 
 
@@ -236,6 +236,11 @@
 <li>关键词：struct tag、反射</li>
 </ul>
 </li>
+<li><p>在<code>bucket</code>表里定义了size属性，意味着每次添加图片都要更新bucket size字段。假如把场景扩大，不局限于bucket size，而是一个什么size，在高并发下频繁更新MySQL表里的size字段，性能好吗？如果用缓存存一下，然后再异步落盘到MySQL可以吗？异步落盘可能带来什么问题？</p>
+<ul>
+<li>关键词：缓存、高并发、缓存一致性</li>
+</ul>
+</li>
 <li><p>用ORM框架有什么好处？ORM框架可能带来什么问题？</p>
 </li>
 <li><p>数据库表为什么要加索引？索引的原理是什么？</p>
@@ -305,15 +310,15 @@
     <div id="share-footer" style="display: none">
       <ul>
   <li><a class="icon" href="http://www.facebook.com/sharer.php?u=http://yoursite.com/2019/02/25/gin-tutorial-2/"><i class="fa fa-facebook fa-lg" aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&text=[Gin教程-1]photo gallery项目"><i class="fa fa-twitter fa-lg" aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-1]photo gallery项目"><i class="fa fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&is_video=false&description=[Gin教程-1]photo gallery项目"><i class="fa fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="mailto:?subject=[Gin教程-1]photo gallery项目&body=Check out this article: http://yoursite.com/2019/02/25/gin-tutorial-2/"><i class="fa fa-envelope fa-lg" aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-1]photo gallery项目"><i class="fa fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-1]photo gallery项目"><i class="fa fa-reddit fa-lg" aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-1]photo gallery项目"><i class="fa fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-1]photo gallery项目"><i class="fa fa-digg fa-lg" aria-hidden="true"></i></a></li>
-  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&name=[Gin教程-1]photo gallery项目&description="><i class="fa fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://twitter.com/share?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&text=[Gin教程-2]数据库与Models实现"><i class="fa fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.linkedin.com/shareArticle?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-2]数据库与Models实现"><i class="fa fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://pinterest.com/pin/create/bookmarklet/?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&is_video=false&description=[Gin教程-2]数据库与Models实现"><i class="fa fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[Gin教程-2]数据库与Models实现&body=Check out this article: http://yoursite.com/2019/02/25/gin-tutorial-2/"><i class="fa fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="https://getpocket.com/save?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-2]数据库与Models实现"><i class="fa fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://reddit.com/submit?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-2]数据库与Models实现"><i class="fa fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.stumbleupon.com/submit?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-2]数据库与Models实现"><i class="fa fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://digg.com/submit?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&title=[Gin教程-2]数据库与Models实现"><i class="fa fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="http://www.tumblr.com/share/link?url=http://yoursite.com/2019/02/25/gin-tutorial-2/&name=[Gin教程-2]数据库与Models实现&description="><i class="fa fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
 </ul>
 
     </div>
