@@ -15,7 +15,7 @@
 <meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/02/25，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第二篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-1]photo gallery项目》里，我们已经完成了：  配置文件 &amp;amp; 配置解析 常量定义 JWT的">
 <meta property="og:locale" content="default">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-er-diagram.png">
-<meta property="og:updated_time" content="2019-02-26T00:03:03.854Z">
+<meta property="og:updated_time" content="2019-03-04T06:51:50.604Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="[Gin教程-2]数据库与Models实现">
 <meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/02/25，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第二篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-1]photo gallery项目》里，我们已经完成了：  配置文件 &amp;amp; 配置解析 常量定义 JWT的">
@@ -188,7 +188,7 @@
 </li>
 <li><p>实现数据库连接</p>
 <p> 定义完了数据库表，我们可以用Golang实现一个数据库连接，开始和数据库进行交互。先在项目路径下新建<code>models</code>文件夹，然后在<code>models</code>下新建<code>db.go</code>文件。</p>
- <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-gallery</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— server.conf</span><br><span class="line"> 	|—— cfg.go</span><br><span class="line">|—— constant</span><br><span class="line">	|—— constant.go</span><br><span class="line">	|—— resp_code.go</span><br><span class="line">|—— utils</span><br><span class="line">	|—— jwt.go</span><br><span class="line">|—— models</span><br><span class="line">	|—— db.go</span><br></pre></td></tr></table></figure>
+ <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-storage</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— server.conf</span><br><span class="line"> 	|—— cfg.go</span><br><span class="line">|—— constant</span><br><span class="line">	|—— constant.go</span><br><span class="line">	|—— resp_code.go</span><br><span class="line">|—— utils</span><br><span class="line">	|—— jwt.go</span><br><span class="line">|—— models</span><br><span class="line">	|—— db.go</span><br></pre></td></tr></table></figure>
 <p> 在<code>db.go</code>里，我们要</p>
 <ul>
 <li>读取数据库配置，如<code>Host</code>、<code>User</code>、<code>Password</code>等……</li>
@@ -201,7 +201,7 @@
 </ol>
 <h2 id="Model定义"><a href="#Model定义" class="headerlink" title="Model定义"></a>Model定义</h2><p>有了数据库表之后，每张表可以对应来实现一个Model，即<code>Auth</code>、<code>Bucket</code>、<code>Photo</code>。由于多个Model都有一些共同的属性可以抽象出来，如<code>id</code>、<code>created_at</code>、<code>updated_at</code>这种大家都有的，就没必要重复在每个结构体内都定义一遍。所以我们要定义一个包含共同属性的Model：<code>BaseModel</code>。</p>
 <p>先在<code>models</code>下新建<code>auth.go</code>、<code>bucket.go</code>、<code>photo.go</code>三个代码文件。</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-gallery</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— server.conf</span><br><span class="line"> 	|—— cfg.go</span><br><span class="line">|—— constant</span><br><span class="line">	|—— constant.go</span><br><span class="line">	|—— resp_code.go</span><br><span class="line">|—— utils</span><br><span class="line">	|—— jwt.go</span><br><span class="line">|—— models</span><br><span class="line">	|—— auth.go</span><br><span class="line">	|—— bucket.go</span><br><span class="line">	|—— db.go </span><br><span class="line">	|—— photo.go</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-storage</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— server.conf</span><br><span class="line"> 	|—— cfg.go</span><br><span class="line">|—— constant</span><br><span class="line">	|—— constant.go</span><br><span class="line">	|—— resp_code.go</span><br><span class="line">|—— utils</span><br><span class="line">	|—— jwt.go</span><br><span class="line">|—— models</span><br><span class="line">	|—— auth.go</span><br><span class="line">	|—— bucket.go</span><br><span class="line">	|—— db.go </span><br><span class="line">	|—— photo.go</span><br></pre></td></tr></table></figure>
 <p>然后先在<code>db.go</code>里实现上面提到的<code>BaseModel</code>，之后再逐个实现<code>Auth</code>、<code>Bucket</code>、<code>Photo</code>。</p>
 <ol>
 <li><p>BaseModel</p>
