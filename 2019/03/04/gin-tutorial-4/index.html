@@ -105,7 +105,7 @@
 <meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/03/04，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第四篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-3]引入Redis》里，我们引入了Redis，实现了Redis utils且结合腾讯云COS开发了图片上传的功">
 <meta property="og:locale" content="default">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-mdw.png">
-<meta property="og:updated_time" content="2019-03-05T00:00:09.817Z">
+<meta property="og:updated_time" content="2019-03-05T00:25:21.132Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="[Gin教程-4]中间件与API开发-1">
 <meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/03/04，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第四篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-3]引入Redis》里，我们引入了Redis，实现了Redis utils且结合腾讯云COS开发了图片上传的功">
@@ -416,7 +416,7 @@
                 
               
 
-              <time title="Created: 2019-03-04 16:00:00 / Modified: 16:00:09" itemprop="dateCreated datePublished" datetime="2019-03-04T16:00:00-08:00">2019-03-04</time>
+              <time title="Created: 2019-03-04 16:00:00 / Modified: 16:25:21" itemprop="dateCreated datePublished" datetime="2019-03-04T16:00:00-08:00">2019-03-04</time>
             
 
             
@@ -510,7 +510,7 @@
 <p>但是在真正调用API前，很多时候我们需要做一些额外的工作。拿新增图片这个操作为例，我们不能允许用户在未登录状态下新增图片，所以调用<code>AddPhoto()</code>前我们还得额外地“鉴权”，去查查该用户是不是已经登录了，所以我们需要写一个“鉴权的方法”；再例如查询一个bucket下的所有图片时，我们需要对数据分页，总不能一次请求返回几万张图片数据吧？所以我们需要写一个“分页的方法”。</p>
 <p>所以，实际上API层是由中间件 + API组成的，<strong>每一个中间件其实可以看成一个特殊的API，它也要解析参数，也要执行相应的逻辑，也要返回结果给下一级，称其为中间件是因为它不是执行链的最后一个，而是在执行链的中间位置。</strong></p>
 <p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-mdw.png" alt=""></p>
-<p>如上图所示，在请求到达最终执行业务逻辑的API前，很可能要先经过一系列的中间件。</p>
+<p>如上图所示，在请求到达最终执行业务逻辑的API前，很可能要先经过一系列的中间件，就像是一条执行链。</p>
 <h2 id="分页中间件"><a href="#分页中间件" class="headerlink" title="分页中间件"></a>分页中间件</h2><p>首先来看看分页中间件，凡是返回多项数据的API，都必须先经过分页。例如<code>GetPhotoByBucketID()</code>、<code>GetBucketByAuthID()</code>，我们要把请求中的<code>page</code>参数先转化为<code>offset = page * PAGE_SIZE</code>，然后才能从数据库中直接利用offset得到我们想要的数据。</p>
 <p>在项目根目录下新建<code>middleware</code>文件夹，然后新建<code>pagination.go</code>代码文件。</p>
 <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-storage</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— ......</span><br><span class="line">|—— constant</span><br><span class="line">	|—— ......</span><br><span class="line">|—— models</span><br><span class="line">	|—— ......</span><br><span class="line">|—— utils</span><br><span class="line">	|—— ......</span><br><span class="line">|—— middleware</span><br><span class="line">	|—— pagination.go</span><br></pre></td></tr></table></figure>
