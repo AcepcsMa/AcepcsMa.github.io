@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=7.0.1">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.0.1">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.0.1">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.0.1">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=7.0.1" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    version: '7.0.1',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false,"dimmer":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/03/04，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第四篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-3]引入Redis》里，我们引入了Redis，实现了Redis utils且结合腾讯云COS开发了图片上传的功">
+<meta name="keywords" content="gin,教程,连载,后端">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Gin教程-4]中间件与API开发-1">
+<meta property="og:url" content="http://yoursite.com/2019/03/04/gin-tutorial-4/index.html">
+<meta property="og:site_name" content="Haoxiang&#39;s Tech Blog">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/03/04，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第四篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-3]引入Redis》里，我们引入了Redis，实现了Redis utils且结合腾讯云COS开发了图片上传的功">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-mdw.png">
+<meta property="og:updated_time" content="2019-03-05T00:00:09.817Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Gin教程-4]中间件与API开发-1">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/03/04，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第四篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-3]引入Redis》里，我们引入了Redis，实现了Redis utils且结合腾讯云COS开发了图片上传的功">
+<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-mdw.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Haoxiang's Tech Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2019/03/04/gin-tutorial-4/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>[Gin教程-4]中间件与API开发-1 | Haoxiang's Tech Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="default">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Haoxiang's Tech Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>About</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>Tags</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>Categories</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>Search</a>
+        </li>
+      
+    </ul>
+  
+
+  
+    
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="Searching..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/03/04/gin-tutorial-4/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Haoxiang Ma">
+      <meta itemprop="description" content="This is Haoxiang Ma (a.k.a Marco). I mainly focus on data infra & large-scale backend system.">
+      <meta itemprop="image" content="/images/wangzai.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Haoxiang's Tech Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">[Gin教程-4]中间件与API开发-1
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2019-03-04 16:00:00 / Modified: 16:00:09" itemprop="dateCreated datePublished" datetime="2019-03-04T16:00:00-08:00">2019-03-04</time>
+            
+
+            
+              
+
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">In</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/gin/" itemprop="url" rel="index"><span itemprop="name">gin</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+            
+              
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+            
+                <span class="post-meta-item-text">Comments: </span>
+                <a href="/2019/03/04/gin-tutorial-4/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count valine-comment-count" data-xid="/2019/03/04/gin-tutorial-4/" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             Views:  
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <blockquote>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
+<p>本文写于2019/03/04，基于<code>Go 1.11</code>。<br>至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
+<p>本文为[Gin-教程]连载系列的第四篇，更多后续请继续关注。</p>
+</blockquote>
+<h2 id="Overview"><a href="#Overview" class="headerlink" title="Overview"></a>Overview</h2><p>在上一篇教程<a href="https://marcoma.xyz/2019/02/28/gin-tutorial-3/" target="_blank" rel="noopener">《[Gin教程-3]引入Redis》</a>里，我们引入了<code>Redis</code>，实现了<code>Redis utils</code>且结合腾讯云<code>COS</code>开发了图片上传的功能。</p>
+<p>在本篇教程中，我们要开始开发API层，接收客户端的请求，解析请求里的参数，然后对各个Model执行增/删/改/查操作。</p>
+<h2 id="层次结构"><a href="#层次结构" class="headerlink" title="层次结构"></a>层次结构</h2><p>API层包含了很多API，每个API的职责就是：</p>
+<ol>
+<li>解析用户请求的参数（表单、url参数……）</li>
+<li>验证参数有效性</li>
+<li>调用对应Model的增/删/改/查方法，得到执行结果</li>
+<li>对执行结果进行封装，返回给用户</li>
+</ol>
+<p>但是在真正调用API前，很多时候我们需要做一些额外的工作。拿新增图片这个操作为例，我们不能允许用户在未登录状态下新增图片，所以调用<code>AddPhoto()</code>前我们还得额外地“鉴权”，去查查该用户是不是已经登录了，所以我们需要写一个“鉴权的方法”；再例如查询一个bucket下的所有图片时，我们需要对数据分页，总不能一次请求返回几万张图片数据吧？所以我们需要写一个“分页的方法”。</p>
+<p>所以，实际上API层是由中间件 + API组成的，<strong>每一个中间件其实可以看成一个特殊的API，它也要解析参数，也要执行相应的逻辑，也要返回结果给下一级，称其为中间件是因为它不是执行链的最后一个，而是在执行链的中间位置。</strong></p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-mdw.png" alt=""></p>
+<p>如上图所示，在请求到达最终执行业务逻辑的API前，很可能要先经过一系列的中间件。</p>
+<h2 id="分页中间件"><a href="#分页中间件" class="headerlink" title="分页中间件"></a>分页中间件</h2><p>首先来看看分页中间件，凡是返回多项数据的API，都必须先经过分页。例如<code>GetPhotoByBucketID()</code>、<code>GetBucketByAuthID()</code>，我们要把请求中的<code>page</code>参数先转化为<code>offset = page * PAGE_SIZE</code>，然后才能从数据库中直接利用offset得到我们想要的数据。</p>
+<p>在项目根目录下新建<code>middleware</code>文件夹，然后新建<code>pagination.go</code>代码文件。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-storage</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— ......</span><br><span class="line">|—— constant</span><br><span class="line">	|—— ......</span><br><span class="line">|—— models</span><br><span class="line">	|—— ......</span><br><span class="line">|—— utils</span><br><span class="line">	|—— ......</span><br><span class="line">|—— middleware</span><br><span class="line">	|—— pagination.go</span><br></pre></td></tr></table></figure>
+<p>接着可以实现分页中间件：</p>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> middleware</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"gin-photo-storage/constant"</span></span><br><span class="line">	<span class="string">"github.com/gin-gonic/gin"</span></span><br><span class="line">	<span class="string">"github.com/pkg/errors"</span></span><br><span class="line">	<span class="string">"net/http"</span></span><br><span class="line">	<span class="string">"strconv"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> InvalidPageNoError = errors.New(<span class="string">"page no can not be negative"</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment">// A wrapper function which returns the pagination middleware.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetPaginationMiddleware</span><span class="params">()</span> <span class="title">func</span><span class="params">(*gin.Context)</span></span> &#123;</span><br><span class="line">	<span class="keyword">return</span> <span class="function"><span class="keyword">func</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">		responseCode := constant.PAGINATION_SUCCESS</span><br><span class="line">		pageNo := context.Query(<span class="string">"page"</span>)</span><br><span class="line">		<span class="keyword">if</span> pageNo == <span class="string">""</span> &#123;</span><br><span class="line">			responseCode = constant.INVALID_PARAMS</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			pageOffset, err := GetPagination(pageNo)</span><br><span class="line">			<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">				responseCode = constant.INVALID_PARAMS</span><br><span class="line">			&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">				context.Set(<span class="string">"offset"</span>, pageOffset)</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> responseCode == constant.INVALID_PARAMS &#123;</span><br><span class="line">			data := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>)</span><br><span class="line">			data[<span class="string">"page"</span>] = pageNo</span><br><span class="line">			context.JSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">				<span class="string">"code"</span>: constant.INVALID_PARAMS,</span><br><span class="line">				<span class="string">"data"</span>: data,</span><br><span class="line">				<span class="string">"msg"</span>:  constant.GetMessage(constant.INVALID_PARAMS),</span><br><span class="line">			&#125;)</span><br><span class="line">			context.Abort()</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		context.Next()</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Pagination function which calculates the offset given the page number.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetPagination</span><span class="params">(pageNo <span class="keyword">string</span>)</span> <span class="params">(<span class="keyword">int</span>, error)</span></span> &#123;</span><br><span class="line">	pageNoInt, err := strconv.Atoi(pageNo)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>, err</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> pageNoInt &lt; <span class="number">0</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>, InvalidPageNoError</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> pageNoInt * constant.PAGE_SIZE, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>Note：为什么我们要绕一圈，定义一个wrapper方法？</strong>用wrapper方法返回一个<code>func(context *gin.Context)</code>，而不是直接把分页中间件定义成一个<code>func(context *gin.Context)</code>？因为用wrapper方法的话，我们可以在return真正的中间件方法前做一些其他操作，例如：</p>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetXXXMiddleware</span><span class="params">()</span> <span class="title">func</span><span class="params">(*gin.Context)</span></span> &#123;</span><br><span class="line">	<span class="comment">// ......</span></span><br><span class="line">	<span class="comment">// 可以在这连接数据库</span></span><br><span class="line">	<span class="comment">// 可以在这读某个磁盘文件</span></span><br><span class="line">	<span class="comment">// ......</span></span><br><span class="line">	<span class="keyword">return</span> <span class="function"><span class="keyword">func</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">		<span class="comment">// ......</span></span><br><span class="line">		<span class="comment">// 真正的中间件逻辑</span></span><br><span class="line">		<span class="comment">// ......</span></span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>把一些耗时的操作，或者那些只需要在最开始做一次的操作放在return中间件的前面，就不需要把它们写在中间件的内部，“污染”中间件真正的逻辑。</p>
+<h2 id="Auth中间件"><a href="#Auth中间件" class="headerlink" title="Auth中间件"></a>Auth中间件</h2><p>至于Auth中间件，我们要实现的逻辑是：</p>
+<ol>
+<li>尝试从请求的cookie里获取<code>JWT</code>字符串，如果不存在<code>JWT</code>串说明该用户从未登录，或者N久前登录导致cookie都消失了。</li>
+<li>调用<code>utils</code>里的解析方法，解析该<code>JWT</code>串，得到<code>UserClaim</code>。</li>
+<li>从<code>UserClaim</code>里获取用户名，检查<code>Redis</code>里存不存在该用户名，如果不存在说明该用户登录状态已过期。</li>
+<li>若前几步都验证成功，可以把用户名加到本次请求的<code>context</code>里，完成本中间件的所有任务，去做下一步。</li>
+</ol>
+<p>我们在<code>gin-photo-storage/middleware/</code>下新建<code>auth.go</code>。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-storage</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— ......</span><br><span class="line">|—— constant</span><br><span class="line">	|—— ......</span><br><span class="line">|—— models</span><br><span class="line">	|—— ......</span><br><span class="line">|—— utils</span><br><span class="line">	|—— ......</span><br><span class="line">|—— middleware</span><br><span class="line">	|—— pagination.go</span><br><span class="line">	|—— auth.go</span><br></pre></td></tr></table></figure>
+<p>然后可以实现<code>auth.go</code>：</p>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> middleware</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"gin-photo-storage/constant"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/utils"</span></span><br><span class="line">	<span class="string">"github.com/gin-gonic/gin"</span></span><br><span class="line">	<span class="string">"log"</span></span><br><span class="line">	<span class="string">"net/http"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// A wrapper function which returns the auth middleware.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetAuthMiddleware</span><span class="params">()</span> <span class="title">gin</span>.<span class="title">HandlerFunc</span></span> &#123;</span><br><span class="line">	<span class="keyword">return</span> <span class="function"><span class="keyword">func</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">		jwtString, err := context.Cookie(constant.JWT)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			log.Fatalln(err)</span><br><span class="line">			context.JSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">				<span class="string">"code"</span>: constant.JWT_MISSING_ERROR,</span><br><span class="line">				<span class="string">"data"</span>: <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>),</span><br><span class="line">				<span class="string">"msg"</span>: constant.GetMessage(constant.JWT_MISSING_ERROR),</span><br><span class="line">			&#125;)</span><br><span class="line">			context.Abort()</span><br><span class="line">			<span class="keyword">return</span></span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		claim, err := utils.ParseJWT(jwtString)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			log.Fatalln(err)</span><br><span class="line">			context.JSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">				<span class="string">"code"</span>: constant.JWT_PARSE_ERROR,</span><br><span class="line">				<span class="string">"data"</span>: <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>),</span><br><span class="line">				<span class="string">"msg"</span>: constant.GetMessage(constant.JWT_PARSE_ERROR),</span><br><span class="line">			&#125;)</span><br><span class="line">			context.Abort()</span><br><span class="line">			<span class="keyword">return</span></span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> utils.IsAuthInRedis(claim.UserName) &#123;</span><br><span class="line">			context.Set(<span class="string">"user_name"</span>, claim.UserName)</span><br><span class="line">			context.Next()</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			context.JSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">				<span class="string">"code"</span>: constant.USER_AUTH_TIMEOUT,</span><br><span class="line">				<span class="string">"data"</span>: <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>),</span><br><span class="line">				<span class="string">"msg"</span>: constant.GetMessage(constant.USER_AUTH_TIMEOUT),</span><br><span class="line">			&#125;)</span><br><span class="line">			context.Abort()</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>Note：</strong></p>
+<ul>
+<li><strong>context就是本次请求的上下文数据，它的生命周期就是整个请求的生命周期。只要请求没完成/没结束，context都会存在。所以我们才能把用户名set到context里，传给下一步。</strong></li>
+<li><strong>注意在验证异常时，除了调用<code>context.Abort()</code>来终止执行链之外，还要及时return，避免执行该中间件下面的逻辑。</strong></li>
+</ul>
+<h2 id="Refresh中间件"><a href="#Refresh中间件" class="headerlink" title="Refresh中间件"></a>Refresh中间件</h2><p><strong>所谓的Refresh中间件，所要refresh的就是用户的登录token。</strong>试想一下这样的场景：用户在12:00登录了系统，根据我们设定的<code>JWT_EXP_MINUTE = 30</code>，说明他的登录状态在12:31就在<code>Redis</code>里过期了，必须得重新登录。虽然过期时间设短一点相对会安全些，但是这样是非常影响用户体验的。</p>
+<p>所以，我们就要设计refresh机制。<strong>如果用户在登录之后有各种频繁的操作，那我们就不断地给他刷新他的token有效期。</strong>例如用户在12:00登录了，token有效期到12:30，但是他在12:18新建了bucket，那我们就把他的token有效期刷新，刷成12:48，之后他又在12:35添加了20张图片，那就再把他的token有效期刷到13:05，依此类推。</p>
+<p>先在<code>gin-photo-gallery/middleware/</code>下新建<code>refresh.go</code>代码文件。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-storage</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— ......</span><br><span class="line">|—— constant</span><br><span class="line">	|—— ......</span><br><span class="line">|—— models</span><br><span class="line">	|—— ......</span><br><span class="line">|—— utils</span><br><span class="line">	|—— ......</span><br><span class="line">|—— middleware</span><br><span class="line">	|—— pagination.go</span><br><span class="line">	|—— auth.go</span><br><span class="line">	|—— refresh.go</span><br></pre></td></tr></table></figure>
+<p>然后可以实现<code>refresh.go</code>：</p>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> middleware</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"gin-photo-storage/conf"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/constant"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/utils"</span></span><br><span class="line">	<span class="string">"github.com/gin-gonic/gin"</span></span><br><span class="line">	<span class="string">"log"</span></span><br><span class="line">	<span class="string">"net/http"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// A wrapper function which returns the refresh middleware.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetRefreshMiddleware</span><span class="params">()</span> <span class="title">gin</span>.<span class="title">HandlerFunc</span></span> &#123;</span><br><span class="line">	<span class="keyword">return</span> <span class="function"><span class="keyword">func</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">		<span class="keyword">if</span> userName, ok := context.Get(<span class="string">"user_name"</span>); ok &#123;</span><br><span class="line">			<span class="comment">// generate a new valid JWT for the user</span></span><br><span class="line">			jwtString, err := utils.GenerateJWT(userName.(<span class="keyword">string</span>))</span><br><span class="line">			<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">				log.Fatalln(err)</span><br><span class="line">				data := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>)</span><br><span class="line">				data[<span class="string">"user_name"</span>] = userName.(<span class="keyword">string</span>)</span><br><span class="line">				context.JSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">					<span class="string">"code"</span>: constant.JWT_GENERATION_ERROR,</span><br><span class="line">					<span class="string">"data"</span>: data,</span><br><span class="line">					<span class="string">"msg"</span>: constant.GetMessage(constant.JWT_GENERATION_ERROR),</span><br><span class="line">				&#125;)</span><br><span class="line">				context.Abort()</span><br><span class="line">				<span class="keyword">return</span></span><br><span class="line">			&#125;</span><br><span class="line"></span><br><span class="line">			<span class="comment">// save the new JWT in user's cookie</span></span><br><span class="line">			context.SetCookie(constant.JWT, jwtString,</span><br><span class="line">				constant.COOKIE_MAX_AGE, <span class="string">"/"</span>,</span><br><span class="line">				conf.ServerCfg.Get(constant.SERVER_DOMAIN), <span class="literal">true</span>, <span class="literal">true</span>)</span><br><span class="line"></span><br><span class="line">			<span class="comment">// refresh user in the redis</span></span><br><span class="line">			err = utils.AddAuthToRedis(userName.(<span class="keyword">string</span>))</span><br><span class="line">			<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">				log.Fatalln(err)</span><br><span class="line">				context.JSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">					<span class="string">"code"</span>: constant.INTERNAL_SERVER_ERROR,</span><br><span class="line">					<span class="string">"data"</span>: <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>),</span><br><span class="line">					<span class="string">"msg"</span>: constant.GetMessage(constant.INTERNAL_SERVER_ERROR),</span><br><span class="line">				&#125;)</span><br><span class="line">				context.Abort()</span><br><span class="line">				<span class="keyword">return</span></span><br><span class="line">			&#125;</span><br><span class="line">			context.Next()</span><br><span class="line">		&#125;</span><br><span class="line">		context.Abort()</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>Note：我们不仅要为用户颁发一个新的<code>JWT</code>，还要在<code>Redis</code>里给用户刷新一下，避免过期。</strong></p>
+<h2 id="Auth-API"><a href="#Auth-API" class="headerlink" title="Auth API"></a>Auth API</h2><p>把几个必要的中间件实现完，可以开始实现我们的业务逻辑了，首先来看看Auth API。</p>
+<p>先在项目根目录下新建<code>apis</code>文件夹，再在<code>apis</code>下新建<code>v1</code>文件夹，代表现在开发的API版本是v1。最后在<code>apis/v1/</code>下新建<code>auth.go</code>代码文件。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-storage</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— ......</span><br><span class="line">|—— constant</span><br><span class="line">	|—— ......</span><br><span class="line">|—— models</span><br><span class="line">	|—— ......</span><br><span class="line">|—— utils</span><br><span class="line">	|—— ......</span><br><span class="line">|—— middleware</span><br><span class="line">	|—— ......</span><br><span class="line">|—— apis</span><br><span class="line">    |—— v1</span><br><span class="line">        |—— auth.go</span><br></pre></td></tr></table></figure>
+<p>因为在API的逻辑里要对请求里的参数作合法性验证，所以我们就采用了第三方的<code>beego validation</code>来实现参数验证。（不使用第三方库，纯手写验证逻辑也不是不可以，只不过用库会方便优雅一点）</p>
+<ul>
+<li>Golang &lt;= 1.10且项目位于<code>$GOPATH/src/</code>下的，可直接<code>go get -u github.com/astaxie/beego/validation</code></li>
+<li>否则可用go mod来安装 </li>
+</ul>
+<p>在<code>auth.go</code>里，我们要实现2个API：用户注册（AddAuth）和用户登录验证（CheckAuth）：</p>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> v1</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"gin-photo-storage/conf"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/models"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/constant"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/utils"</span></span><br><span class="line">	<span class="string">"github.com/astaxie/beego/validation"</span></span><br><span class="line">	<span class="string">"github.com/gin-gonic/gin"</span></span><br><span class="line">	<span class="string">"log"</span></span><br><span class="line">	<span class="string">"net/http"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// Add a new auth.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">AddAuth</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line"></span><br><span class="line">	userName := context.PostForm(<span class="string">"user_name"</span>)</span><br><span class="line">	password := context.PostForm(<span class="string">"password"</span>)</span><br><span class="line">	email := context.PostForm(<span class="string">"email"</span>)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// set up param validation</span></span><br><span class="line">	validCheck := validation.Validation&#123;&#125;</span><br><span class="line">	validCheck.Required(userName, <span class="string">"user_name"</span>).Message(<span class="string">"Must have user name"</span>)</span><br><span class="line">	validCheck.MaxSize(userName, <span class="number">16</span>, <span class="string">"user_name"</span>).Message(<span class="string">"User name length can not exceed 16"</span>)</span><br><span class="line">	validCheck.MinSize(userName, <span class="number">6</span>, <span class="string">"user_name"</span>).Message(<span class="string">"User name length is at least 6"</span>)</span><br><span class="line">	validCheck.Required(password, <span class="string">"password"</span>).Message(<span class="string">"Must have password"</span>)</span><br><span class="line">	validCheck.MaxSize(password, <span class="number">16</span>, <span class="string">"password"</span>).Message(<span class="string">"Password length can not exceed 16"</span>)</span><br><span class="line">	validCheck.MinSize(password, <span class="number">6</span>, <span class="string">"password"</span>).Message(<span class="string">"Password length is at least 6"</span>)</span><br><span class="line">	validCheck.Required(email, <span class="string">"email"</span>).Message(<span class="string">"Must have email"</span>)</span><br><span class="line">	validCheck.MaxSize(email, <span class="number">128</span>, <span class="string">"email"</span>).Message(<span class="string">"Email can not exceed 128 chars"</span>)</span><br><span class="line"></span><br><span class="line">	responseCode := constant.INVALID_PARAMS</span><br><span class="line">	<span class="keyword">if</span> !validCheck.HasErrors() &#123;</span><br><span class="line">		<span class="keyword">if</span> err := models.AddAuth(userName, password, email); err == <span class="literal">nil</span> &#123;</span><br><span class="line">			responseCode = constant.USER_ADD_SUCCESS</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			responseCode = constant.USER_ALREADY_EXIST</span><br><span class="line">		&#125;</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="keyword">for</span> _, err := <span class="keyword">range</span> validCheck.Errors &#123;</span><br><span class="line">			log.Println(err)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	context.JSON(http.StatusOK, gin.H&#123;</span><br><span class="line">		<span class="string">"code"</span>: responseCode,</span><br><span class="line">		<span class="string">"data"</span>: userName,</span><br><span class="line">		<span class="string">"msg"</span>: constant.GetMessage(responseCode),</span><br><span class="line">	&#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Check if an auth is valid.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">CheckAuth</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line"></span><br><span class="line">	userName := context.PostForm(<span class="string">"user_name"</span>)</span><br><span class="line">	password := context.PostForm(<span class="string">"password"</span>)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// set up param validation</span></span><br><span class="line">	validCheck := validation.Validation&#123;&#125;</span><br><span class="line">	validCheck.Required(userName, <span class="string">"user_name"</span>).Message(<span class="string">"Must have user name"</span>)</span><br><span class="line">	validCheck.MaxSize(userName, <span class="number">16</span>, <span class="string">"user_name"</span>).Message(<span class="string">"User name length can not exceed 16"</span>)</span><br><span class="line">	validCheck.MinSize(userName, <span class="number">6</span>, <span class="string">"user_name"</span>).Message(<span class="string">"User name length is at least 6"</span>)</span><br><span class="line">	validCheck.Required(password, <span class="string">"password"</span>).Message(<span class="string">"Must have password"</span>)</span><br><span class="line">	validCheck.MaxSize(password, <span class="number">16</span>, <span class="string">"password"</span>).Message(<span class="string">"Password length can not exceed 16"</span>)</span><br><span class="line">	validCheck.MinSize(password, <span class="number">6</span>, <span class="string">"password"</span>).Message(<span class="string">"Password length is at least 6"</span>)</span><br><span class="line"></span><br><span class="line">	responseCode := constant.INVALID_PARAMS</span><br><span class="line">	<span class="keyword">if</span> !validCheck.HasErrors() &#123;</span><br><span class="line">		<span class="keyword">if</span> models.CheckAuth(userName, password) &#123;</span><br><span class="line">			<span class="keyword">if</span> jwtString, err := utils.GenerateJWT(userName); err != <span class="literal">nil</span> &#123;</span><br><span class="line">				responseCode = constant.JWT_GENERATION_ERROR</span><br><span class="line">			&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">				<span class="comment">// pass auth validation</span></span><br><span class="line">				<span class="comment">// 1. set JWT to user's cookie</span></span><br><span class="line">				<span class="comment">// 2. add user to the Redis</span></span><br><span class="line">				context.SetCookie(constant.JWT, jwtString,</span><br><span class="line">					constant.COOKIE_MAX_AGE, conf.ServerCfg.Get(constant.SERVER_PATH),</span><br><span class="line">					conf.ServerCfg.Get(constant.SERVER_DOMAIN), <span class="literal">true</span>, <span class="literal">true</span>)</span><br><span class="line">				<span class="keyword">if</span> err = utils.AddAuthToRedis(userName); err != <span class="literal">nil</span> &#123;</span><br><span class="line">					responseCode = constant.INTERNAL_SERVER_ERROR</span><br><span class="line">				&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">					responseCode = constant.USER_AUTH_SUCCESS</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			responseCode = constant.USER_AUTH_ERROR</span><br><span class="line">		&#125;</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="keyword">for</span> _, err := <span class="keyword">range</span> validCheck.Errors &#123;</span><br><span class="line">			log.Println(err)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	context.JSON(http.StatusOK, gin.H&#123;</span><br><span class="line">		<span class="string">"code"</span>: responseCode,</span><br><span class="line">		<span class="string">"data"</span>: userName,</span><br><span class="line">		<span class="string">"msg"</span>: constant.GetMessage(responseCode),</span><br><span class="line">	&#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>Auth API里的核心点在于业务逻辑，在<code>CheckAuth()</code>里如果一个用户验证通过，不仅要为他“颁发”一个<code>JWT</code>串，还要把该用户写入到<code>Redis</code>里，用<code>Redis</code>来记录这个用户是否在有效登录期内。如果一个用户请求的cookie里带有<code>JWT</code>，但是<code>Redis</code>里没有该用户的数据，要么是他伪造了<code>JWT</code>，要么是<code>JWT</code>和<code>Redis</code>里的数据过期时间不同步。</p>
+<p><strong>Note：</strong></p>
+<ul>
+<li><strong>代码里用的是<code>context.PostForm(xxx)</code>来获取请求参数，这个前提是用户会用POST表单来传参，如果用户用url参数来传参，我们应该用<code>context.Query(xxx)</code>来获取参数。</strong></li>
+<li><strong>API调用完成后我们返回的是JSON数据，根据不同的需求，我们也可以返回一个渲染好的html页面，或者就返回裸字符串。</strong></li>
+</ul>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<li><p>在gin框架里，中间件指的是在API调用的执行链处于中间位置的组件。那撇开gin框架，从宏观的角度来看，中间件又指什么呢？有哪些著名的中间件？</p>
+<ul>
+<li>关键词：中间件、业务逻辑、插件</li>
+</ul>
+</li>
+<li><p>用户成功登录后，我们把<code>JWT</code>串写到了他的cookie里，对于浏览器应用来说写cookie是不错的做法（虽然可能有安全问题）。那如果调用我们API的不是浏览器应用，而是ios/android app，我们应该把<code>JWT</code>串写到哪里呢，应该怎么返回呢？</p>
+</li>
+<li><p>在返回的JSON数据里，我们有自定义的<code>code</code>字段，可是本身http协议就有代表不同状态的状态码，为什么我们还要加上自定义的<code>code</code>？</p>
+</li>
+<li><p>在实现中间件时，<code>GetXXXMiddleware()</code>返回的是一个<code>func(*gin.Context)</code>，为什么一个函数的返回值可以是另一个函数？在Golang里函数也是一种类型吗？在Java里可不可以实现类似的功能？</p>
+<ul>
+<li>关键词：函数指针、函数作为类型</li>
+</ul>
+</li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/gin/" rel="tag"># gin</a>
+          
+            <a href="/tags/教程/" rel="tag"># 教程</a>
+          
+            <a href="/tags/连载/" rel="tag"># 连载</a>
+          
+            <a href="/tags/后端/" rel="tag"># 后端</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/02/28/gin-tutorial-3/" rel="next" title="[Gin教程-3]引入Redis">
+                <i class="fa fa-chevron-left"></i> [Gin教程-3]引入Redis
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/wangzai.jpg" alt="Haoxiang Ma">
+            
+              <p class="site-author-name" itemprop="name">Haoxiang Ma</p>
+              <div class="site-description motion-element" itemprop="description">This is Haoxiang Ma (a.k.a Marco). I mainly focus on data infra & large-scale backend system.</div>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">35</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  
+                    
+                      <a href="/categories/">
+                    
+                  
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">12</span>
+                    <span class="site-state-item-name">categories</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  
+                    
+                      <a href="/tags/">
+                    
+                  
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">21</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/AcepcsMa" title="GitHub &rarr; https://github.com/AcepcsMa" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://www.linkedin.com/in/haoxiang-ma-86353b14b" title="LinkedIn &rarr; https://www.linkedin.com/in/haoxiang-ma-86353b14b" rel="noopener" target="_blank"><i class="fa fa-fw fa-linkedin"></i>LinkedIn</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Overview"><span class="nav-number">1.</span> <span class="nav-text">Overview</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#层次结构"><span class="nav-number">2.</span> <span class="nav-text">层次结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#分页中间件"><span class="nav-number">3.</span> <span class="nav-text">分页中间件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Auth中间件"><span class="nav-number">4.</span> <span class="nav-text">Auth中间件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Refresh中间件"><span class="nav-number">5.</span> <span class="nav-text">Refresh中间件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Auth-API"><span class="nav-number">6.</span> <span class="nav-text">Auth API</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+  
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Haoxiang Ma</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> v7.0.1</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="post-meta-item-icon">
+      <i class="fa fa-user"></i>
+    </span>
+    <span class="site-uv" title="Total Visitors">
+      <span class="busuanzi-value" id="busuanzi_value_site_uv"></span>
+    </span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+  
+
+  
+    <span class="post-meta-item-icon">
+      <i class="fa fa-eye"></i>
+    </span>
+    <span class="site-pv" title="Total Views">
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+    
+    
+  
+  <script color="0,0,255" opacity="0.5" zindex="-1" count="99" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=7.0.1"></script>
+
+  <script src="/js/src/motion.js?v=7.0.1"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/schemes/muse.js?v=7.0.1"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=7.0.1"></script>
+<script src="/js/src/post-details.js?v=7.0.1"></script>
+
+
+
+  
+
+
+  <script src="/js/src/next-boot.js?v=7.0.1"></script>
+
+
+  
+  
+  
+
+<script src="//cdn1.lncld.net/static/js/3.11.1/av-min.js"></script>
+
+
+
+<script src="//unpkg.com/valine/dist/Valine.min.js"></script>
+
+<script>
+  var GUEST = ['nick', 'mail', 'link'];
+  var guest = 'nick,mail';
+  guest = guest.split(',').filter(function(item) {
+    return GUEST.indexOf(item) > -1;
+  });
+  new Valine({
+    el: '#comments',
+    verify: false,
+    notify: false,
+    appId: '1mYS96DR4e28MDXJxW1ByUA6-gzGzoHsz',
+    appKey: 'IMF92wd7jJxCXanv65MdkiBn',
+    placeholder: 'Say anything if you like~',
+    avatar: 'mm',
+    meta: guest,
+    pageSize: '20' || 10,
+    visitor: false
+  });
+</script>
+
+
+
+
+  
+
+
+  
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('3');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <style>
+    .copy-btn {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: #333;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      
+        background-color: #eee;
+        background-image: linear-gradient(#fcfcfc, #eee);
+        border: 1px solid #d5d5d5;
+        border-radius: 3px;
+      
+      user-select: none;
+      outline: 0;
+    }
+
+    .highlight-wrap .copy-btn {
+      transition: opacity .3s ease-in-out;
+      opacity: 0;
+      padding: 2px 6px;
+      position: absolute;
+      
+        right: 4px;
+        top: 8px;
+      
+    }
+
+    .highlight-wrap:hover .copy-btn,
+    .highlight-wrap .copy-btn:focus {
+      opacity: 1;
+    }
+
+    .highlight-wrap {
+      position: relative;
+    }
+  </style>
+  <script>
+    $('.highlight').each(function(i, e) {
+      var $wrap = $('<div>').addClass('highlight-wrap');
+      $(e).after($wrap);
+      $wrap.append($('<button>').addClass('copy-btn').append('Copy').on('click', function(e) {
+        var code = $(this).parent().find('.code').find('.line').map(function(i, e) {
+          return $(e).text();
+        }).toArray().join('\n');
+        var ta = document.createElement('textarea');
+        var yPosition = window.pageYOffset || document.documentElement.scrollTop;
+        ta.style.top = yPosition + 'px'; // Prevent page scroll
+        ta.style.position = 'absolute';
+        ta.style.opacity = '0';
+        ta.readOnly = true;
+        ta.value = code;
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, code.length);
+        ta.readOnly = false;
+        var result = document.execCommand('copy');
+        
+          if (result) $(this).text('Copied');
+          else $(this).text('Copy failed');
+        
+        ta.blur(); // For iOS
+        $(this).blur();
+      })).on('mouseleave', function(e) {
+        var $b = $(this).find('.copy-btn');
+        setTimeout(function() {
+          $b.text('Copy');
+        }, 300);
+      }).append(e);
+    })
+  </script>
+
+
+</body>
+</html>
