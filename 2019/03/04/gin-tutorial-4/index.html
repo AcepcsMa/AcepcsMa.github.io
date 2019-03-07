@@ -105,7 +105,7 @@
 <meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/03/04，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第四篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-3]引入Redis》里，我们引入了Redis，实现了Redis utils且结合腾讯云COS开发了图片上传的功">
 <meta property="og:locale" content="default">
 <meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-mdw.png">
-<meta property="og:updated_time" content="2019-03-05T00:25:21.132Z">
+<meta property="og:updated_time" content="2019-03-07T23:18:51.724Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="[Gin教程-4]中间件与API开发-1">
 <meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/03/04，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第四篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-3]引入Redis》里，我们引入了Redis，实现了Redis utils且结合腾讯云COS开发了图片上传的功">
@@ -416,12 +416,24 @@
                 
               
 
-              <time title="Created: 2019-03-04 16:00:00 / Modified: 16:25:21" itemprop="dateCreated datePublished" datetime="2019-03-04T16:00:00-08:00">2019-03-04</time>
+              <time title="Created: 2019-03-04 16:00:00" itemprop="dateCreated datePublished" datetime="2019-03-04T16:00:00-08:00">2019-03-04</time>
             
 
             
               
 
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2019-03-07 15:18:51" itemprop="dateModified" datetime="2019-03-07T15:18:51-08:00">2019-03-07</time>
               
             
           </span>
@@ -529,7 +541,7 @@
 <p>我们在<code>gin-photo-storage/middleware/</code>下新建<code>auth.go</code>。</p>
 <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-storage</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— ......</span><br><span class="line">|—— constant</span><br><span class="line">	|—— ......</span><br><span class="line">|—— models</span><br><span class="line">	|—— ......</span><br><span class="line">|—— utils</span><br><span class="line">	|—— ......</span><br><span class="line">|—— middleware</span><br><span class="line">	|—— pagination.go</span><br><span class="line">	|—— auth.go</span><br></pre></td></tr></table></figure>
 <p>然后可以实现<code>auth.go</code>：</p>
-<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> middleware</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"gin-photo-storage/constant"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/utils"</span></span><br><span class="line">	<span class="string">"github.com/gin-gonic/gin"</span></span><br><span class="line">	<span class="string">"log"</span></span><br><span class="line">	<span class="string">"net/http"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// A wrapper function which returns the auth middleware.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetAuthMiddleware</span><span class="params">()</span> <span class="title">gin</span>.<span class="title">HandlerFunc</span></span> &#123;</span><br><span class="line">	<span class="keyword">return</span> <span class="function"><span class="keyword">func</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">		jwtString, err := context.Cookie(constant.JWT)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			log.Fatalln(err)</span><br><span class="line">			context.JSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">				<span class="string">"code"</span>: constant.JWT_MISSING_ERROR,</span><br><span class="line">				<span class="string">"data"</span>: <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>),</span><br><span class="line">				<span class="string">"msg"</span>: constant.GetMessage(constant.JWT_MISSING_ERROR),</span><br><span class="line">			&#125;)</span><br><span class="line">			context.Abort()</span><br><span class="line">			<span class="keyword">return</span></span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		claim, err := utils.ParseJWT(jwtString)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			log.Fatalln(err)</span><br><span class="line">			context.JSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">				<span class="string">"code"</span>: constant.JWT_PARSE_ERROR,</span><br><span class="line">				<span class="string">"data"</span>: <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>),</span><br><span class="line">				<span class="string">"msg"</span>: constant.GetMessage(constant.JWT_PARSE_ERROR),</span><br><span class="line">			&#125;)</span><br><span class="line">			context.Abort()</span><br><span class="line">			<span class="keyword">return</span></span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> utils.IsAuthInRedis(claim.UserName) &#123;</span><br><span class="line">			context.Set(<span class="string">"user_name"</span>, claim.UserName)</span><br><span class="line">			context.Next()</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			context.JSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">				<span class="string">"code"</span>: constant.USER_AUTH_TIMEOUT,</span><br><span class="line">				<span class="string">"data"</span>: <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>),</span><br><span class="line">				<span class="string">"msg"</span>: constant.GetMessage(constant.USER_AUTH_TIMEOUT),</span><br><span class="line">			&#125;)</span><br><span class="line">			context.Abort()</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> middleware</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"gin-photo-storage/constant"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/utils"</span></span><br><span class="line">	<span class="string">"github.com/gin-gonic/gin"</span></span><br><span class="line">	<span class="string">"log"</span></span><br><span class="line">	<span class="string">"net/http"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// A wrapper function which returns the auth middleware.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetAuthMiddleware</span><span class="params">()</span> <span class="title">gin</span>.<span class="title">HandlerFunc</span></span> &#123;</span><br><span class="line">	<span class="keyword">return</span> <span class="function"><span class="keyword">func</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">		jwtString, err := context.Cookie(constant.JWT)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			log.Println(err)</span><br><span class="line">			context.JSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">				<span class="string">"code"</span>: constant.JWT_MISSING_ERROR,</span><br><span class="line">				<span class="string">"data"</span>: <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>),</span><br><span class="line">				<span class="string">"msg"</span>: constant.GetMessage(constant.JWT_MISSING_ERROR),</span><br><span class="line">			&#125;)</span><br><span class="line">			context.Abort()</span><br><span class="line">			<span class="keyword">return</span></span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		claim, err := utils.ParseJWT(jwtString)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			log.Println(err)</span><br><span class="line">			context.JSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">				<span class="string">"code"</span>: constant.JWT_PARSE_ERROR,</span><br><span class="line">				<span class="string">"data"</span>: <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>),</span><br><span class="line">				<span class="string">"msg"</span>: constant.GetMessage(constant.JWT_PARSE_ERROR),</span><br><span class="line">			&#125;)</span><br><span class="line">			context.Abort()</span><br><span class="line">			<span class="keyword">return</span></span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> utils.IsAuthInRedis(claim.UserName) &#123;</span><br><span class="line">			context.Set(<span class="string">"user_name"</span>, claim.UserName)</span><br><span class="line">			context.Next()</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			context.JSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">				<span class="string">"code"</span>: constant.USER_AUTH_TIMEOUT,</span><br><span class="line">				<span class="string">"data"</span>: <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>),</span><br><span class="line">				<span class="string">"msg"</span>: constant.GetMessage(constant.USER_AUTH_TIMEOUT),</span><br><span class="line">			&#125;)</span><br><span class="line">			context.Abort()</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p><strong>Note：</strong></p>
 <ul>
 <li><strong>context就是本次请求的上下文数据，它的生命周期就是整个请求的生命周期。只要请求没完成/没结束，context都会存在。所以我们才能把用户名set到context里，传给下一步。</strong></li>
@@ -557,6 +569,7 @@
 <ul>
 <li><strong>代码里用的是<code>context.PostForm(xxx)</code>来获取请求参数，这个前提是用户会用POST表单来传参，如果用户用url参数来传参，我们应该用<code>context.Query(xxx)</code>来获取参数。</strong></li>
 <li><strong>API调用完成后我们返回的是JSON数据，根据不同的需求，我们也可以返回一个渲染好的html页面，或者就返回裸字符串。</strong></li>
+<li><strong>通过<code>context.JSON()</code>返回给调用者的是JSON格式的数据，字段就是gin.H{}里的那些字段，gin.H其实只是一个简写，本质上gin.H就是一个`map[string]interface{}。</strong></li>
 </ul>
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
 <li><p>在gin框架里，中间件指的是在API调用的执行链处于中间位置的组件。那撇开gin框架，从宏观的角度来看，中间件又指什么呢？有哪些著名的中间件？</p>
@@ -625,6 +638,10 @@
           <span class="post-nav-divider"></span>
 
           <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2019/03/07/gin-tutorial-5/" rel="prev" title="[Gin教程-5]中间件与API开发-2">
+                [Gin教程-5]中间件与API开发-2 <i class="fa fa-chevron-right"></i>
+              </a>
             
           </div>
         </div>
@@ -699,7 +716,7 @@
                 
                   <a href="/archives/">
                 
-                    <span class="site-state-item-count">35</span>
+                    <span class="site-state-item-count">36</span>
                     <span class="site-state-item-name">posts</span>
                   </a>
                 </div>

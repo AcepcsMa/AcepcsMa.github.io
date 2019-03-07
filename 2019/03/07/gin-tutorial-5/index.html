@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=7.0.1">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.0.1">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.0.1">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.0.1">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=7.0.1" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    version: '7.0.1',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false,"dimmer":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/03/07，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第五篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-4]中间件与API开发-1》里我们实现了Auth API，可是还没有说怎么可以让它“运行起来”，还不知道怎么可">
+<meta name="keywords" content="gin,教程,连载,后端">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Gin教程-5]中间件与API开发-2">
+<meta property="og:url" content="http://yoursite.com/2019/03/07/gin-tutorial-5/index.html">
+<meta property="og:site_name" content="Haoxiang&#39;s Tech Blog">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/03/07，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第五篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-4]中间件与API开发-1》里我们实现了Auth API，可是还没有说怎么可以让它“运行起来”，还不知道怎么可">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-router.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-postman.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-db-addauth.png">
+<meta property="og:updated_time" content="2019-03-07T23:28:35.086Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Gin教程-5]中间件与API开发-2">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/03/07，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第五篇，更多后续请继续关注。  Overview在上一篇教程《[Gin教程-4]中间件与API开发-1》里我们实现了Auth API，可是还没有说怎么可以让它“运行起来”，还不知道怎么可">
+<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-router.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Haoxiang's Tech Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2019/03/07/gin-tutorial-5/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>[Gin教程-5]中间件与API开发-2 | Haoxiang's Tech Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="default">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Haoxiang's Tech Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>About</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>Tags</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>Categories</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>Search</a>
+        </li>
+      
+    </ul>
+  
+
+  
+    
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="Searching..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/03/07/gin-tutorial-5/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Haoxiang Ma">
+      <meta itemprop="description" content="This is Haoxiang Ma (a.k.a Marco). I mainly focus on data infra & large-scale backend system.">
+      <meta itemprop="image" content="/images/wangzai.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Haoxiang's Tech Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">[Gin教程-5]中间件与API开发-2
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2019-03-07 15:30:00 / Modified: 15:28:35" itemprop="dateCreated datePublished" datetime="2019-03-07T15:30:00-08:00">2019-03-07</time>
+            
+
+            
+              
+
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">In</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/gin/" itemprop="url" rel="index"><span itemprop="name">gin</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+            
+              
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+            
+                <span class="post-meta-item-text">Comments: </span>
+                <a href="/2019/03/07/gin-tutorial-5/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count valine-comment-count" data-xid="/2019/03/07/gin-tutorial-5/" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             Views:  
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <blockquote>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
+<p>本文写于2019/03/07，基于<code>Go 1.11</code>。<br>至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
+<p>本文为[Gin-教程]连载系列的第五篇，更多后续请继续关注。</p>
+</blockquote>
+<h2 id="Overview"><a href="#Overview" class="headerlink" title="Overview"></a>Overview</h2><p>在上一篇教程<a href="https://marcoma.xyz/2019/03/04/gin-tutorial-4/" target="_blank" rel="noopener">《[Gin教程-4]中间件与API开发-1》</a>里我们实现了Auth API，可是还没有说怎么可以让它“运行起来”，还不知道怎么可以让用户调用。在本篇教程里，我们要定义后端的Router和Server，还有实现Bucket和Photo的部分API，让我们的服务真正地跑起来，可供外部调用。</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-router.png" alt=""></p>
+<p>如图所示，所谓的Router，就是路由器，负责把外部请求转发给对应的执行方法。例如用户调用的是<code>www.xxx.com/add_auth</code>，服务器接到请求后，Router就把该请求转发给我们上一篇实现的<code>AddAuth()</code>方法，执行里面的添加新用户的逻辑。</p>
+<p>而Server的实现，通俗来说其实就是要写一些代码，让你的进程一直运行，正常情况下不要自行退出，并且能够监听一个端口，从该端口处能接收用户请求和用户数据。</p>
+<h2 id="Router-amp-Main"><a href="#Router-amp-Main" class="headerlink" title="Router &amp; Main"></a>Router &amp; Main</h2><p>因为上一篇教程里我们已经实现了Auth API，所以可以先简单地实现Router和Server，试试我们的API能不能正常工作。</p>
+<p>在项目的根目录下新建<code>routers</code>文件夹，然后在文件夹内新建<code>router.go</code>代码文件：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-storage</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— ......</span><br><span class="line">|—— constant</span><br><span class="line">	|—— ......</span><br><span class="line">|—— models</span><br><span class="line">	|—— ......</span><br><span class="line">|—— utils</span><br><span class="line">	|—— ......</span><br><span class="line">|—— middleware</span><br><span class="line">	|—— ......</span><br><span class="line">|—— apis</span><br><span class="line">    |—— ......</span><br><span class="line">|—— routers</span><br><span class="line">    |—— router.go</span><br></pre></td></tr></table></figure>
+<p>Router的逻辑无非就是新建一个Router对象，然后往该Router对象里添加各种路径 -&gt; 方法的映射关系。</p>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> routers</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"gin-photo-storage/apis/v1"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/middleware"</span></span><br><span class="line">	<span class="string">"github.com/gin-gonic/gin"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// a global router</span></span><br><span class="line"><span class="keyword">var</span> Router *gin.Engine</span><br><span class="line"></span><br><span class="line"><span class="comment">// Init router, adding paths to it.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">init</span><span class="params">()</span></span> &#123;</span><br><span class="line">	Router = gin.Default()</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// api group for v1</span></span><br><span class="line">	v1Group := Router.Group(<span class="string">"/api/v1"</span>)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="comment">// api group for authentication</span></span><br><span class="line">		authGroup := v1Group.Group(<span class="string">"/auth"</span>)</span><br><span class="line">		&#123;</span><br><span class="line">			authGroup.POST(<span class="string">"/add"</span>, v1.AddAuth)</span><br><span class="line">			authGroup.POST(<span class="string">"/check"</span>, v1.CheckAuth)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>Note：</strong></p>
+<ul>
+<li><strong>用Group来划分API，可以让组织结构更加清晰。例如第一版的API，我们全部把它们归到<code>/api/v1</code>这个group下面，当项目迭代要开发第二版时，可以另外开一个group叫<code>/api/v2</code>，避免冲突。当调用该group下的API时，路径都要带上该group的前缀，如<code>www.xxx.com/api/v1/......</code>。</strong></li>
+<li><strong>Group是可以嵌套的，在v1的group内部，基于v1还可以按照业务或者Model来划分不同的group，可以有<code>authGroup</code>、<code>bucketGroup</code>、<code>photoGroup</code>……同理，调用的时候也要加上该group的路径前缀。</strong></li>
+</ul>
+<p>接下来在项目的根目录下直接新建<code>main.go</code>代码文件：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-storage</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— ......</span><br><span class="line">|—— constant</span><br><span class="line">	|—— ......</span><br><span class="line">|—— models</span><br><span class="line">	|—— ......</span><br><span class="line">|—— utils</span><br><span class="line">	|—— ......</span><br><span class="line">|—— middleware</span><br><span class="line">	|—— ......</span><br><span class="line">|—— apis</span><br><span class="line">    |—— ......</span><br><span class="line">|—— routers</span><br><span class="line">    |—— ......</span><br><span class="line">|—— main.go</span><br></pre></td></tr></table></figure>
+<p>在Main里面，主要的逻辑就是起一个http server，然后配置一下该http server的handler，让它把请求转交给我们的Router去处理。</p>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"fmt"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/conf"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/routers"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/constant"</span></span><br><span class="line">	<span class="string">"net/http"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="comment">// get the global router from router.go</span></span><br><span class="line">	router := routers.Router</span><br><span class="line"></span><br><span class="line">    <span class="comment">// set up a http server</span></span><br><span class="line">	server := http.Server&#123;</span><br><span class="line">		Addr: fmt.Sprintf(<span class="string">":%s"</span>, conf.ServerCfg.Get(constant.SERVER_PORT)),</span><br><span class="line">		Handler: router,</span><br><span class="line">		MaxHeaderBytes: <span class="number">1</span> &lt;&lt; <span class="number">20</span>,</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// run the server</span></span><br><span class="line">	server.ListenAndServe()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>最后，<strong>保证你的<code>MySQL</code>和<code>Redis</code>在正常运行</strong>，然后在项目根目录下执行<code>go run main.go</code>，http server就能正常跑起来，保持监听我们在<code>server.conf</code>里设定的那个端口。</p>
+<p>既然已经跑起来了，我们可以试试调用<code>AddAuth()</code>，看看是不是能够成功写入数据库。<strong>此处强烈建议使用<code>Postman</code>工具来测试API调用。（可以在电脑上装Postman软件，也可以用它的chrome插件）</strong></p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-postman.png" alt=""></p>
+<p>用<code>Postman</code>调用<code>add_auth</code>API。（我设的监听端口是9088，测试时请更换为你们自己的端口）</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-db-addauth.png" alt=""></p>
+<p>可以看到在数据库的<code>auth</code>表里出现了一条新增的用户记录。</p>
+<h2 id="Bucket-API"><a href="#Bucket-API" class="headerlink" title="Bucket API"></a>Bucket API</h2><p>在<code>gin-photo-storage/apis/v1/</code>下新建<code>bucket.go</code>代码文件：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-storage</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— ......</span><br><span class="line">|—— constant</span><br><span class="line">	|—— ......</span><br><span class="line">|—— models</span><br><span class="line">	|—— ......</span><br><span class="line">|—— utils</span><br><span class="line">	|—— ......</span><br><span class="line">|—— middleware</span><br><span class="line">	|—— ......</span><br><span class="line">|—— apis</span><br><span class="line">    |—— v1</span><br><span class="line">        |—— auth.go</span><br><span class="line">        |—— bucket.go</span><br><span class="line">|—— routers</span><br><span class="line">    |—— ......</span><br><span class="line">|—— main.go</span><br></pre></td></tr></table></figure>
+<p>然后为Bucket实现增删改查的API，<strong>因为篇幅和排版的原因，教程里只给出<code>AddBucket()</code>的源码。</strong>其他API的代码逻辑基本类似，没有太大区别，全部Bucket API的源码可参考github repo里的<a href="https://github.com/AcepcsMa/gin-photo-gallery-example/blob/master/apis/v1/bucket.go" target="_blank" rel="noopener">bucket.go</a></p>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> v1</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"gin-photo-storage/models"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/constant"</span></span><br><span class="line">	<span class="string">"github.com/astaxie/beego/validation"</span></span><br><span class="line">	<span class="string">"github.com/gin-gonic/gin"</span></span><br><span class="line">	<span class="string">"github.com/gin-gonic/gin/binding"</span></span><br><span class="line">	<span class="string">"log"</span></span><br><span class="line">	<span class="string">"net/http"</span></span><br><span class="line">	<span class="string">"strconv"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// Add a new bucket.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">AddBucket</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">	responseCode := constant.INVALID_PARAMS</span><br><span class="line">	bucketToAdd := models.Bucket&#123;&#125;</span><br><span class="line">	<span class="keyword">if</span> err := context.ShouldBindWith(&amp;bucketToAdd, binding.Form); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		log.Println(err)</span><br><span class="line">		context.AbortWithStatusJSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">			<span class="string">"code"</span>: responseCode,</span><br><span class="line">			<span class="string">"data"</span>: <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>),</span><br><span class="line">			<span class="string">"msg"</span>:  constant.GetMessage(responseCode),</span><br><span class="line">		&#125;)</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	validCheck := validation.Validation&#123;&#125;</span><br><span class="line">	validCheck.Required(bucketToAdd.AuthID, <span class="string">"auth_id"</span>).Message(<span class="string">"Must have auth id"</span>)</span><br><span class="line">	validCheck.Required(bucketToAdd.Name, <span class="string">"bucket_name"</span>).Message(<span class="string">"Must have bucket name"</span>)</span><br><span class="line">	validCheck.MaxSize(bucketToAdd.Name, <span class="number">64</span>, <span class="string">"bucket_name"</span>).Message(<span class="string">"Bucket name length can not exceed 64"</span>)</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> !validCheck.HasErrors() &#123;</span><br><span class="line">		<span class="keyword">if</span> err := models.AddBucket(&amp;bucketToAdd); err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">if</span> err == models.BucketExistsError &#123;</span><br><span class="line">				responseCode = constant.BUCKET_ALREADY_EXIST</span><br><span class="line">			&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">				responseCode = constant.INTERNAL_SERVER_ERROR</span><br><span class="line">			&#125;</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			responseCode = constant.BUCKET_ADD_SUCCESS</span><br><span class="line">		&#125;</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="keyword">for</span> _, err := <span class="keyword">range</span> validCheck.Errors &#123;</span><br><span class="line">			log.Println(err.Message)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	data := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>)</span><br><span class="line">	data[<span class="string">"bucket_name"</span>] = bucketToAdd.Name</span><br><span class="line"></span><br><span class="line">	context.JSON(http.StatusOK, gin.H&#123;</span><br><span class="line">		<span class="string">"code"</span>: responseCode,</span><br><span class="line">		<span class="string">"data"</span>: data,</span><br><span class="line">		<span class="string">"msg"</span>:  constant.GetMessage(responseCode),</span><br><span class="line">	&#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Delete an existed bucket.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">DeleteBucket</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">	<span class="comment">// ......</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Update an existed bucket.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">UpdateBucket</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">	<span class="comment">// ......</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Get a bucket by bucket id.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetBucketByID</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">	<span class="comment">// ......</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Get buckets by auth id.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetBucketByAuthID</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">	<span class="comment">// ......</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>Note：</strong></p>
+<ul>
+<li><strong>这里没有用<code>context.Form()</code>或者<code>context.Query()</code>来获取请求里的参数，而是直接把请求参数bind到一个Bucket对象上（<code>context.ShouldBindWith()</code>）。为什么可以这么做呢？原因就是我们在Bucket Model里为每个字段设定了<code>form</code>标签，所以只要请求参数里的参数名能严格对应字段的<code>form</code>标签，就能成功把参数绑定到Bucket Model对象上。</strong></li>
+</ul>
+<h2 id="Photo-API"><a href="#Photo-API" class="headerlink" title="Photo API"></a>Photo API</h2><p>在<code>gin-photo-storage/apis/v1/</code>下新建<code>photo.go</code>代码文件：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gin-photo-storage</span><br><span class="line">|—— conf</span><br><span class="line"> 	|—— ......</span><br><span class="line">|—— constant</span><br><span class="line">	|—— ......</span><br><span class="line">|—— models</span><br><span class="line">	|—— ......</span><br><span class="line">|—— utils</span><br><span class="line">	|—— ......</span><br><span class="line">|—— middleware</span><br><span class="line">	|—— ......</span><br><span class="line">|—— apis</span><br><span class="line">    |—— v1</span><br><span class="line">        |—— auth.go</span><br><span class="line">        |—— bucket.go</span><br><span class="line">        |—— photo.go</span><br><span class="line">|—— routers</span><br><span class="line">    |—— ......</span><br><span class="line">|—— main.go</span><br></pre></td></tr></table></figure>
+<p>然后为Photo实现增删改查的API，<strong>因为篇幅和排版的原因，教程里只给出<code>AddPhoto()</code>的源码。</strong>其他API的代码逻辑基本类似，没有太大区别，全部Photo API的源码可参考github repo里的<a href="https://github.com/AcepcsMa/gin-photo-gallery-example/blob/master/apis/v1/photo.go" target="_blank" rel="noopener">photo.go</a></p>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> v1</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"gin-photo-storage/models"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/constant"</span></span><br><span class="line">	<span class="string">"github.com/astaxie/beego/validation"</span></span><br><span class="line">	<span class="string">"github.com/gin-gonic/gin"</span></span><br><span class="line">	<span class="string">"github.com/gin-gonic/gin/binding"</span></span><br><span class="line">	<span class="string">"log"</span></span><br><span class="line">	<span class="string">"net/http"</span></span><br><span class="line">	<span class="string">"strconv"</span></span><br><span class="line">	<span class="string">"strings"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// Add a new photo</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">AddPhoto</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">	responseCode := constant.INVALID_PARAMS</span><br><span class="line"></span><br><span class="line">	photoFile, fileErr := context.FormFile(<span class="string">"photo"</span>)</span><br><span class="line">	<span class="keyword">if</span> fileErr != <span class="literal">nil</span> &#123;</span><br><span class="line">		log.Println(fileErr)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	photo := models.Photo&#123;&#125;</span><br><span class="line">	paramErr := context.ShouldBindWith(&amp;photo, binding.Form)</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> fileErr != <span class="literal">nil</span> || paramErr != <span class="literal">nil</span> &#123;</span><br><span class="line">		context.AbortWithStatusJSON(http.StatusBadRequest, gin.H&#123;</span><br><span class="line">			<span class="string">"code"</span>: responseCode,</span><br><span class="line">			<span class="string">"data"</span>: <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>),</span><br><span class="line">			<span class="string">"msg"</span>:  constant.GetMessage(responseCode),</span><br><span class="line">		&#125;)</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	validCheck := validation.Validation&#123;&#125;</span><br><span class="line">	validCheck.Required(photo.AuthID, <span class="string">"auth_id"</span>).Message(<span class="string">"Must have auth id"</span>)</span><br><span class="line">	validCheck.Required(photo.BucketID, <span class="string">"bucket_id"</span>).Message(<span class="string">"Must have bucket id"</span>)</span><br><span class="line">	validCheck.Required(photo.Name, <span class="string">"photo_name"</span>).Message(<span class="string">"Must have photo name"</span>)</span><br><span class="line">	validCheck.MaxSize(photo.Name, <span class="number">255</span>, <span class="string">"photo_name"</span>).Message(<span class="string">"Photo name len must not exceed 255"</span>)</span><br><span class="line"></span><br><span class="line">	data := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">interface</span>&#123;&#125;)</span><br><span class="line">	photoToAdd := &amp;models.Photo&#123;BucketID: photo.BucketID, AuthID: photo.AuthID,</span><br><span class="line">		Name: photo.Name, Description: photo.Description,</span><br><span class="line">		Tag:strings.Join(photo.Tags, <span class="string">";"</span>)&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> !validCheck.HasErrors() &#123;</span><br><span class="line">		<span class="keyword">if</span> photoToAdd, uploadID, err := models.AddPhoto(photoToAdd, photoFile); err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">if</span> err == models.PhotoExistsError &#123;</span><br><span class="line">				responseCode = constant.PHOTO_ALREADY_EXIST</span><br><span class="line">			&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">				responseCode = constant.INTERNAL_SERVER_ERROR</span><br><span class="line">			&#125;</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			responseCode = constant.PHOTO_ADD_IN_PROCESS</span><br><span class="line">			data[<span class="string">"photo"</span>] = *photoToAdd</span><br><span class="line">			data[<span class="string">"photo_upload_id"</span>] = uploadID</span><br><span class="line">		&#125;</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="keyword">for</span> _, err := <span class="keyword">range</span> validCheck.Errors &#123;</span><br><span class="line">			log.Println(err.Message)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	context.JSON(http.StatusOK, gin.H&#123;</span><br><span class="line">		<span class="string">"code"</span>: responseCode,</span><br><span class="line">		<span class="string">"data"</span>: data,</span><br><span class="line">		<span class="string">"msg"</span>:  constant.GetMessage(responseCode),</span><br><span class="line">	&#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Delete an existed photo.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">DeletePhoto</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">	<span class="comment">// ......</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Update an existed photo.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">UpdatePhoto</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">	<span class="comment">// ......</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Get a photo by photo id.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetPhotoByID</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">	<span class="comment">// ......</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Get photos by bucket id.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetPhotoByBucketID</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">	<span class="comment">// ......</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Get the upload status of a photo by upload id.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetPhotoUploadStatus</span><span class="params">(context *gin.Context)</span></span> &#123;</span><br><span class="line">	<span class="comment">// ......</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>同理，除了用<code>context.ShouldBindWith()</code>来绑定参数之外，我们还用<code>context.FormFile()</code>来获取用户通过API上传的图片文件。</p>
+<h2 id="设置Router转发规则"><a href="#设置Router转发规则" class="headerlink" title="设置Router转发规则"></a>设置Router转发规则</h2><p>到这里，我们已经实现了：</p>
+<ul>
+<li>中间件<ul>
+<li>pagination中间件</li>
+<li>auth中间件</li>
+<li>refresh中间件</li>
+</ul>
+</li>
+<li>API<ul>
+<li>Auth API</li>
+<li>Bucket API</li>
+<li>Photo API</li>
+</ul>
+</li>
+</ul>
+<p>此时应该把所有API的routing规则都设置到Router里，让请求真正都能被转发到对应的执行方法处。以下为最终的<code>router.go</code>：</p>
+<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> routers</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"gin-photo-storage/apis/v1"</span></span><br><span class="line">	<span class="string">"gin-photo-storage/middleware"</span></span><br><span class="line">	<span class="string">"github.com/gin-gonic/gin"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// a global router</span></span><br><span class="line"><span class="keyword">var</span> Router *gin.Engine</span><br><span class="line"></span><br><span class="line"><span class="comment">// Init router, adding paths to it.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">init</span><span class="params">()</span></span> &#123;</span><br><span class="line">	Router = gin.Default()</span><br><span class="line">	checkAuthMdw := middleware.GetAuthMiddleware()			<span class="comment">// middleware for authentication</span></span><br><span class="line">	refreshMdw := middleware.GetRefreshMiddleware()			<span class="comment">// middleware for refresh auth token</span></span><br><span class="line">	paginationMdw := middleware.GetPaginationMiddleware()	<span class="comment">// middleware for pagination</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// api group for v1</span></span><br><span class="line">	v1Group := Router.Group(<span class="string">"/api/v1"</span>)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="comment">// api group for authentication</span></span><br><span class="line">		authGroup := v1Group.Group(<span class="string">"/auth"</span>)</span><br><span class="line">		&#123;</span><br><span class="line">			authGroup.POST(<span class="string">"/add"</span>, v1.AddAuth)</span><br><span class="line">			authGroup.POST(<span class="string">"/check"</span>, v1.CheckAuth)</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// api group for bucket</span></span><br><span class="line">		bucketGroup := v1Group.Group(<span class="string">"/bucket"</span>)</span><br><span class="line">		&#123;</span><br><span class="line">			<span class="comment">// must check auth &amp; refresh auth token before any operation</span></span><br><span class="line">			bucketGroup.POST(<span class="string">"/add"</span>, checkAuthMdw, refreshMdw, v1.AddBucket)</span><br><span class="line">			bucketGroup.DELETE(<span class="string">"/delete"</span>, checkAuthMdw, refreshMdw, v1.DeleteBucket)</span><br><span class="line">			bucketGroup.PUT(<span class="string">"/update"</span>, checkAuthMdw, refreshMdw, v1.UpdateBucket)</span><br><span class="line">			bucketGroup.GET(<span class="string">"/get_by_id"</span>, checkAuthMdw, refreshMdw, v1.GetBucketByID)</span><br><span class="line">			bucketGroup.GET(<span class="string">"/get_by_auth_id"</span>, checkAuthMdw, refreshMdw, paginationMdw, v1.GetBucketByAuthID)</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// api group for photo</span></span><br><span class="line">		photoGroup := v1Group.Group(<span class="string">"/photo"</span>)</span><br><span class="line">		&#123;</span><br><span class="line">			<span class="comment">// must check auth &amp; refresh auth token before any operation</span></span><br><span class="line">			photoGroup.POST(<span class="string">"/add"</span>, checkAuthMdw, refreshMdw, v1.AddPhoto)</span><br><span class="line">			photoGroup.GET(<span class="string">"/upload_status"</span>, checkAuthMdw, refreshMdw, v1.GetPhotoUploadStatus)</span><br><span class="line">			photoGroup.DELETE(<span class="string">"/delete"</span>, checkAuthMdw, refreshMdw, v1.DeletePhoto)</span><br><span class="line">			photoGroup.PUT(<span class="string">"/update"</span>, checkAuthMdw, refreshMdw, v1.UpdatePhoto)</span><br><span class="line">			photoGroup.GET(<span class="string">"/get_by_id"</span>, checkAuthMdw, refreshMdw, v1.GetPhotoByID)</span><br><span class="line">			photoGroup.GET(<span class="string">"/get_by_bucket_id"</span>, checkAuthMdw, refreshMdw, paginationMdw, v1.GetPhotoByBucketID)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，在bucket group和photo group里我们为每个API都设定了调用路径，并且为其配置了auth中间件、pagination中间件和refresh中间件。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<li><p>Router定义里，不同的方法会对应<code>GET</code>、<code>POST</code>、<code>PUT</code>、<code>DELETE</code>多个不同的动词，它们有什么区别？除了这4个还有什么动词可以直接拿来用？</p>
+<ul>
+<li>关键词：http verb</li>
+</ul>
+</li>
+<li><p>在教程里，Server、Router、APIs、Models全都是一个进程里的，在单台服务器上把程序run起来就可以工作了。但如果程序里某一个地方出bug导致崩溃了，意味着从Server到Models都不能工作了，有更好的架构解决类似的问题吗？</p>
+<ul>
+<li>关键词：微服务、容灾</li>
+</ul>
+</li>
+<li><p>我们在main里面起了一个http server，什么是http？可以用http server来做即时聊天工具的服务器吗？</p>
+<ul>
+<li>关键词：http协议、tcp协议、网络协议栈</li>
+</ul>
+</li>
+<li><p>在<code>AddAuth()</code>的逻辑里，我们会先把用户密码用md5加一层壳再写MySQL，但是在调API的时候是直接明文传输的，这样是不是很不安全？有什么解决手段吗？</p>
+<ul>
+<li>关键词：SSL/TLS、https</li>
+</ul>
+</li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/gin/" rel="tag"># gin</a>
+          
+            <a href="/tags/教程/" rel="tag"># 教程</a>
+          
+            <a href="/tags/连载/" rel="tag"># 连载</a>
+          
+            <a href="/tags/后端/" rel="tag"># 后端</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/03/04/gin-tutorial-4/" rel="next" title="[Gin教程-4]中间件与API开发-1">
+                <i class="fa fa-chevron-left"></i> [Gin教程-4]中间件与API开发-1
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/wangzai.jpg" alt="Haoxiang Ma">
+            
+              <p class="site-author-name" itemprop="name">Haoxiang Ma</p>
+              <div class="site-description motion-element" itemprop="description">This is Haoxiang Ma (a.k.a Marco). I mainly focus on data infra & large-scale backend system.</div>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">36</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  
+                    
+                      <a href="/categories/">
+                    
+                  
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">12</span>
+                    <span class="site-state-item-name">categories</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  
+                    
+                      <a href="/tags/">
+                    
+                  
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">21</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/AcepcsMa" title="GitHub &rarr; https://github.com/AcepcsMa" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://www.linkedin.com/in/haoxiang-ma-86353b14b" title="LinkedIn &rarr; https://www.linkedin.com/in/haoxiang-ma-86353b14b" rel="noopener" target="_blank"><i class="fa fa-fw fa-linkedin"></i>LinkedIn</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Overview"><span class="nav-number">1.</span> <span class="nav-text">Overview</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Router-amp-Main"><span class="nav-number">2.</span> <span class="nav-text">Router &amp; Main</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Bucket-API"><span class="nav-number">3.</span> <span class="nav-text">Bucket API</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Photo-API"><span class="nav-number">4.</span> <span class="nav-text">Photo API</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#设置Router转发规则"><span class="nav-number">5.</span> <span class="nav-text">设置Router转发规则</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+  
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Haoxiang Ma</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> v7.0.1</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="post-meta-item-icon">
+      <i class="fa fa-user"></i>
+    </span>
+    <span class="site-uv" title="Total Visitors">
+      <span class="busuanzi-value" id="busuanzi_value_site_uv"></span>
+    </span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+  
+
+  
+    <span class="post-meta-item-icon">
+      <i class="fa fa-eye"></i>
+    </span>
+    <span class="site-pv" title="Total Views">
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=7.0.1"></script>
+
+  <script src="/js/src/motion.js?v=7.0.1"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/schemes/muse.js?v=7.0.1"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=7.0.1"></script>
+<script src="/js/src/post-details.js?v=7.0.1"></script>
+
+
+
+  
+
+
+  <script src="/js/src/next-boot.js?v=7.0.1"></script>
+
+
+  
+  
+  
+
+<script src="//cdn1.lncld.net/static/js/3.11.1/av-min.js"></script>
+
+
+
+<script src="//unpkg.com/valine/dist/Valine.min.js"></script>
+
+<script>
+  var GUEST = ['nick', 'mail', 'link'];
+  var guest = 'nick,mail';
+  guest = guest.split(',').filter(function(item) {
+    return GUEST.indexOf(item) > -1;
+  });
+  new Valine({
+    el: '#comments',
+    verify: false,
+    notify: false,
+    appId: '1mYS96DR4e28MDXJxW1ByUA6-gzGzoHsz',
+    appKey: 'IMF92wd7jJxCXanv65MdkiBn',
+    placeholder: 'Say anything if you like~',
+    avatar: 'mm',
+    meta: guest,
+    pageSize: '20' || 10,
+    visitor: false
+  });
+</script>
+
+
+
+
+  
+
+
+  
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('3');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <style>
+    .copy-btn {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: #333;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      
+        background-color: #eee;
+        background-image: linear-gradient(#fcfcfc, #eee);
+        border: 1px solid #d5d5d5;
+        border-radius: 3px;
+      
+      user-select: none;
+      outline: 0;
+    }
+
+    .highlight-wrap .copy-btn {
+      transition: opacity .3s ease-in-out;
+      opacity: 0;
+      padding: 2px 6px;
+      position: absolute;
+      
+        right: 4px;
+        top: 8px;
+      
+    }
+
+    .highlight-wrap:hover .copy-btn,
+    .highlight-wrap .copy-btn:focus {
+      opacity: 1;
+    }
+
+    .highlight-wrap {
+      position: relative;
+    }
+  </style>
+  <script>
+    $('.highlight').each(function(i, e) {
+      var $wrap = $('<div>').addClass('highlight-wrap');
+      $(e).after($wrap);
+      $wrap.append($('<button>').addClass('copy-btn').append('Copy').on('click', function(e) {
+        var code = $(this).parent().find('.code').find('.line').map(function(i, e) {
+          return $(e).text();
+        }).toArray().join('\n');
+        var ta = document.createElement('textarea');
+        var yPosition = window.pageYOffset || document.documentElement.scrollTop;
+        ta.style.top = yPosition + 'px'; // Prevent page scroll
+        ta.style.position = 'absolute';
+        ta.style.opacity = '0';
+        ta.readOnly = true;
+        ta.value = code;
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, code.length);
+        ta.readOnly = false;
+        var result = document.execCommand('copy');
+        
+          if (result) $(this).text('Copied');
+          else $(this).text('Copy failed');
+        
+        ta.blur(); // For iOS
+        $(this).blur();
+      })).on('mouseleave', function(e) {
+        var $b = $(this).find('.copy-btn');
+        setTimeout(function() {
+          $b.text('Copy');
+        }, 300);
+      }).append(e);
+    })
+  </script>
+
+
+</body>
+</html>
