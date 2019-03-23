@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=7.0.1">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.0.1">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.0.1">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.0.1">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=7.0.1" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    version: '7.0.1',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false,"dimmer":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/03/22，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第十篇（最后一篇）。  Overview Note：本教程假定读者已有简单的Docker基础，并在本机开发环境中成功安装、运行了Docker Engine。Docker基础知识可参考《D">
+<meta name="keywords" content="gin,教程,连载,后端,docker">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Gin教程-10]Docker部署后端服务">
+<meta property="og:url" content="http://yoursite.com/2019/03/22/gin-tutorial-10/index.html">
+<meta property="og:site_name" content="Haoxiang&#39;s Tech Blog">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/03/22，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第十篇（最后一篇）。  Overview Note：本教程假定读者已有简单的Docker基础，并在本机开发环境中成功安装、运行了Docker Engine。Docker基础知识可参考《D">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-docker-ps.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-docker-test.png">
+<meta property="og:updated_time" content="2019-03-22T23:52:23.109Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Gin教程-10]Docker部署后端服务">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/03/22，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 本文为[Gin-教程]连载系列的第十篇（最后一篇）。  Overview Note：本教程假定读者已有简单的Docker基础，并在本机开发环境中成功安装、运行了Docker Engine。Docker基础知识可参考《D">
+<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-docker-ps.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Haoxiang's Tech Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2019/03/22/gin-tutorial-10/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>[Gin教程-10]Docker部署后端服务 | Haoxiang's Tech Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="default">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Haoxiang's Tech Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>About</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>Tags</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>Categories</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>Search</a>
+        </li>
+      
+    </ul>
+  
+
+  
+    
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="Searching..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/03/22/gin-tutorial-10/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Haoxiang Ma">
+      <meta itemprop="description" content="This is Haoxiang Ma (a.k.a Marco). I mainly focus on data infra & large-scale backend system.">
+      <meta itemprop="image" content="/images/wangzai.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Haoxiang's Tech Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">[Gin教程-10]Docker部署后端服务
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2019-03-22 17:00:00 / Modified: 16:52:23" itemprop="dateCreated datePublished" datetime="2019-03-22T17:00:00-07:00">2019-03-22</time>
+            
+
+            
+              
+
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">In</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/gin/" itemprop="url" rel="index"><span itemprop="name">gin</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+            
+              
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+            
+                <span class="post-meta-item-text">Comments: </span>
+                <a href="/2019/03/22/gin-tutorial-10/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count valine-comment-count" data-xid="/2019/03/22/gin-tutorial-10/" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             Views:  
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <blockquote>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
+<p>本文写于2019/03/22，基于<code>Go 1.11</code>。<br>至于其他版本的Go SDK，如有出入请自行查阅其他资料。</p>
+<p>本文为[Gin-教程]连载系列的第十篇（最后一篇）。</p>
+</blockquote>
+<h2 id="Overview"><a href="#Overview" class="headerlink" title="Overview"></a>Overview</h2><blockquote>
+<p><strong>Note：本教程假定读者已有简单的Docker基础，并在本机开发环境中成功安装、运行了Docker Engine。Docker基础知识可参考<a href="https://yeasy.gitbooks.io/docker_practice/content/introduction/what.html" target="_blank" rel="noopener">《Docker Gitbook》</a>。</strong></p>
+</blockquote>
+<p>在上一篇教程<a href="https://marcoma.xyz/" target="_blank" rel="noopener">《[Gin教程-9]》</a>里，我们已经在本地成功生成公钥私钥和https证书，也成功地部署了nginx，用nginx作反向代理供外部调用我们的API。</p>
+<p>但是上篇教程里的部署完全是针对本机环境的，假如我们在本地开发完，需要把整套应用移到Production或者Test环境，那岂不是得到新环境重新把<code>MySQL</code>、<code>Redis</code>、<code>Elasticsearch</code>、<code>nginx</code>装一遍，再把项目代码重新编译，手动运行？实在是太麻烦了。</p>
+<p>另外，我们把这么多组件全都运行在一台主机上，如果这台主机发生了异常，岂不是所有服务全都挂了？有没有办法能让多个组件分开来提高隔离性，又易于部署呢？</p>
+<p><strong>所以，针对种种不便的情况，我们可以使用Docker来帮助我们解决问题。</strong></p>
+<h2 id="Docker"><a href="#Docker" class="headerlink" title="Docker"></a>Docker</h2><ol>
+<li><p>Docker是什么？</p>
+<p> 根据<a href="https://yeasy.gitbooks.io/docker_practice/content/introduction/what.html" target="_blank" rel="noopener">《Docker Gitbook》</a>，Docker就是一种虚拟化技术。以前我们说虚拟化，往往会说在宿主机上开一台虚拟机，在虚拟机里跑一个操作系统（例如Windows上跑一个Ubuntu的虚拟机等等）。但是虚拟机对资源的占用过重，所以后来基于LXC、libcontainer、runC和containerd就开发了Docker——<strong>一种看起来很像虚拟机，但是比虚拟机轻量很多的虚拟化技术。</strong></p>
+</li>
+<li><p>为什么要用Docker？</p>
+<ul>
+<li><p>多环境部署方便</p>
+<p>  依托于Docker里image和container的概念，只要制作好了image，理论上而言在所有装了Docker Engine的系统里都可以运行该image，然后成功跑起一个很像独立虚拟机的container。一份image，多处运行，部署不同环境只需要加一些环境变量即可，非常方便。</p>
+</li>
+<li><p>隔离性好</p>
+<p>  多个container之间基本相互独立，每个container内部都像是拥有一套独立的系统资源——独立的文件系统、独立的网络栈、独立的块设备、独立的进程表……默认情况下隔离性已经很高了，给人感觉像是运行了多个虚拟机。</p>
+</li>
+<li><p>资源占用相对较低</p>
+<p>  多个container并不需要运行在多个guest OS之上，而是由Docker Engine统一调度和管理。所以即使同时运行几十个container，也不存在几十个guest OS，对系统资源的占用相比虚拟机来说低得多。</p>
+</li>
+</ul>
+</li>
+<li><p>image和container是什么？</p>
+<ul>
+<li>image = 镜像，是一种<strong>静态概念</strong>，可类比成一个个写好的代码文件，里面包含了各种静态数据、bin、lib等。</li>
+<li><p>container = 容器，是一种<strong>动态概念</strong>，可类比成一个正在run的程序。</p>
+<p>通过<code>docker run --name &lt;container_name&gt; &lt;image_name&gt;</code>命令可以基于静态的image构建出一个container，然后让该container运行起来。</p>
+</li>
+</ul>
+</li>
+<li><p>怎么制作image？</p>
+<p> 一般来说，制作image有两种方法：</p>
+<ul>
+<li>基于Dockerfile。自己写Dockerfile，然后<code>docker build ......</code>构建出一个image。类似于自己写一堆Golang代码，然后<code>go build</code>编译出一个可执行程序。Dockerfile的编写规范可参考 <a href="http://guide.daocloud.io/dcs/dockerfile-9153584.html" target="_blank" rel="noopener">DaoCloud的DCS文档</a>。</li>
+<li>基于正在运行的container。例如在某个正在运行的container里新建了几个关键文件，然后<code>docker commit ......</code>，基于该container构建出一个image。</li>
+</ul>
+</li>
+<li><p>container之间怎么交互（通信）？</p>
+<p> 上面提到不同的container之间隔离性很高，即使在一台主机上运行，但看起来就像是多台独立的虚拟机。<strong>可以想象多台机子之间通信，肯定是要通过网络的</strong>，所以常见的通信方式有：</p>
+<ul>
+<li>让多个容器加入同一个namespace，不同容器使用同一套网络设备和协议。（<strong>准确来说是网络相关的namespace，关于namespace的内容请自行查阅Linux内核相关知识，此处不展开</strong>）</li>
+<li>让一台主机上运行的多个容器使用主机的网络namespace，在主机的网络里通信。</li>
+<li>多个容器依旧独立，似乎每个容器都拥有着自己的独立网卡，从软件层面设立一个虚拟的网桥（bridge），让多个容器通过该网桥交互数据。</li>
+</ul>
+</li>
+<li><p>container被关闭之后，数据还在吗？</p>
+<p> container被关闭之后，里面的数据是否持久化，<strong>一般取决于启动时有没有挂载（映射）外部目录。</strong>如果在run container的时候，指定了container里某个目录<code>/xxx/yyy/zzz</code>映射成某个外部目录<code>/aaa/bbb/ccc</code>的话，当container被关闭后，外部目录里会存有所有数据。</p>
+</li>
+<li><p>常用的Docker Client命令</p>
+<ul>
+<li><code>docker pull [&lt;repo_name&gt;]/&lt;image_name&gt;:[&lt;tag_name&gt;]</code>，从远程仓库拉一个image到本地，默认仓库是Docker Hub，国内访问速度可能会比较慢。</li>
+<li><code>docker run [-Options] &lt;image_name&gt;:[&lt;tag_name&gt;]</code>，把一个image运行起来成为container，可选加非常多的参数。</li>
+<li><code>docker images</code>，用来查看Docker Engine中管理着的所有images。</li>
+<li><code>docker ps [-Options]</code>，用来查看Docker Engine中管理着的所有container。</li>
+<li><code>docker kill &lt;container_name/container_id&gt;</code>，用来关闭某个正在运行的container，该container变成stop状态。</li>
+<li><code>docker rm &lt;container_name&gt;</code>，直接删除某个container。</li>
+<li><code>docker rmi &lt;image_name&gt;</code>，直接删除某个image。</li>
+<li><p><code>docker exec [-Options] &lt;container_name&gt; &lt;command&gt;</code>，在某个正在运行的container里执行一条command。</p>
+<p>当然除了上面这些，还有很多Docker Client的命令，这里就不一一展开，毕竟不是专门介绍Docker的教程。详情可参考<a href="https://docs.docker.com/engine/reference/commandline/cli/" target="_blank" rel="noopener">《Docker Client官方文档》</a>。</p>
+</li>
+</ul>
+</li>
+</ol>
+<h2 id="部署MySQL"><a href="#部署MySQL" class="headerlink" title="部署MySQL"></a>部署MySQL</h2><p>数据库是整个web项目的核心，所以我们先来用Docker部署<code>MySQL</code>。</p>
+<p>根据 <a href="https://hub.docker.com/_/mysql?tab=description" target="_blank" rel="noopener">MySQL官方镜像</a> 里给的教程，直接一把梭，只用一条语句就可以把<code>MySQL</code>运行起来了：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">docker run --name some-mysql -e MYSQL_ROOT_PASSWORD=my-secret-pw -d mysql:tag</span><br></pre></td></tr></table></figure>
+<p>对应我们的<code>MySQL</code>版本（5.7），命令应该是：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">docker run --name mysql -e MYSQL_ROOT_PASSWORD=自定义的root密码 -d mysql:5.7</span><br></pre></td></tr></table></figure>
+<p><strong>Note：本教程在数据库中默认使用root用户。</strong></p>
+<p><strong>然而事情并没有这么简单，除了简单地把<code>MySQL</code>的container运行起来，我们还要实现：</strong></p>
+<ol>
+<li><strong>在container启动时，假如数据库和表都不存在，先初始化创建我们之后要用的数据库和表。</strong></li>
+<li><strong>将container内的<code>MySQL</code>数据目录映射到一个外部目录，以实现数据持久化，确保不管启停多少次数据依然存在。</strong></li>
+</ol>
+<p>第一步，在任意位置新建目录<code>image-mysql</code>，在目录下新建<code>db.sql</code>文件，把create database和create table的命令写到<code>db.sql</code>里：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">// db.sql</span><br><span class="line"><span class="keyword">create</span> <span class="keyword">database</span> <span class="keyword">if</span> <span class="keyword">not</span> <span class="keyword">exists</span> <span class="string">`photo_gallery`</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">use</span> <span class="string">`photo_gallery`</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> <span class="keyword">if</span> <span class="keyword">not</span> <span class="keyword">exists</span> <span class="string">`auth`</span></span><br><span class="line">(</span><br><span class="line">	<span class="keyword">id</span> <span class="built_in">int</span> primary <span class="keyword">key</span> auto_increment,</span><br><span class="line">	user_name <span class="built_in">varchar</span>(<span class="number">16</span>) <span class="keyword">unique</span> <span class="keyword">not</span> <span class="literal">null</span>,</span><br><span class="line">	<span class="keyword">password</span> <span class="built_in">varchar</span>(<span class="number">255</span>) <span class="keyword">not</span> <span class="literal">null</span>,</span><br><span class="line">	email <span class="built_in">varchar</span>(<span class="number">128</span>) <span class="keyword">not</span> <span class="literal">null</span>,</span><br><span class="line">	created_at <span class="built_in">timestamp</span> <span class="keyword">default</span> <span class="keyword">CURRENT_TIMESTAMP</span>,</span><br><span class="line">	updated_at <span class="built_in">timestamp</span> <span class="keyword">default</span> <span class="keyword">CURRENT_TIMESTAMP</span> <span class="keyword">ON</span> <span class="keyword">UPDATE</span> <span class="keyword">CURRENT_TIMESTAMP</span></span><br><span class="line">) <span class="keyword">CHARSET</span>=utf8mb4;</span><br><span class="line"></span><br><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> <span class="keyword">if</span> <span class="keyword">not</span> <span class="keyword">exists</span> <span class="string">`bucket`</span></span><br><span class="line">(</span><br><span class="line">	<span class="keyword">id</span> <span class="built_in">int</span> primary <span class="keyword">key</span> auto_increment,</span><br><span class="line">	auth_id <span class="built_in">int</span>,</span><br><span class="line">	<span class="keyword">name</span> <span class="built_in">varchar</span>(<span class="number">64</span>) <span class="keyword">not</span> <span class="literal">null</span>,</span><br><span class="line">	state tinyint(<span class="number">1</span>) <span class="keyword">default</span> <span class="number">1</span>,</span><br><span class="line">	<span class="keyword">size</span> <span class="built_in">int</span> <span class="keyword">default</span> <span class="number">0</span>,</span><br><span class="line">	description <span class="built_in">text</span>,</span><br><span class="line">	created_at <span class="built_in">timestamp</span> <span class="keyword">default</span> <span class="keyword">CURRENT_TIMESTAMP</span>,</span><br><span class="line">	updated_at <span class="built_in">timestamp</span> <span class="keyword">default</span> <span class="keyword">CURRENT_TIMESTAMP</span> <span class="keyword">ON</span> <span class="keyword">UPDATE</span> <span class="keyword">CURRENT_TIMESTAMP</span>,</span><br><span class="line">	<span class="keyword">CONSTRAINT</span> UC_bucket <span class="keyword">UNIQUE</span>(auth_id, <span class="keyword">name</span>),</span><br><span class="line">	<span class="keyword">INDEX</span> idx_aid_name (auth_id, <span class="keyword">name</span>)</span><br><span class="line">) <span class="keyword">CHARSET</span>=utf8mb4;</span><br><span class="line"></span><br><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> <span class="keyword">if</span> <span class="keyword">not</span> <span class="keyword">exists</span> <span class="string">`photo`</span></span><br><span class="line">(</span><br><span class="line">	<span class="keyword">id</span> <span class="built_in">int</span> primary <span class="keyword">key</span> auto_increment,</span><br><span class="line">	bucket_id <span class="built_in">int</span>,</span><br><span class="line">	auth_id <span class="built_in">int</span>,</span><br><span class="line">	<span class="keyword">name</span> <span class="built_in">varchar</span>(<span class="number">255</span>) <span class="keyword">not</span> <span class="literal">null</span>,</span><br><span class="line">	tag <span class="built_in">varchar</span>(<span class="number">255</span>),</span><br><span class="line">	<span class="keyword">url</span> <span class="built_in">varchar</span>(<span class="number">255</span>) <span class="keyword">not</span> <span class="literal">null</span>,</span><br><span class="line">	description <span class="built_in">text</span>,</span><br><span class="line">	state tinyint(<span class="number">1</span>) <span class="keyword">default</span> <span class="number">1</span>,</span><br><span class="line">	created_at <span class="built_in">timestamp</span> <span class="keyword">default</span> <span class="keyword">CURRENT_TIMESTAMP</span>,</span><br><span class="line">	updated_at <span class="built_in">timestamp</span> <span class="keyword">default</span> <span class="keyword">CURRENT_TIMESTAMP</span> <span class="keyword">ON</span> <span class="keyword">UPDATE</span> <span class="keyword">CURRENT_TIMESTAMP</span>,</span><br><span class="line">	<span class="keyword">constraint</span> UC_photo <span class="keyword">UNIQUE</span>(bucket_id, <span class="keyword">name</span>),</span><br><span class="line">	<span class="keyword">INDEX</span> idx_bid_name (bucket_id, <span class="keyword">name</span>)</span><br><span class="line">) <span class="keyword">CHARSET</span>=utf8mb4;</span><br></pre></td></tr></table></figure>
+<p>第二步，在<code>image-mysql</code>目录下新建<code>Dockerfile</code>，继承自官方的<code>MySQL:5.7</code>镜像，制作自定义镜像。把上面的<code>db.sql</code>放到镜像里的<code>MySQL</code>的初始化目录下：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"># Dockerfile</span><br><span class="line">FROM mysql:5.7</span><br><span class="line"></span><br><span class="line">COPY db.sql /docker-entrypoint-initdb.d/</span><br></pre></td></tr></table></figure>
+<p>第三步，在<code>image-mysql</code>目录下，基于上面的<code>Dockerfile</code>，构建出自定义镜像。镜像名为<code>my-mysql</code>，版本标签为<code>v1.0</code>：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">docker build -t my-mysql:v1.0 .</span><br></pre></td></tr></table></figure>
+<p><strong>Note：命令最后有个<code>.</code>，表示基于当前目录下的所有文件（<code>Dockerfile</code>、<code>db.sql</code>）。</strong></p>
+<p>第四步，用<code>docker images</code>查看镜像列表，看看是否制作成功。</p>
+<p>第五步，基于<code>my-mysql:v1.0</code>镜像启动container，为container取名为mysql，并指定映射某个外部数据目录：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">docker run \</span><br><span class="line">    --name mysql \</span><br><span class="line">    -e MYSQL_ROOT_PASSWORD=自定义密码 \</span><br><span class="line">    -d \</span><br><span class="line">    -v 外部数据目录:/var/lib/mysql \</span><br><span class="line">    my-mysql:v1.0</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>参数说明：</p>
+<p>–name xxx：给container起名叫xxx，可以是任意自定义的名字</p>
+<p>-e xxx=yyy：给container设定环境变量xxx，值为yyy</p>
+<p>-d：后台运行，不要卡死在前台显示</p>
+<p>-v xxx:yyy：把container里的yyy目录映射到本机的xxx目录</p>
+</blockquote>
+<p>第六步，执行<code>docker ps</code>看看container是否成功运行。</p>
+<h2 id="部署Redis"><a href="#部署Redis" class="headerlink" title="部署Redis"></a>部署Redis</h2><p>部署好了<code>MySQL</code>，对于<code>Redis</code>而言其实是非常类似的。由于不需要在<code>Redis</code>里初始化什么数据库和表，所以我们无需自制Dockerfile，直接用官方现成的镜像即可，本教程使用<code>4.0-alpine</code>版本。</p>
+<p>类似地，我们执行：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">docker run --name redis -d -v 外部数据目录:/data redis:4.0-alpine</span><br></pre></td></tr></table></figure>
+<p><strong>Note：<code>/data</code>就是该container内部的数据目录。不同的应用，不同的container对应的数据目录就不一样，启动前要先搞清楚。</strong></p>
+<p>另外，使用alpine版本是因为该镜像体积小，去除了很多我们不需要的工具和库，方便使用。读者也可自由选择合适的镜像版本。</p>
+<h2 id="部署Elasticsearch"><a href="#部署Elasticsearch" class="headerlink" title="部署Elasticsearch"></a>部署Elasticsearch</h2><p>接下来可以部署<code>Elasticsearch</code>了，由于写本教程时Elasticsearch 6.6.1还未有alpine版本，所以直接使用普通的<code>6.6.1</code>版本，Elasticsearch的端口使用默认端口：<code>9200</code>。</p>
+<p>直接执行：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">docker run \</span><br><span class="line">    --name es \</span><br><span class="line">    -d \</span><br><span class="line">    -v 外部数据目录:/usr/share/elasticsearch/data \</span><br><span class="line">    elasticsearch:6.6.1</span><br></pre></td></tr></table></figure>
+<p>同理，也是将其数据目录映射到外部目录，以实现持久化。</p>
+<h2 id="部署gin项目"><a href="#部署gin项目" class="headerlink" title="部署gin项目"></a>部署gin项目</h2><p>因为之前一直是在本地开发，所以很多配置项都直接hard code到配置文件里，真正部署的时候不能这么做。所以先把本项目的配置文件<code>gin-photo-storage/conf/server.conf</code>里hard code的配置项改掉，<strong>改成变量的形式</strong>。</p>
+<p>第一步，修改<code>server.conf</code>：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    &quot;SERVER_PORT&quot;: &quot;&lt;SERVER_PORT&gt;&quot;,</span><br><span class="line">    ......</span><br><span class="line">    &quot;DB_HOST&quot;: &quot;&lt;DB_HOST&gt;&quot;,</span><br><span class="line">    ......</span><br><span class="line">    &quot;REDIS_HOST&quot;: &quot;&lt;REDIS_HOST&gt;&quot;,</span><br><span class="line">    ......</span><br><span class="line">    &quot;ES_HOST&quot;: &quot;&lt;ES_HOST&gt;&quot;,</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>第二步，回到项目根目录<code>gin-photo-storage/</code>，为项目编写一个启动脚本。在项目根目录下新建文件<code>bootstrap.sh</code>：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta">#</span>!/bin/sh</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span> 当本脚本被执行时</span><br><span class="line"><span class="meta">#</span> 用sed命令将server.conf里的配置项替换成环境变量的值</span><br><span class="line">sed -i "s/&lt;SERVER_PORT&gt;/$SERVER_PORT/g" conf/server.conf</span><br><span class="line">sed -i "s/&lt;DB_HOST&gt;/$DB_HOST/g" conf/server.conf</span><br><span class="line">sed -i "s/&lt;REDIS_HOST&gt;/$REDIS_HOST/g" conf/server.conf</span><br><span class="line">sed -i "s/&lt;ES_HOST&gt;/$ES_HOST/g" conf/server.conf</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span> 把传进来的参数当作命令执行，并用它替换掉当前进程</span><br><span class="line">exec "$@"</span><br></pre></td></tr></table></figure>
+<p>第三步，为项目生成依赖管理的文件。由于我的Golang版本是1.11，所以可以使用go module来管理第三方package。在项目根目录<code>gin-photo-storage/</code>下，生成一个<code>go.mod</code>文件：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">go mod init gin-photo-storage</span><br></pre></td></tr></table></figure>
+<p>目录下会自动生成一个<code>go.mod</code>文件。<strong>（建议Golang版本较低的读者也升级到 &gt;= 1.11的版本，使用go module管理第三方package）</strong></p>
+<p>第四步，开始编写项目的Dockerfile，用来制作项目的image。在根目录<code>gin-photo-storage/</code>下新建<code>Dockerfile</code>：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">FROM golang:latest</span><br><span class="line"></span><br><span class="line">WORKDIR /web/gin-photo-storage  # 设定container内的工作目录</span><br><span class="line"></span><br><span class="line">COPY . .    # 把当前目录下所有文件copy到container内的工作目录</span><br><span class="line"></span><br><span class="line">RUN go build    # 在container内编译，生成go-photo-storage可执行程序</span><br><span class="line"></span><br><span class="line">CMD [&quot;./gin-photo-storage&quot;]     # 把./gin-photo-storage当作参数传入bootstrap.sh</span><br><span class="line"></span><br><span class="line">ENTRYPOINT [&quot;./bootstrap.sh&quot;]   # 执行bootstrap.sh脚本</span><br></pre></td></tr></table></figure>
+<p>第五步，有了<code>Dockerfile</code>，可以制作自定义的image了，在项目根目录<code>gin-photo-storage/</code>下执行：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">docker build -t my-web:v1.0 .</span><br></pre></td></tr></table></figure>
+<p><strong>Note：命令最后有个<code>.</code>，表示基于当前目录下的所有文件（<code>Dockerfile</code>、<code>db.sql</code>）。</strong></p>
+<p>第六步，基于刚刚生成的image，启动container：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">docker run </span><br><span class="line">    --name gin \ </span><br><span class="line">    -d \</span><br><span class="line">    --link mysql \</span><br><span class="line">    --link es \</span><br><span class="line">    --link redis \</span><br><span class="line">    -e DB_HOST=&quot;mysql&quot; \</span><br><span class="line">    -e REDIS_HOST=&quot;redis&quot; \</span><br><span class="line">    -e ES_HOST=&quot;es&quot; \</span><br><span class="line">    -e SERVER_PORT=&quot;9088&quot; \</span><br><span class="line">    my-web:v1.0</span><br></pre></td></tr></table></figure>
+<p><strong>Note：SERVER_PORT也可以不用<code>9088</code>，可使用任意空闲端口。</strong></p>
+<blockquote>
+<p>参数说明：</p>
+<p>–name xxx：给container起名叫xxx，可以是任意自定义的名字</p>
+<p>-e xxx=yyy：给container设定环境变量xxx，值为yyy</p>
+<p>-d：后台运行，不要卡死在前台显示</p>
+<p>–link xxx：把当前container链接到xxx container的网络环境中，也就是说对于当前container而言，xxx container的hostname就是xxx，直接ping xxx可测试连通性。</p>
+</blockquote>
+<h2 id="部署nginx"><a href="#部署nginx" class="headerlink" title="部署nginx"></a>部署nginx</h2><p>当我们成功跑起<code>MySQL</code>、<code>Redis</code>、<code>Elasticsearch</code>、<code>gin项目</code>之后，其实必要的服务已经全部启动了。但是由于上一篇教程提到了<code>nginx</code>，而且<code>nginx</code>在实际项目中还是非常常用的，所以我们最后再部署一个<code>nginx</code>，为项目提供反向代理。</p>
+<p>第一步，在本机上任意目录下，新建目录<code>image-nginx</code>，并把上一篇教程 <a href="https://marcoma.xyz/2019/03/21/gin-tutorial-9/" target="_blank" rel="noopener">《[Gin教程-9]https与nginx部署》</a> 中我们生成的秘钥和证书：<code>server.key</code>和<code>server.crt</code>复制到<code>image-nginx</code>目录下。</p>
+<p>第二步，在<code>image-nginx</code>目录下新建启动脚本<code>bootstrap.sh</code>：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta">#</span>!/bin/sh</span><br><span class="line"></span><br><span class="line">cat &gt; /etc/nginx/conf.d/my.conf &lt;&lt; EOF</span><br><span class="line">events &#123;</span><br><span class="line">     worker_connections  1024;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">http &#123;</span><br><span class="line">    server &#123;</span><br><span class="line">        listen       443 ssl;</span><br><span class="line">        server_name  my-web;</span><br><span class="line">    </span><br><span class="line">        ssl_certificate      /server.crt;</span><br><span class="line">        ssl_certificate_key  /server.key;</span><br><span class="line">    </span><br><span class="line">        ssl_session_cache    shared:SSL:1m;</span><br><span class="line">        ssl_session_timeout  5m;</span><br><span class="line">    </span><br><span class="line">    	ssl_ciphers  HIGH:!aNULL:!MD5;</span><br><span class="line">        ssl_prefer_server_ciphers  on;</span><br><span class="line">    </span><br><span class="line">        location / &#123;</span><br><span class="line">    		proxy_pass https://$&#123;APP_HOST&#125;:$&#123;APP_PORT&#125;;</span><br><span class="line">    	&#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">EOF</span><br><span class="line"></span><br><span class="line">exec "$@"</span><br></pre></td></tr></table></figure>
+<p>上述脚本就是把一段<code>nginx</code>配置写到container里的<code>/etc/nginx/conf.d/my.conf</code>，然后执行传入的参数（一条启动<code>nginx</code>的命令）。</p>
+<p>第三步，在<code>image-nginx</code>目录下新建<code>Dockerfile</code>：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">FROM nginx:1.14-alpine  # 使用alpine镜像，节省空间</span><br><span class="line"></span><br><span class="line">COPY server.crt server.key bootstrap.sh /   # 将文件copy到container内的根目录</span><br><span class="line"></span><br><span class="line">CMD [&quot;nginx&quot;, &quot;-c&quot;, &quot;/etc/nginx/conf.d/my.conf&quot;, &quot;-g&quot;, &quot;daemon off;&quot;]</span><br><span class="line"></span><br><span class="line">ENTRYPOINT [&quot;./bootstrap.sh&quot;]   # 启动时执行bootstrap脚本</span><br></pre></td></tr></table></figure>
+<p>第四步，基于上述<code>Dockerfile</code>，在<code>image-nginx</code>目录下执行命令构建自定义image：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">docker build -t my-nginx:v1.0</span><br></pre></td></tr></table></figure>
+<p>第五步，基于刚刚构建的image，启动为container：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">docker run \</span><br><span class="line">    --name nginx \</span><br><span class="line">    -d \</span><br><span class="line">    --link gin \</span><br><span class="line">    -p 9999:443 \</span><br><span class="line">    -e APP_HOST=&quot;gin&quot; \</span><br><span class="line">    -e APP_PORT=&quot;9088&quot; \</span><br><span class="line">    my-nginx:v1.0</span><br></pre></td></tr></table></figure>
+<p><strong>Note：APP_PORT要和上面启动gin container时的SERVER_PORT一样，才能成功把请求转发到gin服务器上。至于-p 9999:443中的9999，则可以随便选择任意可用端口代替。</strong></p>
+<blockquote>
+<p>参数说明：</p>
+<p>-p xxx:yyy：把container内的yyy端口映射到宿主机的xxx端口，意味着访问宿主机的xxx端口即可访问到container内的yyy端口。</p>
+</blockquote>
+<h2 id="整合测试"><a href="#整合测试" class="headerlink" title="整合测试"></a>整合测试</h2><p>当我们把上述所有container成功启动后，用<code>docker ps</code>查看正在运行的container：</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-docker-ps.png" alt=""></p>
+<p>然后我们用<code>Postman</code>工具测试一下接口。因为上面我们已经把nginx container的443端口映射到宿主机的9999端口，所以访问<code>https://localhost:9999/api/v1/......</code>应该就可以成功调用我们的gin API。</p>
+<p>直接试试用户注册接口<code>AddAuth()</code>：</p>
+<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/gin-tutorial-docker-test.png" alt=""></p>
+<p>其他API就不在文中一一测试了。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<li><p>Docker container之间看起来非常独立，一个container似乎是一个完全独立的操作系统，不受别人干预。但是多个container确实是运行在同一台主机上的，那这种独立性是怎么实现的呢？它和另外一种方式——虚拟机相比，有什么异同呢？</p>
+<ul>
+<li>关键词：LXC、Linux namespace、Linux cgroups</li>
+</ul>
+</li>
+<li><p>启动container后，我们可以在container里随意新建、删除、修改文件。当把该container关闭之后，用image再重新启动一个container，为什么所有文件和数据都还能保持没被修改过的状态？</p>
+<ul>
+<li>关键词：分层构建、联合挂载</li>
+</ul>
+</li>
+<li><p>本教程中Elasticsearch使用了默认的9200端口，假如我们想改用自定义端口，但是该镜像没有提供启动参数，我们可以怎么改呢？</p>
+<ul>
+<li>关键词：自定义Dockerfile、Entrypoint、entrypoint.sh脚本</li>
+</ul>
+</li>
+<li><p>对于<code>MySQL</code>、<code>gin项目</code>、<code>nginx</code>的镜像，我们都是继承某个base image，然后自定义的。所以制作出来的镜像都存在了本地，别人不能直接pull，有没有办法发布我们自定义的镜像让别人也能使用呢？</p>
+<ul>
+<li>关键词：registry、私有registry、CNCF harbor</li>
+</ul>
+</li>
+<li><p>本教程里启动了5个container：<code>MySQL</code>、<code>Redis</code>、<code>Elasticsearch</code>、<code>gin项目</code>、<code>nginx</code>。对于每一个container，我们都是手动启停的。当container数量剧增，这样手动操作还是很麻烦。有没有办法写好一个启停的脚本或者流程，让系统自动启停？</p>
+<ul>
+<li>关键词：容器编排、docker compose、kubernetes</li>
+</ul>
+</li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/gin/" rel="tag"># gin</a>
+          
+            <a href="/tags/教程/" rel="tag"># 教程</a>
+          
+            <a href="/tags/连载/" rel="tag"># 连载</a>
+          
+            <a href="/tags/后端/" rel="tag"># 后端</a>
+          
+            <a href="/tags/docker/" rel="tag"># docker</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/03/21/gin-tutorial-9/" rel="next" title="[Gin教程-9]https与nginx部署">
+                <i class="fa fa-chevron-left"></i> [Gin教程-9]https与nginx部署
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/wangzai.jpg" alt="Haoxiang Ma">
+            
+              <p class="site-author-name" itemprop="name">Haoxiang Ma</p>
+              <div class="site-description motion-element" itemprop="description">This is Haoxiang Ma (a.k.a Marco). I mainly focus on data infra & large-scale backend system.</div>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">41</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  
+                    
+                      <a href="/categories/">
+                    
+                  
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">12</span>
+                    <span class="site-state-item-name">categories</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  
+                    
+                      <a href="/tags/">
+                    
+                  
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">22</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/AcepcsMa" title="GitHub &rarr; https://github.com/AcepcsMa" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://www.linkedin.com/in/haoxiang-ma-86353b14b" title="LinkedIn &rarr; https://www.linkedin.com/in/haoxiang-ma-86353b14b" rel="noopener" target="_blank"><i class="fa fa-fw fa-linkedin"></i>LinkedIn</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Overview"><span class="nav-number">1.</span> <span class="nav-text">Overview</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Docker"><span class="nav-number">2.</span> <span class="nav-text">Docker</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#部署MySQL"><span class="nav-number">3.</span> <span class="nav-text">部署MySQL</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#部署Redis"><span class="nav-number">4.</span> <span class="nav-text">部署Redis</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#部署Elasticsearch"><span class="nav-number">5.</span> <span class="nav-text">部署Elasticsearch</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#部署gin项目"><span class="nav-number">6.</span> <span class="nav-text">部署gin项目</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#部署nginx"><span class="nav-number">7.</span> <span class="nav-text">部署nginx</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#整合测试"><span class="nav-number">8.</span> <span class="nav-text">整合测试</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">9.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+  
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Haoxiang Ma</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> v7.0.1</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="post-meta-item-icon">
+      <i class="fa fa-user"></i>
+    </span>
+    <span class="site-uv" title="Total Visitors">
+      <span class="busuanzi-value" id="busuanzi_value_site_uv"></span>
+    </span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+  
+
+  
+    <span class="post-meta-item-icon">
+      <i class="fa fa-eye"></i>
+    </span>
+    <span class="site-pv" title="Total Views">
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=7.0.1"></script>
+
+  <script src="/js/src/motion.js?v=7.0.1"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/schemes/muse.js?v=7.0.1"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=7.0.1"></script>
+<script src="/js/src/post-details.js?v=7.0.1"></script>
+
+
+
+  
+
+
+  <script src="/js/src/next-boot.js?v=7.0.1"></script>
+
+
+  
+  
+  
+
+<script src="//cdn1.lncld.net/static/js/3.11.1/av-min.js"></script>
+
+
+
+<script src="//unpkg.com/valine/dist/Valine.min.js"></script>
+
+<script>
+  var GUEST = ['nick', 'mail', 'link'];
+  var guest = 'nick,mail';
+  guest = guest.split(',').filter(function(item) {
+    return GUEST.indexOf(item) > -1;
+  });
+  new Valine({
+    el: '#comments',
+    verify: false,
+    notify: false,
+    appId: '1mYS96DR4e28MDXJxW1ByUA6-gzGzoHsz',
+    appKey: 'IMF92wd7jJxCXanv65MdkiBn',
+    placeholder: 'Say anything if you like~',
+    avatar: 'mm',
+    meta: guest,
+    pageSize: '20' || 10,
+    visitor: false
+  });
+</script>
+
+
+
+
+  
+
+
+  
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('3');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <style>
+    .copy-btn {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: #333;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      
+        background-color: #eee;
+        background-image: linear-gradient(#fcfcfc, #eee);
+        border: 1px solid #d5d5d5;
+        border-radius: 3px;
+      
+      user-select: none;
+      outline: 0;
+    }
+
+    .highlight-wrap .copy-btn {
+      transition: opacity .3s ease-in-out;
+      opacity: 0;
+      padding: 2px 6px;
+      position: absolute;
+      
+        right: 4px;
+        top: 8px;
+      
+    }
+
+    .highlight-wrap:hover .copy-btn,
+    .highlight-wrap .copy-btn:focus {
+      opacity: 1;
+    }
+
+    .highlight-wrap {
+      position: relative;
+    }
+  </style>
+  <script>
+    $('.highlight').each(function(i, e) {
+      var $wrap = $('<div>').addClass('highlight-wrap');
+      $(e).after($wrap);
+      $wrap.append($('<button>').addClass('copy-btn').append('Copy').on('click', function(e) {
+        var code = $(this).parent().find('.code').find('.line').map(function(i, e) {
+          return $(e).text();
+        }).toArray().join('\n');
+        var ta = document.createElement('textarea');
+        var yPosition = window.pageYOffset || document.documentElement.scrollTop;
+        ta.style.top = yPosition + 'px'; // Prevent page scroll
+        ta.style.position = 'absolute';
+        ta.style.opacity = '0';
+        ta.readOnly = true;
+        ta.value = code;
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, code.length);
+        ta.readOnly = false;
+        var result = document.execCommand('copy');
+        
+          if (result) $(this).text('Copied');
+          else $(this).text('Copy failed');
+        
+        ta.blur(); // For iOS
+        $(this).blur();
+      })).on('mouseleave', function(e) {
+        var $b = $(this).find('.copy-btn');
+        setTimeout(function() {
+          $b.text('Copy');
+        }, 300);
+      }).append(e);
+    })
+  </script>
+
+
+</body>
+</html>
