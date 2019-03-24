@@ -208,10 +208,10 @@
         <category>分布式</category>
       </categories>
       <tags>
+        <tag>分布式</tag>
         <tag>bigdata</tag>
         <tag>hadoop</tag>
         <tag>mapreduce</tag>
-        <tag>分布式</tag>
       </tags>
   </entry>
   <entry>
@@ -293,7 +293,7 @@
   <entry>
     <title><![CDATA[[Golang]更正“神贴”《如何优雅地关闭Go Channel》]]></title>
     <url>%2F2018%2F11%2F20%2Fclose-channel%2F</url>
-    <content type="text"><![CDATA[本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 Introduction现在在网上搜索Go，Channel，关闭等关键词时，一定会搜到一篇好几年前的“神贴”《How To Gracefully Close Channels》（原文链接请点击），或者各种国人执笔的中文直译版《如何优雅地关闭Go Channel》。 基于Go本身对并发的强支持，不断地有开发者需要学习Channel这个被设计为多个goroutine间安全传递数据的内置数据结构，自然也有很多人学习过以上这篇文章。然而不知道是受当时写作的时间背景限制，还是其他原因，实际上这篇文章里有一些比较严重的缺陷，必须得到纠正。 我这么一个Go的初学者，研究过后暂时没有发现网上对原贴进行优化或者更正的博客，所以我决定写下这篇更正“神贴”的博客，并提供一些我的关闭Go Channel的解决方案。 驳斥理由 原文标题的核心是Close Channels，然而除了第一个最简单的例子（M receivers，one sender）里有关闭数据channel的逻辑外，其他几个复杂例子中压根没有close channel，仅仅只是退出sender 即使我们把“退出sender”等价于“close channel”。但是同样除了第一个最简单的例子（M receivers，one sender）里是sender主动关闭外，其他几个例子中退出sender都是由receiver触发的，类似receiver读到一个什么特殊值就提示sender停止生产。我不否认在某些场景里确实需要receiver提示sender何时结束（例如receiver发生了异常，无法继续处理，可通知sender赶紧结束）。但是在很多场景里是需要sender自己触发停止生产的，而不是让receiver告知才停止（例如100个sender分别读100台机器上的文件，然后把文件数据怼到一个channel里，此时肯定不可能让receiver来主导sender的数据读取何时停止，对吧）。 最后一个问题，原贴例子里receiver读到一个特殊值导致退出后，并没有安排别的goroutine去读完channel中可能剩下的数据，直接导致数据丢失。（当然作者也意识到这一点了，所以在最后提了一下，说读完剩下的数据很简单blabla，我就不写了你们自己去实现就好了） 解决方案其实很明显，关闭channel最主要的麻烦在于sender端如何控制，既不能不去关闭，也不能重复关闭（panic）。所以接下来就讨论两种在sender端关闭channel的解决方案：单个sender和多个sender的应用场景。 单个sender package mainimport ( "fmt" "sync")// 一个sender，一个receiverfunc main() &#123; dataChannel := make(chan int, 100) done := make(chan interface&#123;&#125;) go sender(dataChannel) go receiver(dataChannel, done) // 阻塞直到receiver完成，避免主线程马上退出 &lt;-done fmt.Println("Done.")&#125;func sender(dataChannel chan int) &#123; defer close(dataChannel) for i := 0;i &lt; 1000;i++ &#123; dataChannel &lt;- i &#125;&#125;func receiver(dataChannel chan int, done chan interface&#123;&#125;) &#123; for data := range dataChannel &#123; fmt.Printf("Receive data %d\n", data) &#125; done &lt;- nil&#125; 在单个sender的场景下，没有什么好说的。其实就是当sender把所有数据都塞到channel之后主动关闭该channel。**显式close channel的好处是，当receiver端使用range```从channel中读数据，读到close标识后会自动结束循环。（或者是普通循环里的ok标识为false，用来结束循环）**+ 多个sender ```golang package main // 多个sender，一个receiver const ( SENDER_COUNT = 5 ) func sender(id int, dataChannel chan string, wg *sync.WaitGroup) &#123; defer wg.Done() for i := 0;i &lt; 100;i++ &#123; dataChannel &lt;- fmt.Sprintf(&quot;Sender %d is sending %d&quot;, id, i) &#125; &#125; func receiver(dataChannel chan string, done chan interface&#123;&#125;) &#123; for data := range dataChannel &#123; fmt.Printf(&quot;Receive data: %s\n&quot;, data) &#125; done &lt;- nil &#125; func monitor(dataChannel chan string, wg *sync.WaitGroup) &#123; wg.Wait() close(dataChannel) &#125; func main() &#123; dataChannel := make(chan string, 100) done := make(chan interface&#123;&#125;) wg := &amp;sync.WaitGroup&#123;&#125; wg.Add(SENDER_COUNT) go monitor(dataChannel, wg) for i := 0;i &lt; SENDER_COUNT;i++ &#123; go sender(i, dataChannel, wg) &#125; go receiver(dataChannel, done) &lt;-done fmt.Println(&quot;Done.&quot;) &#125; 参照以上代码，核心的思想是利用sync包自带的WaitGroup（类似于Java里J.U.C包的CountdownLatch），用来统计已完成工作的sender数。除了sender和receiver外，我们还定义了一个monitor协程，用来关闭channel。 可以看到我们定义了1个monitor，1个receiver，5个sender，并且在启动sender之前先启动了monitor，传入waitGroup，让其等待所有sender协程完成工作。在sender里，通过defer来保证sender在完成作业（或者发生异常）之后能够通知waitGroup。当所有sender都完成工作后，waitGroup计数自然减为0，monitor协程主动关闭了数据channel，所以receiver端的for range循环在读完所有数据后就能正常退出。 总结本文是对《How To Gracefully Close Channels》的核心内容表示质疑，并且提出了我自己的解决方案。其实原文里作者提供的解决方案并不是错误的，里面的方案对部分场景肯定是适用的。只是对sender端主动关闭的场景而言有一定的纰漏。 希望读者能理解不同场景下应该有不同的解决方案，具体还是要结合实际项目来分析。]]></content>
+    <content type="text"><![CDATA[本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2018/11/19，基于Go 1.11。至于其他版本的Go SDK，如有出入请自行查阅其他资料。 Introduction现在在网上搜索Go，Channel，关闭等关键词时，一定会搜到一篇好几年前的“神贴”《How To Gracefully Close Channels》（原文链接请点击），或者各种国人执笔的中文直译版《如何优雅地关闭Go Channel》。 基于Go本身对并发的强支持，不断地有开发者需要学习Channel这个被设计为多个goroutine间安全传递数据的内置数据结构，自然也有很多人学习过以上这篇文章。然而不知道是受当时写作的时间背景限制，还是其他原因，实际上这篇文章里有一些比较严重的缺陷，必须得到纠正。 我这么一个Go的初学者，研究过后暂时没有发现网上对原贴进行优化或者更正的博客，所以我决定写下这篇更正“神贴”的博客，并提供一些我的关闭Go Channel的解决方案。 驳斥理由 原文标题的核心是Close Channels，然而除了第一个最简单的例子（M receivers，one sender）里有关闭数据channel的逻辑外，其他几个复杂例子中压根没有close channel，仅仅只是退出sender 即使我们把“退出sender”等价于“close channel”。但是同样除了第一个最简单的例子（M receivers，one sender）里是sender主动关闭外，其他几个例子中退出sender都是由receiver触发的，类似receiver读到一个什么特殊值就提示sender停止生产。我不否认在某些场景里确实需要receiver提示sender何时结束（例如receiver发生了异常，无法继续处理，可通知sender赶紧结束）。但是在很多场景里是需要sender自己触发停止生产的，而不是让receiver告知才停止（例如100个sender分别读100台机器上的文件，然后把文件数据怼到一个channel里，此时肯定不可能让receiver来主导sender的数据读取何时停止，对吧）。 最后一个问题，原贴例子里receiver读到一个特殊值导致退出后，并没有安排别的goroutine去读完channel中可能剩下的数据，直接导致数据丢失。（当然作者也意识到这一点了，所以在最后提了一下，说读完剩下的数据很简单blabla，我就不写了你们自己去实现就好了） 解决方案其实很明显，关闭channel最主要的麻烦在于sender端如何控制，既不能不去关闭，也不能重复关闭（panic）。所以接下来就讨论两种在sender端关闭channel的解决方案：单个sender和多个sender的应用场景。 单个sender package mainimport ( "fmt" "sync")// 一个sender，一个receiverfunc main() &#123; dataChannel := make(chan int, 100) done := make(chan interface&#123;&#125;) go sender(dataChannel) go receiver(dataChannel, done) // 阻塞直到receiver完成，避免主线程马上退出 &lt;-done fmt.Println("Done.")&#125;func sender(dataChannel chan int) &#123; defer close(dataChannel) for i := 0;i &lt; 1000;i++ &#123; dataChannel &lt;- i &#125;&#125;func receiver(dataChannel chan int, done chan interface&#123;&#125;) &#123; for data := range dataChannel &#123; fmt.Printf("Receive data %d\n", data) &#125; done &lt;- nil&#125; 在单个sender的场景下，没有什么好说的。其实就是当sender把所有数据都塞到channel之后主动关闭该channel。显式close channel的好处是，当receiver端使用for range从channel中读数据，读到close标识后会自动结束循环。（或者是普通循环里的ok标识为false，用来结束循环） 多个sender package main// 多个sender，一个receiverconst ( SENDER_COUNT = 5)func sender(id int, dataChannel chan string, wg *sync.WaitGroup) &#123; defer wg.Done() for i := 0;i &lt; 100;i++ &#123; dataChannel &lt;- fmt.Sprintf("Sender %d is sending %d", id, i) &#125;&#125;func receiver(dataChannel chan string, done chan interface&#123;&#125;) &#123; for data := range dataChannel &#123; fmt.Printf("Receive data: %s\n", data) &#125; done &lt;- nil&#125;func monitor(dataChannel chan string, wg *sync.WaitGroup) &#123; wg.Wait() close(dataChannel)&#125;func main() &#123; dataChannel := make(chan string, 100) done := make(chan interface&#123;&#125;) wg := &amp;sync.WaitGroup&#123;&#125; wg.Add(SENDER_COUNT) go monitor(dataChannel, wg) for i := 0;i &lt; SENDER_COUNT;i++ &#123; go sender(i, dataChannel, wg) &#125; go receiver(dataChannel, done) &lt;-done fmt.Println("Done.")&#125; 参照以上代码，核心的思想是利用sync包自带的WaitGroup（类似于Java里J.U.C包的CountdownLatch），用来统计已完成工作的sender数。除了sender和receiver外，我们还定义了一个monitor协程，用来关闭channel。 可以看到我们定义了1个monitor，1个receiver，5个sender，并且在启动sender之前先启动了monitor，传入waitGroup，让其等待所有sender协程完成工作。在sender里，通过defer来保证sender在完成作业（或者发生异常）之后能够通知waitGroup。当所有sender都完成工作后，waitGroup计数自然减为0，monitor协程主动关闭了数据channel，所以receiver端的for range循环在读完所有数据后就能正常退出。 总结本文是对《How To Gracefully Close Channels》的核心内容表示质疑，并且提出了我自己的解决方案。其实原文里作者提供的解决方案并不是错误的，里面的方案对部分场景肯定是适用的。只是对sender端主动关闭的场景而言有一定的纰漏。 希望读者能理解不同场景下应该有不同的解决方案，具体还是要结合实际项目来分析。]]></content>
       <categories>
         <category>Go</category>
       </categories>
@@ -399,8 +399,8 @@
       <tags>
         <tag>Java</tag>
         <tag>算法</tag>
-        <tag>数据结构</tag>
         <tag>Leetcode</tag>
+        <tag>数据结构</tag>
       </tags>
   </entry>
   <entry>
@@ -414,8 +414,8 @@
       <tags>
         <tag>Java</tag>
         <tag>算法</tag>
-        <tag>数据结构</tag>
         <tag>Leetcode</tag>
+        <tag>数据结构</tag>
       </tags>
   </entry>
   <entry>
@@ -450,8 +450,8 @@
       </categories>
       <tags>
         <tag>算法</tag>
-        <tag>分布式</tag>
         <tag>数据结构</tag>
+        <tag>分布式</tag>
       </tags>
   </entry>
   <entry>
@@ -474,10 +474,10 @@
         <category>BigData</category>
       </categories>
       <tags>
+        <tag>数据结构</tag>
         <tag>bigdata</tag>
         <tag>hadoop</tag>
         <tag>mapreduce</tag>
-        <tag>数据结构</tag>
       </tags>
   </entry>
   <entry>
