@@ -96,22 +96,21 @@
 
 
 
-  <meta name="description" content="Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。  为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。  选主过程最重要的限制是： Leader必须存有所有已经c">
-<meta name="keywords" content="笔记,算法,分布式">
+  <meta name="description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/04/10。  Overview最近在跟着课件自学Stanford的 CS 245 课程，其中有一篇课外阅读是读IBM研究院在70年代出版的paper A History and Evaluation of System R。 在开读之前我其实是比较轻视的，觉得这种老掉牙的数据库paper怎么能跟上现代数据">
+<meta name="keywords" content="数据库,论文">
 <meta property="og:type" content="article">
-<meta property="og:title" content="[Raft]Leader Election(选主)笔记">
-<meta property="og:url" content="http://yoursite.com/2018/12/09/raft-leader-election/index.html">
+<meta property="og:title" content="[论文研读]System R by IBM">
+<meta property="og:url" content="http://yoursite.com/2019/04/10/system_r_ibm_reading/index.html">
 <meta property="og:site_name" content="Haoxiang&#39;s Tech Blog">
-<meta property="og:description" content="Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。  为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。  选主过程最重要的限制是： Leader必须存有所有已经c">
+<meta property="og:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/04/10。  Overview最近在跟着课件自学Stanford的 CS 245 课程，其中有一篇课外阅读是读IBM研究院在70年代出版的paper A History and Evaluation of System R。 在开读之前我其实是比较轻视的，觉得这种老掉牙的数据库paper怎么能跟上现代数据">
 <meta property="og:locale" content="default">
-<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_1.png">
-<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_2.png">
-<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_election.png">
-<meta property="og:updated_time" content="2018-12-17T07:21:59.000Z">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/system_r_phase_0_storage.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/system_r_phase_0_1.png">
+<meta property="og:updated_time" content="2019-04-10T23:07:58.481Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="[Raft]Leader Election(选主)笔记">
-<meta name="twitter:description" content="Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。  为了保证不丢数据（特指已经commit且成功通知client的数据），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。  选主过程最重要的限制是： Leader必须存有所有已经c">
-<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_1.png">
+<meta name="twitter:title" content="[论文研读]System R by IBM">
+<meta name="twitter:description" content="本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。 本文写于2019/04/10。  Overview最近在跟着课件自学Stanford的 CS 245 课程，其中有一篇课外阅读是读IBM研究院在70年代出版的paper A History and Evaluation of System R。 在开读之前我其实是比较轻视的，觉得这种老掉牙的数据库paper怎么能跟上现代数据">
+<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/system_r_phase_0_storage.png">
 
 
 
@@ -120,7 +119,7 @@
 
 
 
-  <link rel="canonical" href="http://yoursite.com/2018/12/09/raft-leader-election/">
+  <link rel="canonical" href="http://yoursite.com/2019/04/10/system_r_ibm_reading/">
 
 
 
@@ -130,7 +129,7 @@
   };
 </script>
 
-  <title>[Raft]Leader Election(选主)笔记 | Haoxiang's Tech Blog</title>
+  <title>[论文研读]System R by IBM | Haoxiang's Tech Blog</title>
   
 
 
@@ -375,7 +374,7 @@
   
   
   <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/09/raft-leader-election/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/04/10/system_r_ibm_reading/">
 
     <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
       <meta itemprop="name" content="Haoxiang Ma">
@@ -392,7 +391,7 @@
 
         
         
-          <h1 class="post-title" itemprop="name headline">[Raft]Leader Election(选主)笔记
+          <h1 class="post-title" itemprop="name headline">[论文研读]System R by IBM
 
               
             
@@ -418,24 +417,12 @@
                 
               
 
-              <time title="Created: 2018-12-09 08:12:35" itemprop="dateCreated datePublished" datetime="2018-12-09T08:12:35-08:00">2018-12-09</time>
+              <time title="Created: 2019-04-10 16:00:00 / Modified: 16:07:58" itemprop="dateCreated datePublished" datetime="2019-04-10T16:00:00-07:00">2019-04-10</time>
             
 
             
               
 
-              
-                
-                <span class="post-meta-divider">|</span>
-                
-
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-calendar-check-o"></i>
-                </span>
-                
-                  <span class="post-meta-item-text">Edited on</span>
-                
-                <time title="Modified: 2018-12-16 23:21:59" itemprop="dateModified" datetime="2018-12-16T23:21:59-08:00">2018-12-16</time>
               
             
           </span>
@@ -452,14 +439,7 @@
                 <span class="post-meta-item-text">In</span>
               
               
-                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/分布式/" itemprop="url" rel="index"><span itemprop="name">分布式</span></a></span>
-
-                
-                
-                  , 
-                
-              
-                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/分布式/算法/" itemprop="url" rel="index"><span itemprop="name">算法</span></a></span>
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/数据库/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a></span>
 
                 
                 
@@ -478,8 +458,8 @@
                 </span>
             
                 <span class="post-meta-item-text">Comments: </span>
-                <a href="/2018/12/09/raft-leader-election/#comments" itemprop="discussionUrl">
-                  <span class="post-comments-count valine-comment-count" data-xid="/2018/12/09/raft-leader-election/" itemprop="commentCount"></span>
+                <a href="/2019/04/10/system_r_ibm_reading/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count valine-comment-count" data-xid="/2019/04/10/system_r_ibm_reading/" itemprop="commentCount"></span>
                 </a>
               </span>
             
@@ -514,47 +494,180 @@
       
 
       
-        <ol>
-<li><p>Raft采用Leader - Follower的架构，主要的工作都由Leader来主动调度和完成，所以选出一个合法的Leader是首要任务。</p>
-</li>
-<li><p>为了保证不丢数据（<strong>特指已经commit且成功通知client的数据</strong>），Raft对Leader有严格的要求，不是集群里随便一台服务器都能够当上Leader，这种“严格的要求”大多体现在选主过程中。</p>
-</li>
-<li><p>选主过程最重要的限制是：</p>
-<p><strong><em>Leader必须存有所有已经commit过的log entry，这样才能保证整个分布式系统的一致性。</em></strong></p>
-<p><strong>在外部用户看来，已经commit成功的就必然是100%正常存储好了的。</strong>如果选出一个Leader，结果它上面缺了几条已经commit过的数据，那这个分布式系统就没有任何意义了。几分钟前跟用户说“我已经commit了，你放心吧”，过一会用户想查一查数据却发现“尼玛，怎么丢数据了，说好的已经commit了呢？！”</p>
-</li>
-<li><p>为了满足这个条件（Leader上必须存有所有已经commit过的数据），Raft中提出了两个限制条件，<strong>如果严格遵守以下两个条件，是能保证选出合法Leader的</strong>。</p>
-<ul>
-<li>在选主过程中，每台服务器只会投票给拥有比自己更新的log entry的服务器。</li>
-<li>Leader在commit log entry的时候，只允许<strong>直接</strong>commit当前term（任期）的log entry，决不允许<strong>直接</strong>commit“历史”log entry。（历史log entry只能<strong>间接被动</strong>commit）</li>
-</ul>
-<p>（1）先来看看第一个条件：每台server只会投票给拥有比自己更新的log entry的server。这句话里最关键的是如何定义<strong>“更新的log entry”</strong>。按照Raft论文里给出的定义：</p>
-<blockquote>
-<p>Raft determines which of two logs is more up-to-date by comparing the index and term of the last entries in the logs. If the logs have last entries with different terms, then the log with the later term is more up-to-date. If the logs end with the same term, then whichever log is longer is more up-to-date.</p>
+        <blockquote>
+<p>本文100%由本人（Haoxiang Ma）原创，如需转载请注明出处。</p>
+<p>本文写于2019/04/10。</p>
 </blockquote>
+<h3 id="Overview"><a href="#Overview" class="headerlink" title="Overview"></a>Overview</h3><p>最近在跟着课件自学Stanford的 <a href="http://web.stanford.edu/class/cs245/" target="_blank" rel="noopener">CS 245</a> 课程，其中有一篇课外阅读是读IBM研究院在70年代出版的paper <a href="http://web.stanford.edu/class/cs245/readings/system-r-history-evaluation.pdf" target="_blank" rel="noopener">A History and Evaluation of System R</a>。</p>
+<p>在开读之前我其实是比较轻视的，觉得这种老掉牙的数据库paper怎么能跟上现代数据库的节奏，但是读完之后惊为天人，这篇paper不亏为现代数据库领域的基石之作之一。paper里提到的很多思想、概念、实验都能在MySQL中找到对应的影子，非常让我震惊。</p>
+<p>本文将以笔记的形式记录我阅读 <a href="http://web.stanford.edu/class/cs245/readings/system-r-history-evaluation.pdf" target="_blank" rel="noopener">A History and Evaluation of System R</a> 所总结概括出来的知识点。</p>
+<h3 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h3><ol>
+<li>数据存储要和程序本身分开，为了“data independence”。</li>
+<li><p>自从Codd提出了关系型数据模型（relational data model）后，大家都很认同，认为这是实现“data independence”的核心：</p>
 <ul>
-<li>两台服务器上的<strong>最后一条</strong>log entry，如果它们的term不同，则term更大者是“更新”的。</li>
-<li>两台服务器上的<strong>最后一条</strong>log entry，如果它们的term相同，则index更大者是“更新”的。</li>
+<li>在关系型数据库系统里，从用户的角度看，数据库里存的就是数据本身，而不是数据 + 复杂的数据关联关系（指针、links、chains、parents……），<strong>用户不应该看见一堆数据间的连线</strong></li>
+<li>在关系型数据库系统里，当用户要查询数据时，不需要再写复杂无比的查询算法（类似那种在一幅图里怎么遍历，何时结束的算法），只需要写high-level的查询语句（主要就是指<code>SQL</code>）即可</li>
 </ul>
-<p>（这里我觉得论文里漏了一个小细节，如果两条log entry的term和index都相同，<strong>应该会默认把发起投票的服务器当成更新的</strong>，term和index都一样的情况下不存在所谓的“更新”，一切为了选主的顺利进行，能快速有效选出leader才是最重要的。） </p>
-<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_1.png" alt=""> </p>
-<p>如上图所示，根据Raft的判断标准，<strong>下者的记录比上者更新，因为下者最后一条log entry的term为5，5比4大</strong>。 </p>
-<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_latest_2.png" alt=""> </p>
-<p>如上图所示，根据Raft的判断标准，<strong>上者的记录比上者更新，因为上者最后一条log entry的index为4，下者最后一条log entry的index为3，4比3大</strong>。 </p>
-<p>（2）再研究第二个条件：Leader只允许<strong>直接</strong>commit当前term（任期）的log entry，决不允许<strong>直接</strong>commit“历史”log entry。这条前提一看上去有点云里雾里的，感觉并没有什么必要性。<strong>实则不然，这条前提非常重要，是用来避免异常情况下频繁换Leader可能造成的commited log entry被覆盖的问题。</strong> </p>
-<p>Raft原版论文里也给出了一个经典场景： </p>
-<p><img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/raft_election.png" alt=""></p>
+</li>
+<li><p>在早期，大家都会担心：关系型数据库系统用的high-level query language（主要就是指<code>SQL</code>）到底在性能上会不会比程序员写出来的“查询算法”好。</p>
+</li>
+<li><p>System R项目的目标有：</p>
 <ul>
-<li>在(a)阶段，已经处于<code>term:2</code>了，<code>S1</code>是本轮（<code>term:2</code>）的leader。在<code>S1</code>上任后没多久，收到了客户端的请求，写入一条<code>{term:2, index:2}</code>的log，并将此log成功复制到<code>S2</code>这个小兄弟上。<strong>结果天不如人愿，还没来得及把log复制到其他小兄弟上，<code>S1</code>自己就宕机了。</strong></li>
-<li>到了(b)阶段，<code>S1</code>宕机后，整个集群处于无领导状态。经过了一小会，<code>S5</code>很幸运率先结束timeout，自增term号（从<code>term:2</code>自增到<code>term:3</code>），发起了选主。由于此时<code>S3</code>和<code>S4</code>上的记录都和<code>S5</code>一样新，所以都愿意投票给<code>S5</code>，<code>S5</code>成功当选，成为leader。<code>S5</code>成为leader后马上又收到了客户端的请求，于是在本机上写入一条<code>{term:3, index:2}</code>的log。<strong>然而<code>S5</code>的命运比<code>S1</code>更惨，只来得及存在本地，来不及把log entry复制给任何一个小兄弟，直接就挂了。</strong></li>
-<li>此时来到了(c)状态，<code>S5</code>挂了之后，<code>S1</code>成功重启恢复运转。<code>S1</code>自告奋勇，自增全局term号（从<code>term:3</code>自增到<code>term:4</code>），请求大家选主。<code>S2 ~ S4</code>都会投给<code>S1</code>，<code>S1</code>顺利当选leader。<code>S1</code>成了leader后做了第一件事情，发现之前<code>{term:2, index:2}</code>的log还没有成功复制给大部分兄弟，于是开始复制工作，把log复制到了<code>S3</code>上。突然<code>S1</code>又收到了客户端的请求，写入一条<code>{term:4, index:3}</code>的log到本机。</li>
+<li>实现支持high-level query的API，供用户使用，以实现“data independence”</li>
+<li>支持多种数据库应用，如事务、ad hoc查询、报表生成</li>
+<li>实现可用性高的系统，可以随时增删系统内的数据而不需要停机或重启</li>
+<li>支持并发、且并发安全</li>
+<li>实现出错恢复机制</li>
+<li>灵活地实现多种数据视图，且支持多用户操作</li>
+<li>高性能</li>
 </ul>
-<p>以上3步都非常理所当然，没有任何的争议点，最大的争议点就出现在了(d)和(e)上。<strong>(d)和(e)实际上是(c)发生之后的两种互斥的可能情况，(d)是忽视第二条前提会发生的情况，(e)是满足第二条前提会发生的情况。</strong></p>
+</li>
+</ol>
+<h3 id="Phase-0"><a href="#Phase-0" class="headerlink" title="Phase 0"></a>Phase 0</h3><ol>
+<li>Phase 0<strong>只是为了快速做一个原型出来</strong>，有很多细节没有实现。</li>
+<li>为了支持high-level的关系型查询（<code>SQL</code>），解析器是基于<code>XRM</code>，然后用<code>PL/I</code>语言写的。</li>
+<li>SQL的实现中，Phase 0支持子查询（sub query），但不支持join操作。所以在一条SQL中可能要查N张表，但其实是通过子查询的形式一张一张查过去，然后把上一张表的结果当做过滤条件，<strong>最后的结果只是从单张表中取出。</strong></li>
+<li>Phase 0一个很重要的设计思想是：数据库本身的内容和结构信息，称为<code>Catalog</code>（可以理解为meta data），<strong>也以relation（表）的形式存在数据库当中，而不是存在一个外部文件或者其他程序里。</strong></li>
+<li>在Phase 0里，每一行数据被称为<code>tuple</code>，每一张表被称为<code>relation</code>，<code>relation = N * tuple</code>，每个<code>tuple</code>有自己唯一的32bit长的<code>tuple ID = TID</code>。</li>
+<li><p>在Phase 0基于的<code>XRM</code>的实现里，对于每一个<code>tuple</code>除了要记录<code>tuple ID</code>到<code>domain value</code>的指针，反过来，<strong>还得维护一个<code>domain value</code>到<code>TID</code>的反向记录（inversion）（类似于倒排索引的思想）</strong>，这样能够加速查询过滤。</p>
+<p> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/system_r_phase_0_storage.png" alt=""></p>
+<p> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/system_r_phase_0_1.png" alt=""></p>
+</li>
+<li><p>Phase 0在SQL优化器的实现方面带来很多启发：</p>
 <ul>
-<li>先看(d)。<strong>假设我们忽略第二条前提，也就是说leader可以随意commit任何term的log entry。</strong>那么在(c)结束之后，作为<code>term:4</code>的leader的<code>S1</code><strong>可以commit掉<code>{term:2, index:2}</code>的log，并且把结果返回给客户端。</strong>结果刚完成以上步骤，<code>S1</code>又倒霉地宕机了，<code>{term:4, index:3}</code>的log没来得及复制给任何一个小兄弟。过了一会，<code>S5</code>恢复正常，自增全局term号（从<code>term:4</code>自增到<code>term:5</code>），要求选主。由于此时<code>S5</code>上的最后一条log是<code>{term:3, index:2}</code>，比<code>S2 ~ S4</code>的都更新，大家都会投票给<code>S5</code>，<code>S5</code>成功当上<code>term:5</code>的leader。当上leader后，<code>S5</code>的第一件事情就是把它还没来得及复制给多个小兄弟的log复制出去，所以就造成了(d)状态，所有服务器上的log记录都被<code>S5</code>自己的log记录覆盖了。<strong>之前已经成功commit的<code>{term:2, index:2}</code>的log直接被覆盖，消失无踪⚠️！</strong></li>
-<li>再看(e)。<strong>假设我们一定要坚守第二条前提，也就是说leader只能直接commit当前term的log entry，不能直接commit历史log entry。</strong>那么在(c)结束后，<code>S1</code>也不能commit<code>{term:2, index:2}</code>的log，因为<code>S1</code>此时是<code>term:4</code>的leader，而不是<code>term:2</code>的leader。只有如(e)所示，之后<code>S1</code>有机会commit属于当前term的log entry（<code>{term:4, index:3}</code>）时，才有机会<strong>间接地</strong>把之前<code>term:2</code>的历史记录也commit掉。即使此时<code>S1</code>宕机，<code>S5</code>也绝对不可能选上下一轮的leader，因为<code>S5</code>上最新的log<code>{term:3, index:2}</code>已经不如<code>S1 ~ S3</code>的新了，他拿不到过半的选票，做不了leader，也就不会发生已经commit的记录被覆盖的错误了。</li>
+<li>优化器不仅要关注怎样能取到最少数量的tuples，还得考虑全过程里的“hidden costs”：怎么最优地构造<code>TID list</code>、怎么最优地取tuples、怎么最优地通过tuples取具体的数据值。</li>
+<li>其实“取最少的tuples”不算是最好的优化指标，相比于读取的tuple数量，<strong>更应该关注实际发生的disk I/O的次数</strong>（在没有SSD的年代，一次随机disk I/O意味着磁盘寻道 + 旋转 + 读取，代价非常昂贵）。</li>
+<li><code>XRM</code>将domain value和tuples分离，通过指针关联，<strong>当大规模读取数据时其实会导致大量的随机disk I/O，性能会有明显下降。</strong></li>
+<li>SQL优化时除了考虑disk I/O，其实也还应该考虑<strong>CPU时间</strong>，在很多情况下执行查询语句其实是CPU密集型任务，所以<code>Cost = a * DISK_IO + b * CPU_TIME</code>比较合理，其中系数<code>a</code>和<code>b</code>应该要根据系统的不同来动态调节。</li>
+<li>join功能非常重要，所以必须实现。</li>
+<li>相比于特别复杂的SQL查询，其实看起来形式简单的SQL查询也得认真优化，不能只关注于特别复杂的查询。</li>
 </ul>
-<p>经过这一轮例子分析，可以很清晰地看到第二条前提的重要性了。如果允许leader随便直接commit历史记录的话，极端情况下很可能会造成数据丢失的系统错误（客户端知道你commit成功了，他就应该能放心了，结果过了一会你跟客户说commit也不算数，我搞丢了。。。。。。）<strong>所以，对于历史记录的commit只能被动触发！！！在commit当前term的log entry时顺便把之前未处理的log entry给commit掉。</strong></p>
+</li>
+</ol>
+<h3 id="Phase-1"><a href="#Phase-1" class="headerlink" title="Phase 1"></a>Phase 1</h3><ol>
+<li>跟Phase 0相比，Phase 1实现的功能更加齐全，它弃用了之前的<code>XRM</code>，改用了<code>RSS</code>（Research Storage System，个人认为可以类比于存储引擎） + <code>RDS</code>（Relational Data System，个人理解为一个SQL编译器）的结构。</li>
+<li>Phase 1支持多用户并发操作。</li>
+<li><p>Phase 1实现了几个子系统：</p>
+<ul>
+<li>locking subsystem，加锁防止并发情况下update出错</li>
+<li>view subsystem，为用户提供多种数据库视图</li>
+<li>authorization subsystem，实现用户鉴权，限制无关用户访问</li>
+<li>recovery subsystem，提供崩溃恢复机制</li>
+</ul>
+</li>
+<li><p>开发了一个<strong>完全独立于数据库本身</strong>的访问接口层（<code>UFI</code> = User-Friendly Interface），让用户可以通过其访问数据库。</p>
+</li>
+<li><p><code>RDS</code>实现：</p>
+<ul>
+<li><code>RDS</code>相当于一个SQL编译器。其实就是用PL/I或者Cobol开发了一个编译程序，当作一个preprocesser来用，可以解析一条SQL语句，将其分解成多个机器可执行的段，打包到access module中，当access module执行的时候即调用<code>RSS</code>提供的接口，从数据库里获取数据。</li>
+<li>由于SQL编译器和数据库是<strong>完全独立</strong>的，当数据库的结构发生了变化（例如某表上的index被删除了），会导致通过SQL编译器构造的access module出问题，所以每个access module都要记录它所对应的数据库对象（某表，某index）的依赖信息。如果某access module对应的index被删除了，那么该access module里要记录该信息，然后下次被调用的时候需要重新编译解析。</li>
+</ul>
+</li>
+<li><p><code>RSS</code>实现：</p>
+<ul>
+<li>弃用了Phase 0的<code>XRM</code>，主要是因为tuple和value分离存储，在读数据时会导致大量额外的disk I/O。</li>
+<li>所以在Phase 1的<code>RSS</code>里，就不再分离存储，每条record（tuple）就包含了所有value值。所以支持relation scan。</li>
+<li>弃用了<code>XRM</code>里的<code>inversion</code>（类似于倒排索引），而改用B-Tree实现列索引（很先进的一点是当时不仅考虑到单列索引，还考虑到了多列索引）。所以支持index scan。</li>
+<li>实现了一种叫<code>link</code>的结构，如果两条record之间有关联，record里还会保存一个指针指向另一条record。所以支持link scan。</li>
+<li>实现了内建的sorting功能，支持在relation scan、index scan、link scan之后进行排序。</li>
+</ul>
+</li>
+<li><p>subsystem的实现</p>
+<ul>
+<li><p>SQL优化器</p>
+<p>  基于Phase 0的经验，优化SQL语句时应该主要考虑disk I/O，所以一条SQL语句的代价应该是disk I/O和RSS调用次数的线性加权：<code>Cost = a * DISK_IO + b * RSS_CALL</code>。</p>
+<p>  在SQL优化执行时，还要考虑表上所建的index，考察一下该index是否具有<code>selectivity</code>（distinct value是否足够多），以及<code>clustering</code>属性（排序后的值跟物理磁盘上的存储结构一样）</p>
+<p>  经过研究，大部分的JOIN都能被视作两种基本操作：</p>
+<ul>
+<li>遍历A表，每读取一行A记录，就去遍历一遍B表，取出匹配的记录。（可访问index）</li>
+<li>给A表和B表基于JOIN列排序，然后实现merge。（一般是没有合适的index可用时这么做）</li>
+</ul>
+</li>
+<li><p>View &amp; Authorization subsystem</p>
+<p>  因为视图（View）的定义其实相当于一条SQL语句，所以在某视图上执行某SQL查询时，应该将该查询语句编译出来的语法树<code>T1</code>和视图定义的SQL语句对应的语法树<code>T0</code>合并，得到一颗组合的语法树。</p>
+<p>  至于鉴权（Authorization），则主要通过<code>GRANT</code>和<code>REVOKE</code>关键字实现。</p>
+</li>
+<li><p>Recovery Subsystem</p>
+<p>  总的来说，一个数据库系统里有3种不同的出错类型：</p>
+<ul>
+<li><p>磁盘出错</p>
+<p>  为了在磁盘出错后还能恢复，需要定时生成整个系统的image（系统快照），并且各种对数据库的操作都要记录到log文件里。出错后先用latest image恢复，然后逐条执行日志恢复数据。</p>
+</li>
+<li><p>数据库系统本身出错</p>
+<p>  通过维护两份数据页——“old page”和”new page”，并定期将”new page”刷到磁盘上（所谓的“check point”机制，现在MySQL也仍在采用此机制）。出错后先用”old page”把数据库恢复到某个状态，然后逐条执行日志恢复数据。</p>
+</li>
+<li><p>事务执行出错</p>
+<p>  事务执行过程中出错，系统会根据该事务产生的log，反向执行每条log里的操作，回复到之前的数据库状态。</p>
+</li>
+</ul>
+</li>
+<li><p>Locking subsystem</p>
+<p>  <strong>一开始是想实现“predicate lock”的</strong>，即给查询条件上锁。如果有人查询<code>where name = abc</code>，那就给该条件上锁，不允许别的用户同时执行<code>where name = abc</code>的查询语句。<strong>但是后来发现不可行</strong>，因为有的predicate表面上不一样，但是在语义上却是会产生冲突的，而且检测predicate间的冲突很麻烦很耗时。</p>
+<p>  所以后来实现了层级锁机制（hierarchy of locks，<strong>直至现在的MySQL都仍沿用此思想</strong>），从锁单独某行的行锁到锁全表的表锁都实现了，当某个操作给很多行都单独上了行锁，此时可以“升级”该锁，从行锁升到表锁。</p>
+<p>  除了真正的锁，还实现了一种意向锁（intention locks，<strong>直至现在的MySQL都仍沿用此思想</strong>），用来表示对某种资源上锁的<strong>意向</strong>。假如用户A对某表的第100行上了行锁，A也会拥有对该表的意向锁，用户B对同一张表的第200行上了行锁，B也会拥有对该表的意向锁，当A想锁全表时发现B对该表也有意向要上锁（就是B也很有可能想锁全表），系统就不允许A锁全表了。</p>
+</li>
+</ul>
+</li>
+</ol>
+<h3 id="Phase-2"><a href="#Phase-2" class="headerlink" title="Phase 2"></a>Phase 2</h3><ol>
+<li><p>在用户试用后，根据用户反馈，实现了对原生SQL的拓展：</p>
+<ul>
+<li>实现了<code>EXISTS</code>关键字，用于检测数据是否存在。</li>
+<li>实现了<code>LIKE</code>关键字，允许用户根据pattern来模糊查询</li>
+<li>实现了<code>PREPARE</code>和<code>EXECUTE</code>，多次执行带有不同值但同一模式的SQL语句时，不用每次都重新让optimizer来优化一遍</li>
+<li>实现了Outer Join</li>
+</ul>
+</li>
+<li><p>对SQL编译器做了一些实验：</p>
+<p> 之前是会把SQL语句解析，编译，得到一堆可以执行的“程序段”，装入access module，再逐个执行调用RSS，取出数据。</p>
+<p> 但是发现要得到可执行的“程序段”，Code Generation过程是要花费一定的CPU时间的。在一些特定场景下（例如只取2条记录），如果把SQL编译成程序代码所需的时间比较长，而直接通过解释器（interpretor）执行SQL耗时更少，那就应该放弃编译过程，直接用解释器执行。</p>
+</li>
+<li><p>Access Path Selection</p>
+<p> 在Phase 2里用了B-Tree来实现index（fan-out大概是200）。</p>
+<p> 除了B-Tree外，还有常见的两种构造index或者维护access path的数据结构——Hashing和Link，<strong>但是Phase 2均未采用。</strong></p>
+<ul>
+<li><p>Hashing</p>
+<p>  为什么不用Hashing，是因为hash完全失去了有序性，在数据库查询场景下，经常需要对结果排序，或者把值连续的数据一次性查出来，如果结构上丧失有序性，意味着查询成本会变很高。</p>
+</li>
+<li><p>Link</p>
+<p>  Link是指记录与记录之间的关联指针，不用Link是因为直接在Link上操作违背了SQL语句的初衷，如果要基于Link写一堆navigational的算法才能把数据查出来，那要SQL语句何用？</p>
+<p>  其次，Link的维护实在太麻烦，如果对记录更新比较频繁，意味着也要频繁更新该记录link的其他记录，消耗太多资源。</p>
+<p><strong>不过也不能否定Hashing和Link在一些特定场景下是非常高效的，取决于系统的使用场景和需求。</strong></p>
+</li>
+</ul>
+</li>
+<li><p>SQL优化器</p>
+<p> 为了达到实验效果，改造了一下原来的优化器。当执行一条SQL时，优化器不再选择查询树里的其中一条路径去执行，而是为每条路径都生成estimated cost（<code>Cost = a * PAGE_FETCH + b * RSS_CALL</code>），然后每条路径都执行一遍。</p>
+<p> 实验结果发现，优化器为所有路径生成的estimated cost的顺序和实际执行时的cost顺序大致吻合。也就是说，预估最耗时的路径在实际执行时也是最耗时的，预估最快的路径在实际执行时也是最快的。（看来这个SQL优化器实现的效果还是不错的）</p>
+<p> 但是，实验发现有个问题，由于SQL优化器对应的指令集还不是很完整，所以有可能SQL优化器会miss掉真正意义上的最优路径。（<strong>也就是说它只能保证给你选的不是最差路径，未必能保证给你选出最好的路径</strong>）</p>
+</li>
+<li><p>View &amp; Authorization</p>
+<p> 根据用户反馈，实现了：</p>
+<ul>
+<li>组（group）级别的权限控制，比user级别的范围更大</li>
+<li>改变表的所有权，把A用户下的B表改到C用户管辖下</li>
+<li>表定义更改后，数据reload</li>
+</ul>
+</li>
+<li><p>Recovery subsystem</p>
+<p> 发现之前的”old page”和”new page”共存机制（shadow page）会降低系统性能：</p>
+<ul>
+<li>“old page”和”new page”写在不同目录，如果新老page共存时，想把相关联的数据读出来会导致磁盘寻道和旋转时间剧增</li>
+<li>系统容量限制，要同时维护”old page”和”new page”</li>
+<li><p>checkpoint（刷脏）机制会产生一定的disk I/O，也会占用一定的CPU时间</p>
+<p>所以，一种可行的解决方案是不要维护新老两套page，而是全靠log来实现recovery，重点就在于把脏页写到磁盘前，要确保更新操作已经被写到log里。（<strong>非常厉害的思想，也就是后来一直沿用的Write-Ahead-Log机制</strong>）</p>
+</li>
+</ul>
+</li>
+<li><p>Locking subsystem</p>
+<p> 实现了3种隔离级别：</p>
+<ul>
+<li>Level 1：read uncommitted，无锁，并发情况下很可能读到脏数据</li>
+<li>Level 2：read committed，有锁，但是锁在更新操作后马上释放</li>
+<li><p>Level 3：repeatable read，有锁，但<strong>锁的生命周期贯穿整个事务，更新操作完不会释放锁</strong></p>
+<p>看起来好像Level 2更“轻便”，Level 3更“安全”，但是实验观察到Level 3的锁其实更轻便，<strong>因为不需要频繁地加锁解锁，锁的状态不跟随操作，而是跟随事务。</strong></p>
+</li>
+</ul>
 </li>
 </ol>
 
@@ -580,11 +693,9 @@
       
         <div class="post-tags">
           
-            <a href="/tags/笔记/" rel="tag"># 笔记</a>
+            <a href="/tags/数据库/" rel="tag"># 数据库</a>
           
-            <a href="/tags/算法/" rel="tag"># 算法</a>
-          
-            <a href="/tags/分布式/" rel="tag"># 分布式</a>
+            <a href="/tags/论文/" rel="tag"># 论文</a>
           
         </div>
       
@@ -597,8 +708,8 @@
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/2018/12/06/groupcache-part2/" rel="next" title="[Golang]groupcache项目解析——Part2">
-                <i class="fa fa-chevron-left"></i> [Golang]groupcache项目解析——Part2
+              <a href="/2019/03/22/gin-tutorial-10/" rel="next" title="[Gin教程-10]Docker部署后端服务">
+                <i class="fa fa-chevron-left"></i> [Gin教程-10]Docker部署后端服务
               </a>
             
           </div>
@@ -606,10 +717,6 @@
           <span class="post-nav-divider"></span>
 
           <div class="post-nav-prev post-nav-item">
-            
-              <a href="/2018/12/17/raft-log-replication/" rel="prev" title="[Raft]Log Replication笔记">
-                [Raft]Log Replication笔记 <i class="fa fa-chevron-right"></i>
-              </a>
             
           </div>
         </div>
@@ -657,8 +764,17 @@
       
 
       
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
 
-      <div class="site-overview-wrap sidebar-panel sidebar-panel-active">
+      <div class="site-overview-wrap sidebar-panel">
         <div class="site-overview">
           <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
             
@@ -837,6 +953,23 @@
         </div>
       </div>
 
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Overview"><span class="nav-number">1.</span> <span class="nav-text">Overview</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Phase-0"><span class="nav-number">3.</span> <span class="nav-text">Phase 0</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Phase-1"><span class="nav-number">4.</span> <span class="nav-text">Phase 1</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Phase-2"><span class="nav-number">5.</span> <span class="nav-text">Phase 2</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
       
 
       
