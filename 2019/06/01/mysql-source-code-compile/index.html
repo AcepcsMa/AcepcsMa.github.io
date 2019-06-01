@@ -96,18 +96,23 @@
 
 
 
-  <meta name="description" content="OverviewRaft中的核心步骤是  选主 日志复制  在上一篇《Raft选主笔记》中，相信已经清晰说明了Raft中选主的多个限制。通过一系列严格的筛选后，被选出来的Raft Leader就能接收来自客户端的请求，进行各种数据处理。 在本篇笔记中，主要打算记录日志复制（Log Replication）中的一些知识点。 数据结构既然说到了“日志复制”，那么先来看看复制过程中用到的各种数据结构。">
-<meta name="keywords" content="笔记,算法,分布式">
+  <meta name="description" content="本文由本人（Haoxiang Ma）原创，转载请注明出处。同时借鉴了几篇同类型的旧文章，已在文尾注明了详细出处。 本文写于2019/06/01。  Overview作为数据库内核 or 存储引擎的开发者，或者对MySQL原理很感兴趣的同学，很多时候需要对源码进行debug。但是一般情况下，大家很少直接从源码出发构建自己开发环境上的MySQL，也有很多同学不知道怎么用IDE结合源码来debug一个">
+<meta name="keywords" content="数据库,MySQL">
 <meta property="og:type" content="article">
-<meta property="og:title" content="[Raft]Log Replication笔记">
-<meta property="og:url" content="http://yoursite.com/2018/12/17/raft-log-replication/index.html">
+<meta property="og:title" content="[数据库]Mac下编译、安装、调试MySQL 8.0.16">
+<meta property="og:url" content="http://yoursite.com/2019/06/01/mysql-source-code-compile/index.html">
 <meta property="og:site_name" content="Haoxiang&#39;s Tech Blog">
-<meta property="og:description" content="OverviewRaft中的核心步骤是  选主 日志复制  在上一篇《Raft选主笔记》中，相信已经清晰说明了Raft中选主的多个限制。通过一系列严格的筛选后，被选出来的Raft Leader就能接收来自客户端的请求，进行各种数据处理。 在本篇笔记中，主要打算记录日志复制（Log Replication）中的一些知识点。 数据结构既然说到了“日志复制”，那么先来看看复制过程中用到的各种数据结构。">
+<meta property="og:description" content="本文由本人（Haoxiang Ma）原创，转载请注明出处。同时借鉴了几篇同类型的旧文章，已在文尾注明了详细出处。 本文写于2019/06/01。  Overview作为数据库内核 or 存储引擎的开发者，或者对MySQL原理很感兴趣的同学，很多时候需要对源码进行debug。但是一般情况下，大家很少直接从源码出发构建自己开发环境上的MySQL，也有很多同学不知道怎么用IDE结合源码来debug一个">
 <meta property="og:locale" content="default">
-<meta property="og:updated_time" content="2018-12-18T03:11:38.000Z">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/mysql-source-code-download.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/mysql-source-code-cmake.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/mysql-source-code-debug-conf.png">
+<meta property="og:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/mysql-source-code-debug-conf2.png">
+<meta property="og:updated_time" content="2019-06-01T12:50:23.840Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="[Raft]Log Replication笔记">
-<meta name="twitter:description" content="OverviewRaft中的核心步骤是  选主 日志复制  在上一篇《Raft选主笔记》中，相信已经清晰说明了Raft中选主的多个限制。通过一系列严格的筛选后，被选出来的Raft Leader就能接收来自客户端的请求，进行各种数据处理。 在本篇笔记中，主要打算记录日志复制（Log Replication）中的一些知识点。 数据结构既然说到了“日志复制”，那么先来看看复制过程中用到的各种数据结构。">
+<meta name="twitter:title" content="[数据库]Mac下编译、安装、调试MySQL 8.0.16">
+<meta name="twitter:description" content="本文由本人（Haoxiang Ma）原创，转载请注明出处。同时借鉴了几篇同类型的旧文章，已在文尾注明了详细出处。 本文写于2019/06/01。  Overview作为数据库内核 or 存储引擎的开发者，或者对MySQL原理很感兴趣的同学，很多时候需要对源码进行debug。但是一般情况下，大家很少直接从源码出发构建自己开发环境上的MySQL，也有很多同学不知道怎么用IDE结合源码来debug一个">
+<meta name="twitter:image" content="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/mysql-source-code-download.png">
 
 
 
@@ -116,7 +121,7 @@
 
 
 
-  <link rel="canonical" href="http://yoursite.com/2018/12/17/raft-log-replication/">
+  <link rel="canonical" href="http://yoursite.com/2019/06/01/mysql-source-code-compile/">
 
 
 
@@ -126,7 +131,7 @@
   };
 </script>
 
-  <title>[Raft]Log Replication笔记 | Haoxiang's Tech Blog</title>
+  <title>[数据库]Mac下编译、安装、调试MySQL 8.0.16 | Haoxiang's Tech Blog</title>
   
 
 
@@ -371,7 +376,7 @@
   
   
   <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/17/raft-log-replication/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/06/01/mysql-source-code-compile/">
 
     <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
       <meta itemprop="name" content="Haoxiang Ma">
@@ -388,7 +393,7 @@
 
         
         
-          <h1 class="post-title" itemprop="name headline">[Raft]Log Replication笔记
+          <h1 class="post-title" itemprop="name headline">[数据库]Mac下编译、安装、调试MySQL 8.0.16
 
               
             
@@ -414,24 +419,12 @@
                 
               
 
-              <time title="Created: 2018-12-17 15:22:00" itemprop="dateCreated datePublished" datetime="2018-12-17T15:22:00+08:00">2018-12-17</time>
+              <time title="Created: 2019-06-01 21:00:00 / Modified: 20:50:23" itemprop="dateCreated datePublished" datetime="2019-06-01T21:00:00+08:00">2019-06-01</time>
             
 
             
               
 
-              
-                
-                <span class="post-meta-divider">|</span>
-                
-
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-calendar-check-o"></i>
-                </span>
-                
-                  <span class="post-meta-item-text">Edited on</span>
-                
-                <time title="Modified: 2018-12-18 11:11:38" itemprop="dateModified" datetime="2018-12-18T11:11:38+08:00">2018-12-18</time>
               
             
           </span>
@@ -448,14 +441,7 @@
                 <span class="post-meta-item-text">In</span>
               
               
-                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/分布式/" itemprop="url" rel="index"><span itemprop="name">分布式</span></a></span>
-
-                
-                
-                  , 
-                
-              
-                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/分布式/算法/" itemprop="url" rel="index"><span itemprop="name">算法</span></a></span>
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/数据库/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a></span>
 
                 
                 
@@ -474,8 +460,8 @@
                 </span>
             
                 <span class="post-meta-item-text">Comments: </span>
-                <a href="/2018/12/17/raft-log-replication/#comments" itemprop="discussionUrl">
-                  <span class="post-comments-count valine-comment-count" data-xid="/2018/12/17/raft-log-replication/" itemprop="commentCount"></span>
+                <a href="/2019/06/01/mysql-source-code-compile/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count valine-comment-count" data-xid="/2019/06/01/mysql-source-code-compile/" itemprop="commentCount"></span>
                 </a>
               </span>
             
@@ -510,61 +496,88 @@
       
 
       
-        <h2 id="Overview"><a href="#Overview" class="headerlink" title="Overview"></a>Overview</h2><p><code>Raft</code>中的核心步骤是</p>
+        <blockquote>
+<p>本文由本人（Haoxiang Ma）原创，转载请注明出处。同时借鉴了几篇同类型的旧文章，已在文尾注明了详细出处。</p>
+<p>本文写于2019/06/01。</p>
+</blockquote>
+<h3 id="Overview"><a href="#Overview" class="headerlink" title="Overview"></a>Overview</h3><p>作为数据库内核 or 存储引擎的开发者，或者对<code>MySQL</code>原理很感兴趣的同学，很多时候需要对源码进行debug。但是一般情况下，大家很少直接从源码出发构建自己开发环境上的<code>MySQL</code>，也有很多同学不知道怎么用IDE结合源码来debug一个正在运行着的应用程序（不一定是<code>MySQL</code>，可能是别的应用如<code>Elasticsearch</code>）。</p>
+<p>截至本文发表时，<code>MySQL</code>最新稳定版为<code>8.0.16</code>。所以我们就用此版本来说明，如何在Mac环境下从<code>MySQL</code>源码出发，进行编译、安装、然后用Jetbrains家的IDE——CLion对<code>MySQL</code>作调试。</p>
+<p>环境说明</p>
+<ul>
+<li><code>MySQL 8.0.16</code></li>
+<li><code>macOS Mojave 10.14.2</code></li>
+</ul>
+<h3 id="准备工作"><a href="#准备工作" class="headerlink" title="准备工作"></a>准备工作</h3><ol>
+<li>确保环境中已安装好<code>g++</code>、<code>cmake</code></li>
+<li><p>下载 <a href="https://dev.mysql.com/downloads/mysql/" target="_blank" rel="noopener">MySQL源码</a>（<strong>自带boost库的版本</strong>）</p>
+<p> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/mysql-source-code-download.png" alt=""></p>
+<p> 如图所示，在下载类型处选择“Source Code”，这样下载的才是源码，而不是可直接安装的安装包。</p>
+</li>
+</ol>
+<h3 id="从源码编译并安装"><a href="#从源码编译并安装" class="headerlink" title="从源码编译并安装"></a>从源码编译并安装</h3><ol>
+<li>把下载的源码压缩包解压，我们假设解压至<code>/Users/your_name/mysql-8.0.16</code></li>
+<li>确定<code>basedir</code>，一般就是源码所在目录，即<code>/Users/your_name/mysql-8.0.16</code></li>
+<li>确定<code>datadir</code>，一般是basedir下的<code>data</code>目录，即<code>/Users/your_name/mysql-8.0.16/data</code></li>
+<li><p>进入源码目录</p>
+<p> <code>cd /Users/your_name/mysql-8.0.16/</code></p>
+</li>
+<li><p>通过cmake生成Makefile</p>
+ <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">cmake \</span><br><span class="line">-DCMAKE_INSTALL_PREFIX=/Users/your_name/mysql-8.0.16 \</span><br><span class="line">-DMYSQL_DATADIR=/Users/your_name/mysql-8.0.16/data \</span><br><span class="line">-DSYSCONFDIR=/Users/your_name/mysql-8.0.16 \</span><br><span class="line">-DMYSQL_UNIX_ADDR=/Users/your_name/mysql-8.0.16/data/mysql.sock \</span><br><span class="line">-DWITH_DEBUG=1  \</span><br><span class="line">-DWITH_BOOST=/Users/your_name/mysql-8.0.16/boost/boost_1_69_0 \</span><br><span class="line">-DFORCE_INSOURCE_BUILD=1</span><br></pre></td></tr></table></figure>
+<p> <strong>注意，因为我们下载的源码就是带boost库的，所以不用加boost库的下载参数，可以直接用本地的boost库（-DWITH_BOOST=……）。</strong></p>
+</li>
+<li><p>以上cmake执行完后，会在当前目录下生成Makefile，此时可直接make</p>
+<p> 如果你的开发机是多核的，可指定多核参数<code>-j</code>加速make过程。例如开发机有16核，即可：<code>make -j 16</code></p>
+<p> 否则，直接执行：<code>make</code></p>
+</li>
+<li><p>make完成后，需要make install</p>
+<p> 同理，也可指定多核参数加速：<code>make install -j 16</code>，或直接<code>make install</code></p>
+<p> <strong>Note：以上cmake、make、make install的过程，在性能一般的开发机上耗时很久。</strong></p>
+</li>
+<li><p>初始化数据库</p>
+<p> 先进入bin目录：<code>cd /Users/your_name/mysql-8.0.16/bin</code></p>
+<p> 然后运行<code>mysqld</code>进行初始化，要记得指定basedir和datadir参数：</p>
+ <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">./mysqld \</span><br><span class="line">--basedir=/Users/your_name/mysql-8.0.16 \</span><br><span class="line">--datadir=/Users/your_name/mysql-8.0.16/data \</span><br><span class="line">--initialize-insecure</span><br></pre></td></tr></table></figure>
+<p> <strong>Note：此处指定<code>--initialize-insecure</code>是为了省略root@localhost用户的密码。我觉得只是为了debug的话，不需要用户密码验证了吧= =，当然也可以给root用户设密码，随你喜欢。</strong></p>
+</li>
+<li><p>完成以上8步后，编译+安装+初始化已全部完成。</p>
+</li>
+</ol>
+<h3 id="利用CLion进行debug"><a href="#利用CLion进行debug" class="headerlink" title="利用CLion进行debug"></a>利用CLion进行debug</h3><p>我们从源码出发，已经成功在开发环境上装好了<code>MySQL 8.0.16</code>，接下来要看看怎么利用IDE结合源码来debug。</p>
 <ol>
-<li>选主</li>
-<li>日志复制</li>
-</ol>
-<p>在上一篇<a href="http://marcoma.xyz/2018/12/09/raft-leader-election/" target="_blank" rel="noopener">《Raft选主笔记》</a>中，相信已经清晰说明了<code>Raft</code>中选主的多个限制。通过一系列严格的筛选后，被选出来的<code>Raft Leader</code>就能接收来自客户端的请求，进行各种数据处理。</p>
-<p>在本篇笔记中，主要打算记录<strong>日志复制（Log Replication）</strong>中的一些知识点。</p>
-<h2 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h2><p>既然说到了“日志复制”，那么先来看看复制过程中用到的各种数据结构。</p>
-<p>在基础的<code>Raft</code>中，只有两种RPC请求：</p>
-<ul>
-<li><code>RequestVote RPC</code> —— 由Candidate主动发出，请求大家进行投票</li>
-<li><code>AppendEntries RPC</code> —— 由Leader主动发出，请求Followers进行日志复制</li>
-</ul>
-<p>根据<code>Raft</code>论文里的原图，我们可以总结出以下的数据结构。</p>
-<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="comment">// RequestVote RPC</span></span><br><span class="line"><span class="keyword">type</span> RequestVote <span class="keyword">struct</span> &#123;</span><br><span class="line">	TermId <span class="keyword">int64</span>			<span class="comment">// candidate的term id</span></span><br><span class="line">	LeaderId <span class="keyword">int64</span>			<span class="comment">// candidate的leader id</span></span><br><span class="line">	LastLogIndex <span class="keyword">int64</span>		<span class="comment">// candidate存的最后一条log entry的下标</span></span><br><span class="line">	LastLogTerm <span class="keyword">int64</span>		<span class="comment">// candidate存的最后一条log entry的term id</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="comment">// AppendEntries RPC</span></span><br><span class="line"><span class="keyword">type</span> AppendEntries <span class="keyword">struct</span> &#123;</span><br><span class="line">	TermId <span class="keyword">int64</span>			<span class="comment">// leader的term id</span></span><br><span class="line">	LeaderId <span class="keyword">int64</span>			<span class="comment">// leader id</span></span><br><span class="line">	PrevLogIndex <span class="keyword">int64</span>		<span class="comment">// 当前发送entries的前一条entry的下标</span></span><br><span class="line">	PrevLogTerm <span class="keyword">int64</span>		<span class="comment">// 当前发送entries的前一条entry的term</span></span><br><span class="line">	LastCommittedIndex <span class="keyword">int64</span>	<span class="comment">// leader上最后一条commit的entry的下标</span></span><br><span class="line">	Entries []LogEntry		<span class="comment">// 当前要发送的1或N条log entry</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>除了两种RPC请求外，每台server（无论是Leader还是Follower还是Candidate）上都肯定要存一些<strong>系统变量</strong>，用来记录自己或者系统的状态。</p>
-<figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="keyword">type</span> ServerState <span class="keyword">struct</span> &#123;</span><br><span class="line">	CurrentTerm <span class="keyword">int64</span>		<span class="comment">// 本机上的当前term id</span></span><br><span class="line">	VoteFor <span class="keyword">int64</span>			<span class="comment">// 本轮投票投给了谁（该机器的id）</span></span><br><span class="line">	LogEntries []LogEntry		<span class="comment">// 本机上存的log entries</span></span><br><span class="line">	</span><br><span class="line">	LastCommittedIndex <span class="keyword">int64</span>	<span class="comment">// 本机最后一条commit的log entry的下标</span></span><br><span class="line">	LastAppliedIndex <span class="keyword">int64</span>		<span class="comment">// 本机最后一条被状态机执行的log entry的下标</span></span><br><span class="line">	</span><br><span class="line">	NextIndex []<span class="keyword">int64</span>		<span class="comment">// *leader特有，为每一台follower维护一个下次要发送的log entry的下标</span></span><br><span class="line">	MatchIndex []<span class="keyword">int64</span>		<span class="comment">// *leader特有，为每一台follower维护一个已经成功匹配上的log entry的下标</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h2 id="Log-Replication过程"><a href="#Log-Replication过程" class="headerlink" title="Log Replication过程"></a>Log Replication过程</h2><ol>
-<li><p>当集群接收到来自客户端的存储请求</p>
-<ul>
-<li>客户端发给Follower，Follower转发给Leader？或者告诉客户端请它发给Leader？</li>
-<li>客户端直接发给Leader，Leader接收请求</li>
-</ul>
-</li>
-<li><p>Leader自己先把请求里的数据落盘，存在本地，更新自身的meta data</p>
-</li>
-<li><p>Leader发起<code>AppendEntries RPC</code>，请求集群中的其他Follower进行日志复制</p>
-</li>
-<li><p>每台Follower都接收到<code>AppendEntries RPC</code>，检查RPC请求里的各项参数，以确定是否接受该请求</p>
-<ul>
-<li><p>比较<code>AppendEntriesRPC.TermId</code>与<code>Follower.CurrentTerm</code></p>
-  <figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 只有当RPC请求里的Term*不小于*当前Follower的Term，才能接受</span></span><br><span class="line"><span class="keyword">if</span> AppendEntriesRPC.TermId &lt; Follower.CurrentTerm &#123;</span><br><span class="line">	IgnoreRPC()</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> AppendEntriesRPC.TermId &gt; Follower.CurrentTerm &#123;</span><br><span class="line">	UpdateCurrentTerm()</span><br><span class="line">&#125;</span><br><span class="line">AcceptRPC()</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>比较完Term后，若成功接受，则要处理<code>PrevLogIndex</code>和<code>PrevLogTerm</code>了。为什么要处理这两个参数呢？<strong>因为要通过它们来保证：在本次<code>AppendEntries</code>之前的所有log entry都是主从之间正确同步的。</strong></p>
-  <figure class="highlight golang"><table><tr><td class="code"><pre><span class="line">index := AppendEntriesRPC.PrevLogIndex</span><br><span class="line">term := AppendEntriesRPC.PrevLogTerm</span><br><span class="line"><span class="keyword">if</span> Follower.LogEntries[index].Term != term &#123;</span><br><span class="line">	StopAndNotifyLeader()	<span class="comment">// 告知Leader双方达成一致的位置</span></span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">	AcceptLogEntries()	<span class="comment">// 已经达成一致，接受所有log entry</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>  可以看出，当Leader的历史log entry和Follower的历史log entry出现不一致时，是不能进行日志复制的，<strong>完成一次日志复制的前提是：在本次日志复制之前的所有log entry都必须是一致的。</strong></p>
-<p>  所以当发生了不一致时，应该停止日志复制，并把本机上最后一个<code>term == AppendEntriesRPC.PrevLogTerm</code>的log entry index告知Leader，好让Leader下次重新发起<code>AppendEntriesRPC</code>时能够定位到大家都共同一致的位置。</p>
-</li>
-</ul>
-</li>
-<li><p>Leader重新定位PrevLogIndex和PrevLogTerm后 / 或者无需调整本身就是一致的情况下，Follower就接受该<code>AppendEntriesRPC</code>，把<code>AppendEntriesRPC.Entries</code>落盘到本机上，回复Leader已成功落盘</p>
-</li>
-<li><p>Leader为每个Follower维护一些落盘成功与否的变量，当Leader通过Follower的回复监测到某条log entry已被过半的Follower落盘，即可更新Leader自身的<code>LastCommittedIndex</code>，待下次<code>AppendEntriesRPC</code>发送时告诉各个Follower要commit哪一条log entry</p>
- <figure class="highlight golang"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 例如可以用一个map类容器实现这个逻辑</span></span><br><span class="line"><span class="keyword">const</span> (</span><br><span class="line">	SERVER_COUNT = <span class="number">5</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> committedMap = <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">int64</span>]<span class="keyword">int64</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment">// ......</span></span><br><span class="line"></span><br><span class="line">followerId := AppendEntrisResponse.FollowerId</span><br><span class="line">savedLogIndices := AppendEntrisResponse.savedIndices</span><br><span class="line"><span class="keyword">for</span> _, savedIndex := <span class="keyword">range</span> savedLogIndices &#123;</span><br><span class="line">	committedMap[savedIndex] += <span class="number">1</span></span><br><span class="line">	<span class="keyword">if</span> committedMap[savedIndex] &gt;= SERVER_COUNT / <span class="number">2</span> &#123;</span><br><span class="line">		Leader.LastCommittedIndex = savedIndex</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 更新NextIndex和MatchIndex数组</span></span><br><span class="line">	Leader.NextIndex[followerId] = savedIndex + <span class="number">1</span></span><br><span class="line">	Leader.MatchIndex[followerId] = savedIndex</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>待下次<code>AppendEntriesRPC</code>时，Leader把最新的<code>LastCommittedIndex</code>告知Follower，Follower就可以在本地的状态机上执行<code>LastCommittedIndex</code>之前的log entry，然后回复Leader哪些log entry已被成功执行，Leader对应更新MatchIndex数组</p>
+<li><p>配置CLion里的cmake</p>
+<p> 从CLion的菜单栏进入，<code>CLion -&gt; Preferences -&gt; Build, Execution, Deployment -&gt; CMake</code>。</p>
+<p> 然后按照下图所示，填写cmake profile：</p>
+<p> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/mysql-source-code-cmake.png" alt=""></p>
+<p> <strong>Note：CMake options里填我们之前cmake时的参数，即</strong></p>
+ <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">-DCMAKE_INSTALL_PREFIX=/Users/your_name/mysql-8.0.16</span><br><span class="line">-DMYSQL_DATADIR=/Users/your_name/mysql-8.0.16/data</span><br><span class="line">-DSYSCONFDIR=/Users/your_name/mysql-8.0.16</span><br><span class="line">-DMYSQL_UNIX_ADDR=/Users/your_name/mysql-8.0.16/data/mysql.sock</span><br><span class="line">-DWITH_DEBUG=1</span><br><span class="line">-DWITH_BOOST=/Users/your_name/mysql-8.0.16/boost/boost_1_69_0</span><br><span class="line">-DFORCE_INSOURCE_BUILD=1</span><br></pre></td></tr></table></figure>
 </li>
 </ol>
-<h2 id="NextIndex-amp-MatchIndex"><a href="#NextIndex-amp-MatchIndex" class="headerlink" title="NextIndex &amp; MatchIndex"></a>NextIndex &amp; MatchIndex</h2><p>在<code>ServerState</code>中大部分变量都很好理解，只有2个变量——<code>NextIndex</code>和<code>MatchIndex</code>是比较奇怪的，因为它们都是数组类型的变量，<strong>而且是Leader特有的变量</strong>。</p>
+<ol start="2">
+<li><p>设置debug的参数</p>
+<p> 点击CLion右上角，出现下拉菜单，选择Edit Configurations，如下图所示：</p>
+<p> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/mysql-source-code-debug-conf.png" alt=""></p>
+<p> 然后就会出现以下界面：</p>
+<p> <img src="https://blog-image-1253224514.cos.ap-guangzhou.myqcloud.com/mysql-source-code-debug-conf2.png" alt=""></p>
+<p> <strong>Note：Name那一栏不能再填<code>mysqld</code>，应该另起一个名字。而Target和Execution要在下拉菜单里慢慢仔细看，最后选择mysqld。Program Arguments里则填入我们初始化数据库时的参数：</strong></p>
+ <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">--basedir=/Users/your_name/mysql-8.0.16</span><br><span class="line">--datadir=/Users/your_name/mysql-8.0.16/data</span><br></pre></td></tr></table></figure>
+<p> <strong>至于Working Directory，应填入源码所在的目录，即</strong><code>/Users/your_name/mysql-8.0.16</code>。</p>
+</li>
+<li><p>以上都设置好后，直接点击CLion界面右上角的debug按钮（臭虫图标），等待十来秒基本就能正常启动了。</p>
+</li>
+<li><p>此时可以在terminal处启动客户端，尝试连接我们已启动的<code>MySQL</code>Server进程</p>
+<p> 先进入bin目录：<code>cd /Users/your_name/mysql-8.0.16/bin</code></p>
+<p> 然后尝试连接Server：<code>./mysql -h localhost -P 3306 -u root</code></p>
+<p> <strong>Note：因为之前初始化时我设置了–initialize-insecure，所以连接时不需要指定<code>-p</code>参数来输入密码，否则，要加上<code>-p</code>并输入你给root用户设定的密码。</strong></p>
+</li>
+<li><p>尽情地在CLion里给源码打断点，然后在terminal里通过客户端给Server发请求，进行debug吧~</p>
+</li>
+</ol>
+<h3 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h3><p>为了要debug <code>MySQL</code>源码，要先做好下载、编译、安装、IDE设置。</p>
+<p>非常感谢前人的工作，本文参考了以下两篇博客：</p>
 <ul>
-<li><code>NextIndex</code>：为每个Follower记录了将要发给该Follower的下一条log entry的index（初始值为<code>Leader.LastLogIndex + 1</code>）</li>
-<li><code>MatchIndex</code>：为每个Follower记录了该Follower上已经成功匹配的log entry的index（初始值为<code>0</code>）</li>
+<li><a href="https://www.jianshu.com/p/644aea290c6b" target="_blank" rel="noopener">Mac Clion MySQL 8.0 源码调试环境搭建</a></li>
+<li><a href="https://blog.csdn.net/d6619309/article/details/75201876" target="_blank" rel="noopener">Ubuntu Clion MySQL 5.7 源码调试环境搭建</a></li>
 </ul>
-<p>乍一看上去，正常情况下<code>MatchIndex[i]</code>貌似一直等于<code>NextIndex[i] - 1</code>。但总是会有特殊情况的，假如某台Follower的机子在某一时刻宕机了几十秒，在这几十秒里也经历了Leader的更迭，那么<code>MatchIndex[i]</code>就很有可能不等于<code>NextIndex[i] - 1</code>。在这种情况下，Leader要先根据<code>MatchIndex[i]</code>确定最后一个正确同步的位置，然后重新设置<code>NextIndex[i] = MatchIndex[i] + 1</code>，重新进行历史log entry的同步。</p>
 
       
     </div>
@@ -588,11 +601,9 @@
       
         <div class="post-tags">
           
-            <a href="/tags/笔记/" rel="tag"># 笔记</a>
+            <a href="/tags/数据库/" rel="tag"># 数据库</a>
           
-            <a href="/tags/算法/" rel="tag"># 算法</a>
-          
-            <a href="/tags/分布式/" rel="tag"># 分布式</a>
+            <a href="/tags/MySQL/" rel="tag"># MySQL</a>
           
         </div>
       
@@ -605,8 +616,8 @@
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/2018/12/09/raft-leader-election/" rel="next" title="[Raft]Leader Election(选主)笔记">
-                <i class="fa fa-chevron-left"></i> [Raft]Leader Election(选主)笔记
+              <a href="/2019/04/18/mysql-redo-log-source-code/" rel="next" title="[MySQL]源码角度看redo log">
+                <i class="fa fa-chevron-left"></i> [MySQL]源码角度看redo log
               </a>
             
           </div>
@@ -614,10 +625,6 @@
           <span class="post-nav-divider"></span>
 
           <div class="post-nav-prev post-nav-item">
-            
-              <a href="/2018/12/31/2019-flags/" rel="prev" title="为2019年立下的flag">
-                为2019年立下的flag <i class="fa fa-chevron-right"></i>
-              </a>
             
           </div>
         </div>
@@ -865,7 +872,7 @@
             
 
             
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Overview"><span class="nav-number">1.</span> <span class="nav-text">Overview</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#数据结构"><span class="nav-number">2.</span> <span class="nav-text">数据结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Log-Replication过程"><span class="nav-number">3.</span> <span class="nav-text">Log Replication过程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#NextIndex-amp-MatchIndex"><span class="nav-number">4.</span> <span class="nav-text">NextIndex &amp; MatchIndex</span></a></li></ol></div>
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Overview"><span class="nav-number">1.</span> <span class="nav-text">Overview</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#准备工作"><span class="nav-number">2.</span> <span class="nav-text">准备工作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#从源码编译并安装"><span class="nav-number">3.</span> <span class="nav-text">从源码编译并安装</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#利用CLion进行debug"><span class="nav-number">4.</span> <span class="nav-text">利用CLion进行debug</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li></ol></div>
             
 
           </div>
